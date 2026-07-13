@@ -59,7 +59,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.model.Language
 import com.example.speech.TTSHelper
+import com.example.ui.components.AppTopBar
 import com.example.ui.components.BottomNavBar
+import com.example.ui.components.LanguageBar
 import com.example.ui.components.LanguagePickerDialog
 import com.example.ui.components.ValidationDetailsSheet
 import com.example.ui.screens.ConversationScreen
@@ -232,171 +234,18 @@ fun MainAppScreen() {
                                 .fillMaxWidth()
                                 .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 16.dp)
                         ) {
-                            // Top branding line with AI toggle
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Default.Translate,
-                                        contentDescription = "Logo",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(26.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Translate",
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onBackground
-                                    )
-                                }
+                            AppTopBar(
+                                viewModel = viewModel,
+                                isAiEnhanced = isAiEnhanced,
+                            )
 
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    val dualHeadsetState by viewModel.dualHeadsetState.collectAsState()
-                                    var showDualHeadsetSetup by remember { mutableStateOf(false) }
-                                    IconButton(onClick = { showDualHeadsetSetup = true }) {
-                                        Icon(
-                                            Icons.Default.Headphones, 
-                                            contentDescription = "Dual Headset Setup",
-                                            tint = if (dualHeadsetState.isDualHeadsetModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-
-                                    if (showDualHeadsetSetup) {
-                                        DualHeadsetSetupDialog(
-                                            viewModel = viewModel,
-                                            onDismiss = { showDualHeadsetSetup = false }
-                                        )
-                                    }
-                                    
-                                    Spacer(modifier = Modifier.width(4.dp))
-
-                                    // AI Translate Engine Toggle (Styled beautifully with slate color overlays)
-                                    Card(
-                                    onClick = { viewModel.setAiEnhanced(!isAiEnhanced) },
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = if (isAiEnhanced) {
-                                            MaterialTheme.colorScheme.primaryContainer
-                                        } else {
-                                            MaterialTheme.colorScheme.surfaceVariant
-                                        }
-                                    ),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Icon(
-                                            imageVector = if (isAiEnhanced) Icons.Default.AutoAwesome else Icons.Default.SettingsSuggest,
-                                            contentDescription = "AI Mode",
-                                            tint = if (isAiEnhanced) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                        Spacer(modifier = Modifier.width(6.dp))
-                                        Text(
-                                            text = if (isAiEnhanced) "Gemini Translation" else "Standard Engine",
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = if (isAiEnhanced) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                                }
-                            }
-
-                            // Dual horizontal language selector pills with swap icon
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                // Source Lang Button
-                                Card(
-                                    onClick = { choosingSourceLanguage = true },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(44.dp)
-                                        .testTag("lang_src_button"),
-                                    shape = RoundedCornerShape(16.dp),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Text(text = sourceLang.flag + " ", fontSize = 16.sp)
-                                        Text(
-                                            text = sourceLang.name,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 13.sp,
-                                            maxLines = 1
-                                        )
-                                        Icon(
-                                            Icons.Default.ArrowDropDown,
-                                            contentDescription = "Select language",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
-
-                                // Swap Languages IconButton
-                                IconButton(
-                                    onClick = { viewModel.swapLanguages() },
-                                    modifier = Modifier
-                                        .padding(horizontal = 6.dp)
-                                        .testTag("swap_langs_btn")
-                                        .size(36.dp)
-                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f), shape = CircleShape)
-                                ) {
-                                    Icon(
-                                        Icons.Default.SwapHoriz,
-                                        contentDescription = "Swap Languages",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                }
-
-                                // Target Lang Button
-                                Card(
-                                    onClick = { choosingTargetLanguage = true },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(44.dp)
-                                        .testTag("lang_target_button"),
-                                    shape = RoundedCornerShape(16.dp),
-                                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.Center
-                                    ) {
-                                        Text(text = targetLang.flag + " ", fontSize = 16.sp)
-                                        Text(
-                                            text = targetLang.name,
-                                            fontWeight = FontWeight.Bold,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            fontSize = 13.sp,
-                                            maxLines = 1
-                                        )
-                                        Icon(
-                                            Icons.Default.ArrowDropDown,
-                                            contentDescription = "Select target language",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(18.dp)
-                                        )
-                                    }
-                                }
-                            }
+                            LanguageBar(
+                                sourceLang = sourceLang,
+                                targetLang = targetLang,
+                                onSwap = { viewModel.swapLanguages() },
+                                onChooseSource = { choosingSourceLanguage = true },
+                                onChooseTarget = { choosingTargetLanguage = true },
+                            )
                         }
                     }
 
