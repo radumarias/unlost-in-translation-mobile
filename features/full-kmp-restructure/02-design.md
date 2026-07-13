@@ -1,0 +1,234 @@
+# Full KMP Restructure — Design
+
+Detailed design for the architecture in [01-architecture.md](01-architecture.md). Kotlin signatures below are **design contracts**, not implementation; names/packages are binding unless a build-time constraint forces a change (record deviations here).
+
+## 1. Target Source Layout
+
+```
+shared/src/commonMain/kotlin/com/example/
+├── model/
+│   ├── Language.kt              # languageTag: String replaces java.util.Locale
+│   └── Translation.kt           # domain model (replaces direct TranslationEntity use in UI/VM)
+├── network/
+│   ├── TranslationApi.kt        # interface
+│   ├── KtorTranslationApi.kt    # shared impl (Ktor client injected per platform)
+│   ├── GoogleResponseParser.kt  # nested-array JSON → String
+│   └── GeminiDtos.kt            # @Serializable request/response + ValidationResult parsing
+├── data/
+│   └── TranslationHistoryRepository.kt   # interface only (impls are per-platform)
+├── platform/
+│   ├── SpeechSynthesizer.kt     # interface
+│   ├── VoiceInput.kt            # interface
+│   ├── AudioOutputCatalog.kt    # interface + AudioOutputDevice model
+│   ├── TranslationBroadcaster.kt# interface (Wear sync abstraction)
+│   ├── PlatformCapabilities.kt  # data class
+│   └── AppLog.kt                # expect object
+├── di/
+│   └── AppContainer.kt          # interface bundling all of the above
+└── ui/
+    ├── App.kt                   # root composable: App(container: AppContainer)
+    ├── theme/                   # Color.kt, Theme.kt, Type.kt (ported, no dynamic color)
+    ├── viewmodel/
+    │   ├── TranslateViewModel.kt
+    │   └── DualHeadsetModel.kt
+    ├── screens/
+    │   ├── TranslateScreen.kt   # input card, result card, validation banner
+    │   ├── HistoryScreen.kt     # history + saved lists (parameterized by tab)
+    │   └── ConversationScreen.kt# split-screen panel
+    └── components/
+        ├── AppTopBar.kt         # title, headset icon, engine toggle
+        ├── LanguageBar.kt       # pickers + swap
+        ├── BottomNavBar.kt      # 3 tabs + mic FAB row
+        ├── LanguagePickerDialog.kt
+        ├── ConversationDraftDialog.kt
+        ├── DualHeadsetSetupDialog.kt   # consumes AudioOutputCatalog abstraction
+        └── ValidationDetailsSheet.kt
+
+shared/src/androidMain/kotlin/com/example/
+├── data/RoomHistoryRepository.kt + room/ (entity, dao, database — moved from :app)
+├── platform/ (AndroidSpeechSynthesizer, AndroidAudioOutputCatalog,
+│              WearTranslationBroadcaster, AppLog actual)
+└── di/AndroidAppContainer.kt    # factory: fun createAppContainer(context: Context)
+
+shared/src/wasmJsMain/kotlin/com/example/
+├── data/LocalStorageHistoryRepository.kt
+├── platform/ (WebSpeechSynthesizer, WebVoiceInput [Phase 4], AppLog actual)
+└── di/WebAppContainer.kt        # factory: fun createAppContainer()
+
+app/src/main/  (remains, shrinks)
+├── MainActivity.kt              # ~60 lines: container + voice-input bridge + setContent { App(...) }
+├── speech/AndroidVoiceInput.kt  # RecognizerIntent launcher bridge (needs Activity)
+└── wear/WearTranslationService.kt  # unchanged manifest service; calls :shared TranslationApi
+
+webApp/src/wasmJsMain/
+├── kotlin/main.kt               # ComposeViewport(document.body) { App(createAppContainer()) }
+└── resources/index.html         # canvas host + unsupported-browser banner
+```
+
+## 2. Domain Models (commonMain)
+
+```kotlin
+data class Language(
+    val code: String,          // "en" — translate endpoints
+    val name: String,          // "English" — Gemini prompts + UI
+    val flag: String,          // "🇺🇸" (see web emoji risk)
+    val languageTag: String,   // "en-US" — BCP-47, for TTS / voice input
+) { companion object { val supportedLanguages: List<Language>; fun getByCode(code: String): Language } }
+// Same 16 languages; tags: en-US es-ES fr-FR de-DE zh-CN ja-JP ko-KR it-IT pt-PT ru-RU hi-IN ar-SA ro-RO nl-NL tr-TR th-TH
+// Android converts at the edge: Locale.forLanguageTag(language.languageTag)
+
+data class Translation(          // domain mirror of today's TranslationEntity
+    val id: Long = 0,
+    val sourceText: String, val translatedText: String,
+    val sourceLangCode: String, val sourceLangName: String,
+    val targetLangCode: String, val targetLangName: String,
+    val timestamp: Long, val isStarred: Boolean = false,
+)
+```
+
+`TranslationEntity` (Room) stays as a private mapping detail inside `RoomHistoryRepository` (androidMain). Table/DB names unchanged → existing user data survives the refactor.
+
+## 3. Interfaces (commonMain)
+
+```kotlin
+interface TranslationApi {
+    suspend fun translateGoogle(text: String, sourceLang: String, targetLang: String): String
+    suspend fun translateGemini(text: String, sourceLangName: String, targetLangName: String): String
+    suspend fun validateTranslation(originalText: String, translatedText: String,
+                                    sourceLangName: String, targetLangName: String): ValidationResult
+}
+data class ValidationResult(val isWarning: Boolean, val explanation: String, val suggestions: List<Suggestion>)
+```
+
+Key change vs today: `validateTranslation` returns a **parsed** `ValidationResult`, not a `JSONObject`. The lenient parsing rules move from the ViewModel into `GeminiDtos.kt` and are kept bug-for-bug: `optBoolean/optString` defaults, object-or-plain-string suggestion entries, blank-text filtering, markdown ```-fence stripping. This deletes the duplicated parsing blocks in `triggerTranslation` and `prepareConversationPart`.
+
+```kotlin
+interface TranslationHistoryRepository {
+    fun observeAll(): Flow<List<Translation>>       // timestamp DESC
+    fun observeStarred(): Flow<List<Translation>>
+    suspend fun insert(translation: Translation): Long
+    suspend fun setStarred(id: Long, starred: Boolean)
+    suspend fun deleteById(id: Long)
+    suspend fun clearAll()                          // current semantics: deletes starred too
+}
+
+interface SpeechSynthesizer {                       // absorbs TTSHelper's public surface
+    fun speak(text: String, languageTag: String, outputDeviceId: Int? = null)
+    fun stop(); fun release()
+}
+interface VoiceInput {                              // null = cancelled/unavailable
+    suspend fun recognize(languageTag: String, prompt: String): String?
+}
+interface AudioOutputCatalog {                      // dual-headset support
+    fun listOutputDevices(): List<AudioOutputDevice>          // web: emptyList()
+}
+data class AudioOutputDevice(val id: Int, val label: String, val isBluetooth: Boolean)
+
+interface TranslationBroadcaster {                  // Wear abstraction; web: no-op object
+    fun broadcast(sourceText: String, translatedText: String, source: Language, target: Language)
+}
+data class PlatformCapabilities(
+    val voiceInput: Boolean,        // android: true; web: SpeechRecognition feature-detect
+    val dualHeadset: Boolean,       // android: true; web: false → hides headset icon + dialog
+    val wearSync: Boolean,          // android: true; web: false
+)
+
+interface AppContainer {
+    val api: TranslationApi
+    val historyRepository: TranslationHistoryRepository
+    val speechSynthesizer: SpeechSynthesizer
+    val voiceInput: VoiceInput
+    val audioOutputCatalog: AudioOutputCatalog
+    val broadcaster: TranslationBroadcaster
+    val capabilities: PlatformCapabilities
+}
+```
+
+## 4. ViewModel Refactor
+
+`TranslateViewModel` becomes a plain multiplatform `ViewModel` with constructor injection:
+
+```kotlin
+class TranslateViewModel(
+    private val api: TranslationApi,
+    private val repository: TranslationHistoryRepository,
+    private val broadcaster: TranslationBroadcaster,
+) : ViewModel()
+```
+
+- All existing `StateFlow`s, states (`TranslationState`, `ValidationState`, `ConversationDraft`, `ConversationItem`) and public methods keep their names and semantics.
+- **Wear side-effect moves here** from `MainActivity`'s `LaunchedEffect(translationState)`: after a successful primary translation, the VM calls `broadcaster.broadcast(...)`. UI no longer owns platform side-effects (SRP); web build injects a no-op.
+- **Pipeline consolidation (DRY)**: one private helper implements translate → persist? → parallel(round-trip, validation) with callbacks for state delivery; `triggerTranslation` (persists, updates main-screen flows) and `prepareConversationPart` (no persist, updates draft flow) both call it. Behavior preserved, including the round-trip staleness guard (`currentState.translatedText == translated`).
+- Construction in shared UI: `viewModel { TranslateViewModel(container.api, container.historyRepository, container.broadcaster) }` (CMP lifecycle factory lambda — works on both targets).
+- `System.currentTimeMillis()` (entity timestamp, `ConversationItem`) → `kotlin.time.Clock.System.now().toEpochMilliseconds()` or `TimeSource` equivalent available in common.
+
+## 5. Networking Design (Ktor)
+
+- One `HttpClient` per `KtorTranslationApi`, engine injected: OkHttp (Android) / Js (wasm). Timeouts via `HttpTimeout` plugin per-request: 30s Google, 60s Gemini (mirrors the two OkHttp clients today).
+- `expectSuccess = false`; non-2xx handling replicates current messages ("HTTP error code: …", "Gemini server returned error: … - body").
+- Google response `[[["Hola",...],...],...]` parsed with `Json.parseToJsonElement` → `GoogleResponseParser.extract(...)`: concatenates element 0 of each part of group 0, skipping empty parts — identical to the current loop. URL-encoding via Ktor's `URLBuilder`/`parameters` (replaces `URLEncoder`).
+- Gemini request DTOs: `contents[].parts[].text`, `safetySettings` (4 categories, `BLOCK_NONE`), `generationConfig.responseMimeType = "application/json"` for validation only. Model id `gemini-3.5-flash` and the two prompts are copied verbatim (they are product behavior).
+- API-key guard preserved: blank or `MY_GEMINI_API_KEY` → throw "Gemini API key is not configured…" before any request.
+- `User-Agent: Mozilla/5.0` header: kept on Android; on wasm the browser forbids setting it — the design accepts the browser's own UA (endpoint verified to work with it).
+
+## 6. Secrets (D6)
+
+Gradle task in `:shared` (registered as a commonMain generated source dir, wired into `compileKotlinMetadata`/source-set model):
+
+- Reads root `.env`, falling back to `.env.example` (same contract as today; `.env` stays gitignored and is **never** read by tooling other than Gradle).
+- Generates `internal object Secrets { const val GEMINI_API_KEY: String = "…" }`.
+- Android `BuildConfig.GEMINI_API_KEY` usage and the Secrets Gradle Plugin are removed with it.
+- Placeholder value keeps working: Gemini paths throw the friendly "not configured" error; Google path unaffected.
+
+## 7. Storage on Web
+
+`LocalStorageHistoryRepository` (wasmJsMain):
+
+- Single `localStorage` key `translation_history_v1` holding a JSON array of `Translation` (kotlinx.serialization).
+- In-memory `MutableStateFlow<List<Translation>>` as source of truth for `observeAll/observeStarred` (mapped with the same ordering/filtering as the Room queries); every mutation rewrites the key. Loaded once at construction; corrupt/absent data → empty list (log via `AppLog`, don't crash).
+- `id` assignment: max(existing)+1. Single-tab app; cross-tab sync out of scope (documented limitation).
+
+## 8. UI Decomposition Map
+
+`MainActivity.kt` (1867 lines) is split with **zero visual/behavioral change** (Roborazzi-verified). Current line ranges → target files:
+
+| Current (MainActivity.kt) | Lines | Target (shared/ui/) |
+|---|---|---|
+| Activity shell, `setContent` | 68–82 | stays `:app` MainActivity.kt |
+| Voice launcher + `launchVoiceInput` | 124–169 | `:app` `AndroidVoiceInput` (behind `VoiceInput`); the `pendingVoiceRequestIsA` routing state moves into shared callers |
+| Wear-sync `LaunchedEffect` | 171–190 | deleted → VM `broadcaster` call (§4) |
+| Conversation split-screen panel | 202–~386 | `screens/ConversationScreen.kt` |
+| Translate screen (input/result/validation cards) | 387–~974 | `screens/TranslateScreen.kt` |
+| History/Saved list ("RECENT/SAVED TRANSLATIONS") | 975–~1144 | `screens/HistoryScreen.kt` |
+| Bottom bar (mic FAB row + 3 tabs) | 1145–1321 | `components/BottomNavBar.kt` (the 3 near-identical tab items collapse into one `TabItem` composable — DRY) |
+| Language picker dialogs invocation | 1323–1347 | stays in `App.kt` scaffold state |
+| Validation details overlay | 1349–1500 | `components/ValidationDetailsSheet.kt` |
+| `LanguagePickerDialog` | 1503–1607 | `components/LanguagePickerDialog.kt` |
+| `ConversationDraftDialog` | 1609–1867 | `components/ConversationDraftDialog.kt` |
+| `DualHeadsetSetupDialog.kt` (file) | 1–230 | `components/DualHeadsetSetupDialog.kt`, rewritten against `AudioOutputCatalog` |
+
+Shared-UI substitutions required by the move to commonMain:
+
+- `Toast.makeText(...)` → Material3 `SnackbarHostState` (a `LaunchedEffect`-driven host already fits the scaffold). Affects voice-input status/error toasts.
+- `android.util.Log` → `AppLog`.
+- `LocalContext`-dependent bits stay platform-side behind the §3 interfaces.
+- Theme: port static light/dark schemes as-is; drop the (default-off) `dynamicColor` branch — Android can layer it back later via a wrapper in `:app` (YAGNI now).
+- `Icons.Default.*` / extended icons: CMP ships `material-icons-extended` for common code — imports unchanged.
+
+Capability gating in UI: headset icon + dual-headset dialog render only if `capabilities.dualHeadset`; mic buttons only if `capabilities.voiceInput`.
+
+## 9. Entry Points
+
+- **Android**: `MainActivity.onCreate` builds `createAppContainer(context)` (androidMain) + `AndroidVoiceInput(this)` (activity-result bridge, provided into the container), then `setContent { App(container) }`. `WearTranslationService` continues to be manifest-declared in `:app` and calls the shared `TranslationApi` directly (Google path only, as today).
+- **Web**: `main.kt` → `ComposeViewport(document.body) { App(createAppContainer()) }`. `index.html`: title "Translate", full-viewport canvas styling, `<noscript>`/WasmGC-unsupported banner, loads the generated `.js`.
+
+## 10. Testing Design
+
+| Suite | Location | Coverage |
+|---|---|---|
+| commonTest | `:shared` | `GoogleResponseParser` (nested arrays, empty parts, multi-sentence); Gemini validation parsing (fenced/unfenced JSON, string-vs-object suggestions, blank filtering); `Language.getByCode` fallback; `TranslateViewModel` happy path + language swap-on-conflict + round-trip staleness guard + conversation draft confirm/cancel, using `FakeTranslationApi`/`FakeHistoryRepository`/`RecordingBroadcaster` + `kotlinx-coroutines-test` |
+| androidUnitTest | `:app` | existing Robolectric + Roborazzi tests (imports updated); baselines recorded in Phase 0 must still pass after decomposition |
+| wasmJsTest | `:shared` | `LocalStorageHistoryRepository` round-trip + corrupt-data recovery (runs in headless browser via Kotlin test infra) |
+| Manual | both | emulator smoke (translate, history, star, conversation); `:webApp:wasmJsBrowserDevelopmentRun` smoke in Chrome |
+
+Fakes live in `shared/src/commonTest/.../fakes/` and are the reusable seam for all future VM tests.
