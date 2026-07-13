@@ -8,6 +8,7 @@ import com.example.data.TranslationDao
 import com.example.data.TranslationDatabase
 import com.example.data.TranslationEntity
 import com.example.model.Language
+import com.example.network.TranslationParsers
 import com.example.network.TranslationService
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -224,30 +225,10 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
                             targetLangName = _targetLanguage.value.name
                         )
                         
-                        val isWarning = json.optBoolean("isWarning", false)
-                        val explanation = json.optString("explanation", "")
-                        val suggestionsList = mutableListOf<Suggestion>()
-                        val suggestionsArray = json.optJSONArray("suggestions")
-                        if (suggestionsArray != null) {
-                            for (i in 0 until suggestionsArray.length()) {
-                                val sugObj = suggestionsArray.optJSONObject(i)
-                                if (sugObj != null) {
-                                    val tone = sugObj.optString("tone", "Alternative")
-                                    val text = sugObj.optString("text", "")
-                                    if (text.isNotBlank()) {
-                                        suggestionsList.add(Suggestion(tone, text))
-                                    }
-                                } else {
-                                    // Fallback if it's a plain string
-                                    val plainString = suggestionsArray.optString(i)
-                                    if (plainString.isNotBlank()) {
-                                        suggestionsList.add(Suggestion("Alternative", plainString))
-                                    }
-                                }
-                            }
-                        }
+                        val parsed = TranslationParsers.parseValidation(json)
+                        val suggestionsList = parsed.suggestions.map { Suggestion(it.tone, it.text) }
 
-                        _validationState.value = ValidationState.Success(isWarning, explanation, suggestionsList)
+                        _validationState.value = ValidationState.Success(parsed.isWarning, parsed.explanation, suggestionsList)
                     } catch (e: Exception) {
                         Log.e(TAG, "Validation exception", e)
                         _validationState.value = ValidationState.Error("Validation failed: ${e.message}")
@@ -352,22 +333,10 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
                             sourceLangName = sourceLangName,
                             targetLangName = targetLangName
                         )
-                        val isWarning = json.optBoolean("isWarning", false)
-                        val explanation = json.optString("explanation", "")
-                        val suggestionsList = mutableListOf<Suggestion>()
-                        val suggestionsArray = json.optJSONArray("suggestions")
-                        if (suggestionsArray != null) {
-                            for (i in 0 until suggestionsArray.length()) {
-                                val sugObj = suggestionsArray.optJSONObject(i)
-                                if (sugObj != null) {
-                                    suggestionsList.add(Suggestion(sugObj.optString("tone", "Alternative"), sugObj.optString("text", "")))
-                                } else {
-                                    suggestionsList.add(Suggestion("Alternative", suggestionsArray.optString(i)))
-                                }
-                            }
-                        }
+                        val parsed = TranslationParsers.parseValidation(json)
+                        val suggestionsList = parsed.suggestions.map { Suggestion(it.tone, it.text) }
                         _conversationDraft.value = _conversationDraft.value?.copy(
-                            validationState = ValidationState.Success(isWarning, explanation, suggestionsList.filter { it.text.isNotBlank() })
+                            validationState = ValidationState.Success(parsed.isWarning, parsed.explanation, suggestionsList)
                         )
                     } catch (e: Exception) {
                         Log.e(TAG, "Draft validation exception", e)

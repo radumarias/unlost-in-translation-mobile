@@ -1,0 +1,10 @@
+{
+  "isWarning": false,
+  "explanation": "The translation is accurate and idiomatic.",
+  "suggestions": [
+    "Nice to meet you.",
+    { "tone": "Formal", "text": "" },
+    { "tone": "Casual", "text": "Good to meet you." },
+    ""
+  ]
+}

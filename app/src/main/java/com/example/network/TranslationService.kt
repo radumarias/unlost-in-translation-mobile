@@ -49,16 +49,7 @@ object TranslationService {
                 val responseBody = response.body?.string() ?: throw Exception("Empty response body")
                 Log.d(TAG, "Google Translate Response: $responseBody")
 
-                val outerArray = JSONArray(responseBody)
-                val firstGroup = outerArray.getJSONArray(0)
-                val sb = StringBuilder()
-                for (i in 0 until firstGroup.length()) {
-                    val part = firstGroup.getJSONArray(i)
-                    if (part.length() > 0) {
-                        sb.append(part.getString(0))
-                    }
-                }
-                sb.toString()
+                TranslationParsers.parseGoogleTranslation(responseBody)
             }
         } catch (e: Exception) {
             Log.e(TAG, "Google Translation Error: ", e)
@@ -206,19 +197,10 @@ object TranslationService {
                 val candidate = candidates.getJSONObject(0)
                 val content = candidate.getJSONObject("content")
                 val parts = content.getJSONArray("parts")
-                var aiResponseText = parts.getJSONObject(0).getString("text").trim()
-                
+                val rawText = parts.getJSONObject(0).getString("text")
+
                 // Remove markdown json block if Gemini includes it
-                aiResponseText = aiResponseText.trim()
-                if (aiResponseText.startsWith("```json")) {
-                    aiResponseText = aiResponseText.removePrefix("```json")
-                } else if (aiResponseText.startsWith("```")) {
-                    aiResponseText = aiResponseText.removePrefix("```")
-                }
-                if (aiResponseText.endsWith("```")) {
-                    aiResponseText = aiResponseText.removeSuffix("```")
-                }
-                aiResponseText = aiResponseText.trim()
+                val aiResponseText = TranslationParsers.stripJsonFences(rawText)
 
                 try {
                     JSONObject(aiResponseText)
