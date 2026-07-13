@@ -1,0 +1,32 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Background Shadow Layer -->
+    <path
+        android:fillColor="#15000000"
+        android:pathData="M 32,32 h 44 v 44 h -44 z" />
+        
+    <!-- Conversational Bubble 1 (Left - Indigo/White) -->
+    <path
+        android:fillColor="#1A73E8"
+        android:pathData="M34,30 h32 c4.4,0 8,3.6 8,8 v18 c0,4.4 -3.6,8 -8,8 h-8 l-10,10 v-10 h-14 c-4.4,0 -8,-3.6 -8,-8 v-18 c0,-4.4 3.6,-8 8,-8 z" />
+    
+    <!-- Text 'A' on Left Bubble -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M39.5,43.5 l-2.5,7 h-3 l6.5,-15 h3 l6.5,15 h-3 l-2.5,-7 z M40,41.5 l2,0.1 l-2,-5.5 z" />
+
+    <!-- Conversational Bubble 2 (Right Overlapping - Silver) -->
+    <path
+        android:fillColor="#4285F4"
+        android:pathData="M60,42 h16 c3.3,0 6,2.7 6,6 v14 c0,3.3 -2.7,6 -6,6 h-8 l-6,6 v-6 h-8 c-3.3,0 -6,-2.7 -6,-6 v-14 c0,-3.3 2.7,-6 6,-6 z" />
+
+    <!-- Text Glyphs/Double Arrows in Right bubble -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M64,52 h8 v2 h-8 z M66,56 h6 v2 h-6 z" />
+        
+</vector>

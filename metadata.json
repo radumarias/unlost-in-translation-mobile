@@ -1,0 +1,8 @@
+{
+  "name": "Remix: Translate",
+  "description": "An elegant, full-featured translation application styled like Google Translate. Supports speech synthesis, voice transcription, dual conversation mode, historical tracking, and wearable smart synchronization.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
