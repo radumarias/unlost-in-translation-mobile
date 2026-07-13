@@ -63,6 +63,7 @@ import com.example.ui.components.BottomNavBar
 import com.example.ui.components.ConversationDraftDialog
 import com.example.ui.components.LanguagePickerDialog
 import com.example.ui.components.ValidationDetailsSheet
+import com.example.ui.screens.HistoryScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.TranslationState
 import com.example.ui.viewmodel.ValidationState
@@ -976,161 +977,28 @@ fun MainAppScreen() {
                             }
                         } else {
                             // History or Saved view (Lists)
-                            val displayList = if (activeBottomTab == "history") history else starred
-                            Column(
-                                modifier = Modifier.fillMaxSize()
-                            ) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = if (activeBottomTab == "history") "RECENT TRANSLATIONS" else "SAVED TRANSLATIONS",
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.padding(horizontal = 4.dp)
-                                    )
-
-                                    if (activeBottomTab == "history" && history.isNotEmpty()) {
-                                        TextButton(onClick = { viewModel.clearHistory() }) {
-                                            Icon(
-                                                Icons.Default.DeleteSweep,
-                                                contentDescription = "Clear all",
-                                                modifier = Modifier.size(16.dp),
-                                                tint = MaterialTheme.colorScheme.primary
-                                            )
-                                            Spacer(modifier = Modifier.width(4.dp))
-                                            Text("Clear All", fontSize = 11.sp)
-                                        }
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(8.dp))
-
-                                if (displayList.isEmpty()) {
-                                    Column(
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .fillMaxWidth()
-                                            .padding(32.dp),
-                                        verticalArrangement = Arrangement.Center,
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        Icon(
-                                            imageVector = if (activeBottomTab == "history") Icons.Default.History else Icons.Default.Star,
-                                            contentDescription = "Empty",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
-                                            modifier = Modifier.size(64.dp)
-                                        )
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                        Text(
-                                            text = if (activeBottomTab == "history") "No translation history yet." else "No favorite items saved.",
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                            fontSize = 14.sp,
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
-                                } else {
-                                    Card(
-                                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                                        shape = RoundedCornerShape(24.dp),
-                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                                    ) {
-                                        LazyColumn(
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentPadding = PaddingValues(vertical = 8.dp)
-                                        ) {
-                                            items(displayList, key = { it.id }) { item ->
-                                                Column(
-                                                    modifier = Modifier
-                                                        .fillMaxWidth()
-                                                        .combinedClickable(
-                                                            onClick = {
-                                                                viewModel.setSourceLanguage(Language.getByCode(item.sourceLangCode))
-                                                                viewModel.setTargetLanguage(Language.getByCode(item.targetLangCode))
-                                                                viewModel.setSourceText(item.sourceText)
-                                                                viewModel.triggerTranslation()
-                                                                activeBottomTab = "translate"
-                                                            },
-                                                            onLongClick = {
-                                                                viewModel.deleteHistoricalItem(item.id)
-                                                                Toast.makeText(context, "Deleted from history", Toast.LENGTH_SHORT).show()
-                                                            }
-                                                        )
-                                                ) {
-                                                    Row(
-                                                        modifier = Modifier
-                                                            .fillMaxWidth()
-                                                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.SpaceBetween
-                                                    ) {
-                                                        Column(modifier = Modifier.weight(1f)) {
-                                                            val srcLang = Language.getByCode(item.sourceLangCode)
-                                                            val trgLang = Language.getByCode(item.targetLangCode)
-                                                            Text(
-                                                                text = "${srcLang.flag} ${srcLang.name}  ➔  ${trgLang.flag} ${trgLang.name}",
-                                                                fontSize = 10.sp,
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = MaterialTheme.colorScheme.secondary
-                                                            )
-                                                            Spacer(modifier = Modifier.height(4.dp))
-                                                            Text(
-                                                                text = item.sourceText,
-                                                                fontSize = 14.sp,
-                                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                            )
-                                                            Spacer(modifier = Modifier.height(2.dp))
-                                                            Text(
-                                                                text = item.translatedText,
-                                                                fontSize = 15.sp,
-                                                                fontWeight = FontWeight.Bold,
-                                                                color = MaterialTheme.colorScheme.onSurface
-                                                            )
-                                                        }
-
-                                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                                            IconButton(
-                                                                onClick = {
-                                                                    val trgLocale = Language.getByCode(item.targetLangCode).locale
-                                                                    ttsHelper.speak(item.translatedText, trgLocale)
-                                                                },
-                                                                modifier = Modifier.size(32.dp)
-                                                            ) {
-                                                                Icon(
-                                                                    Icons.Default.VolumeUp,
-                                                                    contentDescription = "Speak translation",
-                                                                    tint = MaterialTheme.colorScheme.primary,
-                                                                    modifier = Modifier.size(18.dp)
-                                                                )
-                                                            }
-
-                                                            IconButton(
-                                                                onClick = { viewModel.toggleStarred(item) },
-                                                                modifier = Modifier.size(32.dp)
-                                                            ) {
-                                                                Icon(
-                                                                    imageVector = if (item.isStarred) Icons.Default.Star else Icons.Default.StarBorder,
-                                                                    contentDescription = "Toggle favorite",
-                                                                    tint = if (item.isStarred) Color(0xFFFFD700) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                                                                    modifier = Modifier.size(18.dp)
-                                                                )
-                                                            }
-                                                        }
-                                                    }
-                                                    HorizontalDivider(
-                                                        modifier = Modifier.padding(horizontal = 16.dp),
-                                                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            HistoryScreen(
+                                tab = activeBottomTab,
+                                items = if (activeBottomTab == "history") history else starred,
+                                showClearAll = activeBottomTab == "history" && history.isNotEmpty(),
+                                onClearAll = { viewModel.clearHistory() },
+                                onOpenItem = { item ->
+                                    viewModel.setSourceLanguage(Language.getByCode(item.sourceLangCode))
+                                    viewModel.setTargetLanguage(Language.getByCode(item.targetLangCode))
+                                    viewModel.setSourceText(item.sourceText)
+                                    viewModel.triggerTranslation()
+                                    activeBottomTab = "translate"
+                                },
+                                onDeleteItem = { item ->
+                                    viewModel.deleteHistoricalItem(item.id)
+                                    Toast.makeText(context, "Deleted from history", Toast.LENGTH_SHORT).show()
+                                },
+                                onSpeak = { item ->
+                                    val trgLocale = Language.getByCode(item.targetLangCode).locale
+                                    ttsHelper.speak(item.translatedText, trgLocale)
+                                },
+                                onToggleStar = { item -> viewModel.toggleStarred(item) },
+                            )
                         }
                     }
 
