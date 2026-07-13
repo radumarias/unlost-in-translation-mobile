@@ -62,6 +62,7 @@ import com.example.speech.TTSHelper
 import com.example.ui.components.BottomNavBar
 import com.example.ui.components.ConversationDraftDialog
 import com.example.ui.components.LanguagePickerDialog
+import com.example.ui.components.ValidationDetailsSheet
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.TranslationState
 import com.example.ui.viewmodel.ValidationState
@@ -1181,153 +1182,16 @@ fun MainAppScreen() {
             }
 
             // --- Overlay Panel: Validation Details ---
-            val lastShowValidationDetails = remember { mutableStateOf<ValidationState.Success?>(null) }
-            LaunchedEffect(showValidationDetails) {
-                if (showValidationDetails != null) {
-                    lastShowValidationDetails.value = showValidationDetails
-                }
-            }
-            AnimatedVisibility(
-                visible = showValidationDetails != null,
-                enter = expandIn(expandFrom = Alignment.Center, animationSpec = tween(300)) + fadeIn(tween(300)),
-                exit = shrinkOut(shrinkTowards = Alignment.Center, animationSpec = tween(300)) + fadeOut(tween(300))
-            ) {
-                val vs = lastShowValidationDetails.value ?: return@AnimatedVisibility
-                val successIconColor = if (androidx.compose.foundation.isSystemInDarkTheme()) Color(0xFF81C784) else Color(0xFF4CAF50)
-                
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.8f))
-                        .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { showValidationDetails = null },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth(0.95f)
-                            .fillMaxHeight(0.85f)
-                            .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) { },
-                        shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(24.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        if (vs.isWarning) Icons.Default.Warning else Icons.Default.CheckCircle,
-                                        contentDescription = "Details",
-                                        tint = if (vs.isWarning) MaterialTheme.colorScheme.error else successIconColor,
-                                        modifier = Modifier.size(28.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Text(
-                                        text = if (vs.isWarning) "Cultural Warning" else "Cultural Context",
-                                        fontSize = 22.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                                IconButton(onClick = { showValidationDetails = null }) {
-                                    Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(28.dp))
-                                }
-                            }
-                            
-                            Spacer(modifier = Modifier.height(24.dp))
-                            
-                            androidx.compose.foundation.lazy.LazyColumn(
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                item {
-                                    Text(
-                                        text = "Explanation",
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Text(
-                                        text = vs.explanation,
-                                        fontSize = 16.sp,
-                                        lineHeight = 24.sp,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    
-                                    Spacer(modifier = Modifier.height(32.dp))
-                                }
-                                
-                                if (vs.suggestions.isNotEmpty()) {
-                                    item {
-                                        Text(
-                                            text = "Suggested alternatives:",
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Spacer(modifier = Modifier.height(16.dp))
-                                    }
-                                    
-                                    items(vs.suggestions.size) { index ->
-                                        val suggestion = vs.suggestions[index]
-                                        Card(
-                                            onClick = { 
-                                                showValidationDetails = null
-                                                viewModel.setSourceText(suggestion.text)
-                                                keyboardController?.hide()
-                                                viewModel.triggerTranslation() 
-                                            },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            shape = RoundedCornerShape(12.dp),
-                                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(16.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(
-                                                    Icons.Default.AutoFixHigh,
-                                                    contentDescription = "Suggestion",
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.size(24.dp)
-                                                )
-                                                Spacer(modifier = Modifier.width(16.dp))
-                                                Column {
-                                                    Card(
-                                                        shape = RoundedCornerShape(4.dp),
-                                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                                                    ) {
-                                                        Text(
-                                                            text = suggestion.tone.uppercase(),
-                                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                                            fontSize = 10.sp,
-                                                            fontWeight = FontWeight.Bold,
-                                                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                                                        )
-                                                    }
-                                                    Spacer(modifier = Modifier.height(4.dp))
-                                                    Text(
-                                                        text = suggestion.text,
-                                                        fontSize = 16.sp,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                                    )
-                                                }
-                                            }
-                                        }
-                                        Spacer(modifier = Modifier.height(12.dp))
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            ValidationDetailsSheet(
+                current = showValidationDetails,
+                onDismiss = { showValidationDetails = null },
+                onSelectSuggestion = { text ->
+                    showValidationDetails = null
+                    viewModel.setSourceText(text)
+                    keyboardController?.hide()
+                    viewModel.triggerTranslation()
+                },
+            )
             }
         }
     }
