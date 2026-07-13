@@ -10,9 +10,14 @@
 /.idea/assetWizardSettings.xml
 .DS_Store
 /build
+shared/build/
 /captures
 .externalNativeBuild
 .cxx
 local.properties
 .env
 debug.keystore
+
+# graphify knowledge graph output (regenerable from source)
+/graphify-out/
+.graphify_*
