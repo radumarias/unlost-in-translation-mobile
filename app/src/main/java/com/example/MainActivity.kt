@@ -60,11 +60,10 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.example.BuildConfig
-import com.example.data.RoomTranslationHistoryRepository
-import com.example.data.TranslationDatabase
 import com.example.model.Language
-import com.example.network.KtorTranslationApi
+import com.example.platform.AndroidAppContainer
+import com.example.platform.AppContainer
+import com.example.platform.UnavailableVoiceInput
 import com.example.speech.TTSHelper
 import com.example.ui.components.AppTopBar
 import com.example.ui.components.BottomNavBar
@@ -77,7 +76,6 @@ import com.example.ui.screens.TranslateScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.ValidationState
 import com.example.ui.viewmodel.TranslateViewModel
-import com.example.wear.WearTranslationBroadcaster
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -100,18 +98,37 @@ class MainActivity : ComponentActivity() {
 fun MainAppScreen() {
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    // Hand-built dependencies for the view model. Replaced by AppContainer in the
-    // task-6 platform-interface pass; a plain ViewModel + factory for now.
-    val appContext = context.applicationContext
+
+    // TTS management (composable-scoped; released on dispose)
+    val ttsHelper = remember {
+        TTSHelper(context) { success ->
+            Log.d("MainActivity", "TTS Init success: $success")
+        }
+    }
+    DisposableEffect(Unit) {
+        onDispose {
+            ttsHelper.release()
+        }
+    }
+
+    // Hand-built platform container (design §3): the single place the UI/VM resolve
+    // platform services. Web supplies a different AppContainer.
+    //
+    // Voice input still flows through the inline launchVoiceInput below for Phase 1
+    // (its pendingVoiceRequestIsA conversation routing lives here); the container's
+    // VoiceInput seam is bound to a real AndroidVoiceInput launcher when that flow
+    // moves into shared callers in Phase 2 (design §8).
+    val container: AppContainer = remember(ttsHelper) {
+        AndroidAppContainer(context = context, ttsHelper = ttsHelper, voiceInput = UnavailableVoiceInput)
+    }
+
     val viewModel: TranslateViewModel = viewModel(
         factory = viewModelFactory {
             initializer {
                 TranslateViewModel(
-                    api = KtorTranslationApi(apiKey = BuildConfig.GEMINI_API_KEY),
-                    repository = RoomTranslationHistoryRepository(
-                        TranslationDatabase.getDatabase(appContext).translationDao()
-                    ),
-                    broadcaster = WearTranslationBroadcaster(appContext),
+                    api = container.api,
+                    repository = container.historyRepository,
+                    broadcaster = container.broadcaster,
                 )
             }
         }
@@ -135,18 +152,6 @@ fun MainAppScreen() {
     var choosingSourceLanguage by remember { mutableStateOf(false) }
     var choosingTargetLanguage by remember { mutableStateOf(false) }
     var showValidationDetails by remember { mutableStateOf<ValidationState.Success?>(null) }
-
-    // TTS management
-    val ttsHelper = remember {
-        TTSHelper(context) { success ->
-            Log.d("MainActivity", "TTS Init success: $success")
-        }
-    }
-    DisposableEffect(Unit) {
-        onDispose {
-            ttsHelper.release()
-        }
-    }
 
     // Capture Speak inputs
     var pendingVoiceRequestIsA by remember { mutableStateOf<Boolean?>(null) } // true: A, false: B, null: Main Translation mic
@@ -224,6 +229,7 @@ fun MainAppScreen() {
                     targetLang = targetLang,
                     ttsHelper = ttsHelper,
                     context = context,
+                    audioOutputCatalog = container.audioOutputCatalog,
                     launchVoiceInput = { isConversationA, language -> launchVoiceInput(isConversationA, language) },
                 )
 
@@ -247,6 +253,7 @@ fun MainAppScreen() {
                             AppTopBar(
                                 viewModel = viewModel,
                                 isAiEnhanced = isAiEnhanced,
+                                audioOutputCatalog = container.audioOutputCatalog,
                             )
 
                             LanguageBar(

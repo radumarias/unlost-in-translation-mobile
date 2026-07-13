@@ -31,6 +31,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.DualHeadsetSetupDialog
+import com.example.platform.AudioOutputCatalog
 import com.example.ui.viewmodel.TranslateViewModel
 
 /**
@@ -46,6 +47,7 @@ import com.example.ui.viewmodel.TranslateViewModel
 fun AppTopBar(
     viewModel: TranslateViewModel,
     isAiEnhanced: Boolean,
+    audioOutputCatalog: AudioOutputCatalog,
 ) {
     // Top branding line with AI toggle
     Row(
@@ -85,6 +87,7 @@ fun AppTopBar(
             if (showDualHeadsetSetup) {
                 DualHeadsetSetupDialog(
                     viewModel = viewModel,
+                    catalog = audioOutputCatalog,
                     onDismiss = { showDualHeadsetSetup = false }
                 )
             }

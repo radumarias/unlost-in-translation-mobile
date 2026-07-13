@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.DualHeadsetSetupDialog
 import com.example.model.Language
+import com.example.platform.AudioOutputCatalog
 import com.example.speech.TTSHelper
 import com.example.ui.components.ConversationDraftDialog
 import com.example.ui.viewmodel.TranslateViewModel
@@ -64,6 +65,7 @@ fun ConversationScreen(
     targetLang: Language,
     ttsHelper: TTSHelper,
     context: Context,
+    audioOutputCatalog: AudioOutputCatalog,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
 ) {
     val conversationHistory by viewModel.conversationHistory.collectAsState()
@@ -102,6 +104,7 @@ fun ConversationScreen(
             if (showDualHeadsetSetup) {
                 DualHeadsetSetupDialog(
                     viewModel = viewModel,
+                    catalog = audioOutputCatalog,
                     onDismiss = { showDualHeadsetSetup = false }
                 )
             }
