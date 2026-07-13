@@ -59,6 +59,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.model.Language
 import com.example.speech.TTSHelper
+import com.example.ui.components.BottomNavBar
 import com.example.ui.components.ConversationDraftDialog
 import com.example.ui.components.LanguagePickerDialog
 import com.example.ui.theme.MyApplicationTheme
@@ -1133,192 +1134,23 @@ fun MainAppScreen() {
                     }
 
                     // 3. Compact Bottom Interface Dock containing Microphone and Navigation Controls
-                    Surface(
-                        tonalElevation = 6.dp,
-                        color = MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            modifier = Modifier
-                                .navigationBarsPadding()
-                                .padding(top = 8.dp, bottom = 8.dp, start = 16.dp, end = 16.dp)
-                        ) {
-                            if (activeBottomTab == "translate") {
-                                // Microphone action bar
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(bottom = 8.dp),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    // Left Button (Conversation Split mode launcher)
-                                    IconButton(
-                                        onClick = { viewModel.setConversationMode(true) },
-                                        modifier = Modifier
-                                            .size(42.dp)
-                                            .background(MaterialTheme.colorScheme.surfaceVariant, shape = CircleShape)
-                                            .testTag("conversation_mode_trigger")
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Hearing,
-                                            contentDescription = "Conversation split-mic Mode",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(36.dp))
-
-                                    // Center Circle Mic Button (60x60, prominent theme blue)
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .size(56.dp)
-                                            .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
-                                            .clickable { launchVoiceInput(null, sourceLang) }
-                                            .testTag("main_mic_button")
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Mic,
-                                            contentDescription = "Record Speech",
-                                            tint = MaterialTheme.colorScheme.onPrimary,
-                                            modifier = Modifier.size(26.dp)
-                                        )
-                                    }
-
-                                    Spacer(modifier = Modifier.width(36.dp))
-
-                                    // Right Button (Quick keyboard edit / close)
-                                    IconButton(
-                                        onClick = { 
-                                            if (sourceText.isNotBlank()) {
-                                                viewModel.setSourceText("")
-                                            } else {
-                                                // Load a pleasant prompt
-                                                viewModel.setSourceText("Hello, how are you?")
-                                                viewModel.triggerTranslation()
-                                            }
-                                        },
-                                        modifier = Modifier
-                                            .size(42.dp)
-                                            .background(MaterialTheme.colorScheme.surfaceVariant, shape = CircleShape)
-                                    ) {
-                                        Icon(
-                                            imageVector = if (sourceText.isNotBlank()) Icons.Default.Close else Icons.Default.Edit,
-                                            contentDescription = "Quick text input action",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                }
+                    BottomNavBar(
+                        activeBottomTab = activeBottomTab,
+                        onSelectTab = { activeBottomTab = it },
+                        showMicRow = activeBottomTab == "translate",
+                        onConversationMode = { viewModel.setConversationMode(true) },
+                        onMic = { launchVoiceInput(null, sourceLang) },
+                        sourceTextBlank = sourceText.isBlank(),
+                        onQuickEdit = {
+                            if (sourceText.isNotBlank()) {
+                                viewModel.setSourceText("")
+                            } else {
+                                // Load a pleasant prompt
+                                viewModel.setSourceText("Hello, how are you?")
+                                viewModel.triggerTranslation()
                             }
-
-                            // Navigation tabs with rounded active indicator pills
-                            Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
-                                horizontalArrangement = Arrangement.SpaceAround,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Translate Tab item
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier
-                                        .clickable { activeBottomTab = "translate" }
-                                        .padding(4.dp)
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .background(
-                                                if (activeBottomTab == "translate") MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                                            )
-                                            .padding(horizontal = 24.dp, vertical = 6.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Translate,
-                                            contentDescription = "Translate Tab Button",
-                                            tint = if (activeBottomTab == "translate") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.61f),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "Translate",
-                                        fontSize = 10.sp,
-                                        fontWeight = if (activeBottomTab == "translate") FontWeight.Bold else FontWeight.Medium,
-                                        color = if (activeBottomTab == "translate") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.61f)
-                                    )
-                                }
-
-                                // History Tab item
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier
-                                        .clickable { activeBottomTab = "history" }
-                                        .padding(4.dp)
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .background(
-                                                if (activeBottomTab == "history") MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                                            )
-                                            .padding(horizontal = 24.dp, vertical = 6.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.History,
-                                            contentDescription = "History Tab Button",
-                                            tint = if (activeBottomTab == "history") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.61f),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "History",
-                                        fontSize = 10.sp,
-                                        fontWeight = if (activeBottomTab == "history") FontWeight.Bold else FontWeight.Medium,
-                                        color = if (activeBottomTab == "history") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.61f)
-                                    )
-                                }
-
-                                // Saved Tab item
-                                Column(
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    modifier = Modifier
-                                        .clickable { activeBottomTab = "saved" }
-                                        .padding(4.dp)
-                                ) {
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .background(
-                                                if (activeBottomTab == "saved") MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-                                            )
-                                            .padding(horizontal = 24.dp, vertical = 6.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.Star,
-                                            contentDescription = "Saved Tab Button",
-                                            tint = if (activeBottomTab == "saved") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.61f),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(
-                                        text = "Saved",
-                                        fontSize = 10.sp,
-                                        fontWeight = if (activeBottomTab == "saved") FontWeight.Bold else FontWeight.Medium,
-                                        color = if (activeBottomTab == "saved") MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.61f)
-                                    )
-                                }
-                            }
-                        }
-                    }
+                        },
+                    )
                 }
             }
 
