@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.util.Log
 import android.widget.Toast
+import java.util.Locale
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -163,10 +164,10 @@ fun MainAppScreen() {
         try {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, language.locale.toLanguageTag())
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, language.locale.toLanguageTag())
-                putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, language.locale.toLanguageTag())
-                putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf(language.locale.toLanguageTag()))
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, language.languageTag)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, language.languageTag)
+                putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, language.languageTag)
+                putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf(language.languageTag))
                 putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now (${language.name})...")
             }
             speechLauncher.launch(intent)
@@ -290,7 +291,7 @@ fun MainAppScreen() {
                                     Toast.makeText(context, "Deleted from history", Toast.LENGTH_SHORT).show()
                                 },
                                 onSpeak = { item ->
-                                    val trgLocale = Language.getByCode(item.targetLangCode).locale
+                                    val trgLocale = Locale.forLanguageTag(Language.getByCode(item.targetLangCode).languageTag)
                                     ttsHelper.speak(item.translatedText, trgLocale)
                                 },
                                 onToggleStar = { item -> viewModel.toggleStarred(item) },

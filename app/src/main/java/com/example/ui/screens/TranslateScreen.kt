@@ -74,6 +74,7 @@ import com.example.speech.TTSHelper
 import com.example.ui.viewmodel.TranslateViewModel
 import com.example.ui.viewmodel.TranslationState
 import com.example.ui.viewmodel.ValidationState
+import java.util.Locale
 
 /**
  * Translate-tab workspace: the input card (text field + mic/speak/translate
@@ -188,7 +189,7 @@ fun TranslateScreen(
                             onClick = {
                                 val dualState = viewModel.dualHeadsetState.value
                                 val targetDevice = if (dualState.isDualHeadsetModeEnabled) dualState.deviceA else null
-                                ttsHelper.speak(sourceText, sourceLang.locale, targetDevice)
+                                ttsHelper.speak(sourceText, Locale.forLanguageTag(sourceLang.languageTag), targetDevice)
                             },
                             enabled = sourceText.isNotBlank()
                         ) {
@@ -412,7 +413,7 @@ fun TranslateScreen(
                                         onClick = {
                                             val dualState = viewModel.dualHeadsetState.value
                                             val targetDevice = if (dualState.isDualHeadsetModeEnabled) dualState.deviceB else null
-                                            ttsHelper.speak(state.translatedText, targetLang.locale, targetDevice)
+                                            ttsHelper.speak(state.translatedText, Locale.forLanguageTag(targetLang.languageTag), targetDevice)
                                         },
                                         modifier = Modifier
                                             .padding(horizontal = 4.dp)

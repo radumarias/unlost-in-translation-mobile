@@ -46,6 +46,7 @@ import com.example.model.Language
 import com.example.speech.TTSHelper
 import com.example.ui.components.ConversationDraftDialog
 import com.example.ui.viewmodel.TranslateViewModel
+import java.util.Locale
 
 /**
  * Conversation split-screen: bilingual message flow plus the two-party mic deck,
@@ -153,7 +154,7 @@ fun ConversationScreen(
                                     val d = if (viewModel.dualHeadsetState.value.isDualHeadsetModeEnabled) {
                                         if (item.speakA) viewModel.dualHeadsetState.value.deviceB else viewModel.dualHeadsetState.value.deviceA
                                     } else null
-                                    ttsHelper.speak(item.translated, l.locale, d)
+                                    ttsHelper.speak(item.translated, Locale.forLanguageTag(l.languageTag), d)
                                 },
                                 modifier = Modifier.size(24.dp)
                             ) {
@@ -232,7 +233,7 @@ fun ConversationScreen(
                         val userStr = if (isA) "User 2" else "User 1"
                         Toast.makeText(context, "Playing translation to $userStr's headset...", Toast.LENGTH_SHORT).show()
                     }
-                    val targetLocale = if (isA) targetLang.locale else sourceLang.locale
+                    val targetLocale = Locale.forLanguageTag(if (isA) targetLang.languageTag else sourceLang.languageTag)
                     val targetDevice = if (dualState.isDualHeadsetModeEnabled) {
                         if (isA) dualState.deviceB else dualState.deviceA
                     } else null

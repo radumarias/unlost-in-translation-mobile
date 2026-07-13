@@ -1,31 +1,36 @@
 package com.example.model
 
-import java.util.Locale
-
+/**
+ * A supported UI language. [languageTag] is a BCP 47 tag (e.g. "en-US") used at
+ * the TTS/speech-recognition boundary via `Locale.forLanguageTag(...)`. The tags
+ * are the exact values the previous `Locale.toLanguageTag()` produced, so the
+ * platform behavior is unchanged. Kept `Locale`-free so this model can move to
+ * commonMain later.
+ */
 data class Language(
     val code: String,
     val name: String,
     val flag: String,
-    val locale: Locale
+    val languageTag: String
 ) {
     companion object {
         val supportedLanguages = listOf(
-            Language("en", "English", "🇺🇸", Locale.US),
-            Language("es", "Spanish", "🇪🇸", Locale("es", "ES")),
-            Language("fr", "French", "🇫🇷", Locale.FRANCE),
-            Language("de", "German", "🇩🇪", Locale.GERMANY),
-            Language("zh", "Chinese", "🇨🇳", Locale.CHINA),
-            Language("ja", "Japanese", "🇯🇵", Locale.JAPAN),
-            Language("ko", "Korean", "🇰🇷", Locale.KOREA),
-            Language("it", "Italian", "🇮🇹", Locale.ITALY),
-            Language("pt", "Portuguese", "🇵🇹", Locale("pt", "PT")),
-            Language("ru", "Russian", "🇷🇺", Locale("ru", "RU")),
-            Language("hi", "Hindi", "🇮🇳", Locale("hi", "IN")),
-            Language("ar", "Arabic", "🇸🇦", Locale("ar", "SA")),
-            Language("ro", "Romanian", "🇷🇴", Locale("ro", "RO")),
-            Language("nl", "Dutch", "🇳🇱", Locale("nl", "NL")),
-            Language("tr", "Turkish", "🇹🇷", Locale("tr", "TR")),
-            Language("th", "Thai", "🇹🇭", Locale("th", "TH"))
+            Language("en", "English", "🇺🇸", "en-US"),
+            Language("es", "Spanish", "🇪🇸", "es-ES"),
+            Language("fr", "French", "🇫🇷", "fr-FR"),
+            Language("de", "German", "🇩🇪", "de-DE"),
+            Language("zh", "Chinese", "🇨🇳", "zh-CN"),
+            Language("ja", "Japanese", "🇯🇵", "ja-JP"),
+            Language("ko", "Korean", "🇰🇷", "ko-KR"),
+            Language("it", "Italian", "🇮🇹", "it-IT"),
+            Language("pt", "Portuguese", "🇵🇹", "pt-PT"),
+            Language("ru", "Russian", "🇷🇺", "ru-RU"),
+            Language("hi", "Hindi", "🇮🇳", "hi-IN"),
+            Language("ar", "Arabic", "🇸🇦", "ar-SA"),
+            Language("ro", "Romanian", "🇷🇴", "ro-RO"),
+            Language("nl", "Dutch", "🇳🇱", "nl-NL"),
+            Language("tr", "Turkish", "🇹🇷", "tr-TR"),
+            Language("th", "Thai", "🇹🇭", "th-TH")
         )
 
         fun getByCode(code: String): Language {
