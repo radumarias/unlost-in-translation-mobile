@@ -3,9 +3,9 @@ package com.example.ui.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.TranslationEntity
 import com.example.data.TranslationHistoryRepository
 import com.example.model.Language
+import com.example.model.Translation
 import com.example.network.TranslationApi
 import com.example.wear.TranslationBroadcaster
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -57,10 +57,10 @@ class TranslateViewModel(
     val isAiEnhanced = _isAiEnhanced.asStateFlow()
 
     // Database entries
-    val history: StateFlow<List<TranslationEntity>> = repository.allTranslations()
+    val history: StateFlow<List<Translation>> = repository.allTranslations()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val starred: StateFlow<List<TranslationEntity>> = repository.starredTranslations()
+    val starred: StateFlow<List<Translation>> = repository.starredTranslations()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Conversation Mode States
@@ -231,21 +231,24 @@ class TranslateViewModel(
 
     private suspend fun saveTranslationToDatabase(original: String, translated: String) {
         try {
-            val entity = TranslationEntity(
+            // timestamp = 0L is the "now" sentinel; the Room impl fills it with
+            // System.currentTimeMillis(), matching the previous entity default.
+            val translation = Translation(
                 sourceText = original,
                 translatedText = translated,
                 sourceLangCode = _sourceLanguage.value.code,
                 sourceLangName = _sourceLanguage.value.name,
                 targetLangCode = _targetLanguage.value.code,
-                targetLangName = _targetLanguage.value.name
+                targetLangName = _targetLanguage.value.name,
+                timestamp = 0L,
             )
-            repository.insert(entity)
+            repository.insert(translation)
         } catch (e: Exception) {
             Log.e(TAG, "Failed saving translation to database: ", e)
         }
     }
 
-    fun toggleStarred(translation: TranslationEntity) {
+    fun toggleStarred(translation: Translation) {
         viewModelScope.launch {
             repository.setStarred(translation.id, !translation.isStarred)
         }

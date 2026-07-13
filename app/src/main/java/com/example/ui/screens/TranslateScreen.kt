@@ -68,8 +68,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.TranslationEntity
 import com.example.model.Language
+import com.example.model.Translation
 import com.example.speech.TTSHelper
 import com.example.ui.viewmodel.TranslateViewModel
 import com.example.ui.viewmodel.TranslationState
@@ -96,8 +96,8 @@ fun TranslateScreen(
     targetLang: Language,
     translationState: TranslationState,
     validationState: ValidationState,
-    history: List<TranslationEntity>,
-    starred: List<TranslationEntity>,
+    history: List<Translation>,
+    starred: List<Translation>,
     ttsHelper: TTSHelper,
     context: Context,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
