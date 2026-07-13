@@ -60,9 +60,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.model.Language
 import com.example.speech.TTSHelper
 import com.example.ui.components.BottomNavBar
-import com.example.ui.components.ConversationDraftDialog
 import com.example.ui.components.LanguagePickerDialog
 import com.example.ui.components.ValidationDetailsSheet
+import com.example.ui.screens.ConversationScreen
 import com.example.ui.screens.HistoryScreen
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.TranslationState
@@ -105,7 +105,6 @@ fun MainAppScreen() {
     val isConversationMode by viewModel.isConversationMode.collectAsState()
     val partnerAText by viewModel.partnerAText.collectAsState()
     val partnerBText by viewModel.partnerBText.collectAsState()
-    val conversationHistory by viewModel.conversationHistory.collectAsState()
 
     // Navigation and Dialog state
     var activeBottomTab by remember { mutableStateOf("translate") } // "translate", "history", "saved"
@@ -206,187 +205,14 @@ fun MainAppScreen() {
         ) {
             if (isConversationMode) {
                 // --- Conversation Split-Screen Panel ---
-                Column(
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    // Conversation Header
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = { viewModel.setConversationMode(false) }) {
-                            Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-                        }
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = "Conversation Mode",
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onBackground
-                        )
-                        Spacer(modifier = Modifier.weight(1f))
-                        val dualHeadsetState by viewModel.dualHeadsetState.collectAsState()
-                        var showDualHeadsetSetup by remember { mutableStateOf(false) }
-                        IconButton(onClick = { showDualHeadsetSetup = true }) {
-                            Icon(
-                                Icons.Default.Headphones, 
-                                contentDescription = "Dual Headset Setup",
-                                tint = if (dualHeadsetState.isDualHeadsetModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-
-                        if (showDualHeadsetSetup) {
-                            DualHeadsetSetupDialog(
-                                viewModel = viewModel,
-                                onDismiss = { showDualHeadsetSetup = false }
-                            )
-                        }
-                    }
-
-                    // Conversational History Message Flow
-                    LazyColumn(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        reverseLayout = true
-                    ) {
-                        items(conversationHistory.reversed()) { item ->
-                            val bubbleColor = if (item.speakA) {
-                                MaterialTheme.colorScheme.primaryContainer
-                            } else {
-                                MaterialTheme.colorScheme.secondaryContainer
-                            }
-                            val alignment = if (item.speakA) Alignment.Start else Alignment.End
-
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 6.dp),
-                                horizontalAlignment = alignment
-                            ) {
-                                Card(
-                                    colors = CardDefaults.cardColors(containerColor = bubbleColor),
-                                    shape = RoundedCornerShape(16.dp),
-                                    modifier = Modifier.widthIn(max = 280.dp)
-                                ) {
-                                    Column(modifier = Modifier.padding(12.dp)) {
-                                        Text(
-                                            text = item.text,
-                                            fontSize = 14.sp,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = item.translated,
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onSurface
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        IconButton(
-                                            onClick = {
-                                                val l = if (item.speakA) targetLang else sourceLang
-                                                val d = if (viewModel.dualHeadsetState.value.isDualHeadsetModeEnabled) {
-                                                    if (item.speakA) viewModel.dualHeadsetState.value.deviceB else viewModel.dualHeadsetState.value.deviceA
-                                                } else null
-                                                ttsHelper.speak(item.translated, l.locale, d)
-                                            },
-                                            modifier = Modifier.size(24.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Default.VolumeUp,
-                                                contentDescription = "Speak translation",
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // Lower Action Control Deck for dual parties
-                    Surface(
-                        tonalElevation = 8.dp,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(24.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            // Speaker A (Source)
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = sourceLang.name + " " + sourceLang.flag,
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 14.sp
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                FloatingActionButton(
-                                    onClick = { launchVoiceInput(isConversationA = true, sourceLang) },
-                                    containerColor = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.testTag("mic_party_a")
-                                ) {
-                                    Icon(Icons.Default.Mic, contentDescription = "Mic A")
-                                }
-                            }
-
-                            // Speaker B (Target)
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Text(
-                                    text = targetLang.name + " " + targetLang.flag,
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 14.sp
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                FloatingActionButton(
-                                    onClick = { launchVoiceInput(isConversationA = false, targetLang) },
-                                    containerColor = MaterialTheme.colorScheme.secondary,
-                                    modifier = Modifier.testTag("mic_party_b")
-                                ) {
-                                    Icon(Icons.Default.Mic, contentDescription = "Mic B")
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                val draft by viewModel.conversationDraft.collectAsState()
-                if (draft != null) {
-                    val sName = if (draft!!.isLanguageA) sourceLang.name else targetLang.name
-                    val tName = if (draft!!.isLanguageA) targetLang.name else sourceLang.name
-                    ConversationDraftDialog(
-                        draft = draft!!,
-                        onConfirm = {
-                            viewModel.confirmConversationDraft { translated, isA ->
-                                val dualState = viewModel.dualHeadsetState.value
-                                if (dualState.isDualHeadsetModeEnabled) {
-                                    val userStr = if (isA) "User 2" else "User 1"
-                                    Toast.makeText(context, "Playing translation to $userStr's headset...", Toast.LENGTH_SHORT).show()
-                                }
-                                val targetLocale = if (isA) targetLang.locale else sourceLang.locale
-                                val targetDevice = if (dualState.isDualHeadsetModeEnabled) {
-                                    if (isA) dualState.deviceB else dualState.deviceA
-                                } else null
-                                ttsHelper.speak(translated, targetLocale, targetDevice)
-                            }
-                        },
-                        onCancel = { viewModel.cancelConversationDraft() },
-                        onReplaceSource = { newSourceText ->
-                            viewModel.cancelConversationDraft()
-                            viewModel.prepareConversationPart(newSourceText, isLanguageA = draft!!.isLanguageA)
-                        },
-                        sourceLangName = sName,
-                        targetLangName = tName
-                    )
-                }
+                ConversationScreen(
+                    viewModel = viewModel,
+                    sourceLang = sourceLang,
+                    targetLang = targetLang,
+                    ttsHelper = ttsHelper,
+                    context = context,
+                    launchVoiceInput = { isConversationA, language -> launchVoiceInput(isConversationA, language) },
+                )
 
             } else {
                 // --- High Density Google Translate Screen ---
