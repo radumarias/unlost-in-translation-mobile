@@ -2,7 +2,7 @@ package com.example.network
 
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.timeout
@@ -24,13 +24,13 @@ import io.ktor.serialization.kotlinx.json.json
  * the OkHttp engine; per-request timeouts (30s Google / 60s Gemini) mirror the
  * two OkHttp clients that existed before. The Gemini model id, both prompts, the
  * safety settings, and all error messages are copied verbatim — they are product
- * behavior. The engine is injected so a wasm/Js engine can be swapped in later
- * (design §5); [apiKey] is `BuildConfig.GEMINI_API_KEY` today, the generated
- * `Secrets` value after Phase 2.
+ * behavior. Lives in commonMain; the platform injects the [client] (built from a
+ * platform HTTP engine via [translationHttpClient]) — OkHttp on Android, Js on
+ * wasm (design §5). [apiKey] is the Gemini key for the platform.
  */
 class KtorTranslationApi(
     private val apiKey: String,
-    private val client: HttpClient = defaultClient(),
+    private val client: HttpClient,
 ) : TranslationApi {
 
     companion object {
@@ -38,14 +38,6 @@ class KtorTranslationApi(
         private const val GEMINI_PLACEHOLDER_KEY = "MY_GEMINI_API_KEY"
         private const val GOOGLE_TIMEOUT_MS = 30_000L
         private const val GEMINI_TIMEOUT_MS = 60_000L
-
-        fun defaultClient(): HttpClient = HttpClient(OkHttp) {
-            expectSuccess = false
-            install(ContentNegotiation) {
-                json(LenientJson)
-            }
-            install(HttpTimeout)
-        }
     }
 
     override suspend fun translateGoogle(text: String, sourceLang: String, targetLang: String): String {
@@ -144,4 +136,17 @@ class KtorTranslationApi(
             throw Exception("Gemini API key is not configured in the Secrets panel.")
         }
     }
+}
+
+/**
+ * Builds the [HttpClient] used by [KtorTranslationApi] from a platform [engine].
+ * Engine-agnostic (the plugin config is identical across platforms); the concrete
+ * engine — OkHttp on Android, Js on wasm — is supplied by the platform container.
+ */
+fun translationHttpClient(engine: HttpClientEngine): HttpClient = HttpClient(engine) {
+    expectSuccess = false
+    install(ContentNegotiation) {
+        json(LenientJson)
+    }
+    install(HttpTimeout)
 }

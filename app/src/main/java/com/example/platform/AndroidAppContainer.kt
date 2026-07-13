@@ -7,7 +7,9 @@ import com.example.data.TranslationDatabase
 import com.example.data.TranslationHistoryRepository
 import com.example.network.KtorTranslationApi
 import com.example.network.TranslationApi
+import com.example.network.translationHttpClient
 import com.example.speech.TTSHelper
+import io.ktor.client.engine.okhttp.OkHttp
 import com.example.wear.TranslationBroadcaster
 import com.example.wear.WearTranslationBroadcaster
 
@@ -25,7 +27,10 @@ class AndroidAppContainer(
 
     private val appContext = context.applicationContext
 
-    override val api: TranslationApi = KtorTranslationApi(apiKey = BuildConfig.GEMINI_API_KEY)
+    override val api: TranslationApi = KtorTranslationApi(
+        apiKey = BuildConfig.GEMINI_API_KEY,
+        client = translationHttpClient(OkHttp.create()),
+    )
 
     override val historyRepository: TranslationHistoryRepository =
         RoomTranslationHistoryRepository(TranslationDatabase.getDatabase(appContext).translationDao())

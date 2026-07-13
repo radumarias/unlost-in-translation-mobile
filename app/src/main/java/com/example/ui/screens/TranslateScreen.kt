@@ -301,7 +301,8 @@ fun TranslateScreen(
                                     modifier = Modifier.testTag("translated_result_text")
                                 )
 
-                                if (state.roundTripText != null) {
+                                val roundTripText = state.roundTripText
+                                if (roundTripText != null) {
                                     Spacer(modifier = Modifier.height(12.dp))
                                     Card(
                                         modifier = Modifier.fillMaxWidth(),
@@ -315,7 +316,7 @@ fun TranslateScreen(
                                                 Text(text = "Translates back as:", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                             }
                                             Spacer(modifier = Modifier.height(6.dp))
-                                            Text(text = state.roundTripText, fontSize = 14.sp)
+                                            Text(text = roundTripText, fontSize = 14.sp)
                                         }
                                     }
                                 }

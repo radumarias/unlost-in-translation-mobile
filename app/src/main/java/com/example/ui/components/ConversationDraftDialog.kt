@@ -101,10 +101,11 @@ fun ConversationDraftDialog(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    if (draft.roundTripText != null && draft.roundTripText != draft.sourceText) {
+                    val roundTrip = draft.roundTripText
+                    if (roundTrip != null && roundTrip != draft.sourceText) {
                         Text("Translates back as:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(text = draft.roundTripText, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface, fontStyle = FontStyle.Italic)
+                        Text(text = roundTrip, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface, fontStyle = FontStyle.Italic)
                         Spacer(modifier = Modifier.height(12.dp))
                     }
 
@@ -192,7 +193,7 @@ fun ConversationDraftDialog(
     }
 
     if (showDetailsState && draft.validationState is ValidationState.Success) {
-        val vs = draft.validationState
+        val vs = draft.validationState as ValidationState.Success
         Dialog(
             onDismissRequest = { showDetailsState = false },
             properties = DialogProperties(usePlatformDefaultWidth = false)

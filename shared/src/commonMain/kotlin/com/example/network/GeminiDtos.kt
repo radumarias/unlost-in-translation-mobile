@@ -14,7 +14,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 /** Lenient JSON: unknown keys ignored (Gemini/Google add fields we don't model). */
-internal val LenientJson = Json {
+val LenientJson = Json {
     ignoreUnknownKeys = true
     isLenient = true
 }

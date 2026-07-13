@@ -17,35 +17,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-sealed interface TranslationState {
-    object Idle : TranslationState
-    object Loading : TranslationState
-    data class Success(val originalText: String, val translatedText: String, val roundTripText: String? = null) : TranslationState
-    data class Error(val message: String) : TranslationState
-}
-
-data class Suggestion(val tone: String, val text: String)
-
-sealed interface ValidationState {
-    object Idle : ValidationState
-    object Loading : ValidationState
-    data class Success(
-        val isWarning: Boolean,
-        val explanation: String,
-        val suggestions: List<Suggestion>
-    ) : ValidationState
-    data class Error(val message: String) : ValidationState
-}
-
-data class ConversationDraft(
-    val isLanguageA: Boolean,
-    val sourceText: String,
-    val translatedText: String = "",
-    val roundTripText: String? = null,
-    val isTranslating: Boolean = false,
-    val validationState: ValidationState = ValidationState.Idle
-)
-
 class TranslateViewModel(
     private val api: TranslationApi,
     private val repository: TranslationHistoryRepository,
