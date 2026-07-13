@@ -58,7 +58,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.example.BuildConfig
+import com.example.data.RoomTranslationHistoryRepository
+import com.example.data.TranslationDatabase
 import com.example.model.Language
+import com.example.network.KtorTranslationApi
 import com.example.speech.TTSHelper
 import com.example.ui.components.AppTopBar
 import com.example.ui.components.BottomNavBar
@@ -69,10 +75,9 @@ import com.example.ui.screens.ConversationScreen
 import com.example.ui.screens.HistoryScreen
 import com.example.ui.screens.TranslateScreen
 import com.example.ui.theme.MyApplicationTheme
-import com.example.ui.viewmodel.TranslationState
 import com.example.ui.viewmodel.ValidationState
 import com.example.ui.viewmodel.TranslateViewModel
-import com.example.wear.WearSyncManager
+import com.example.wear.WearTranslationBroadcaster
 
 class MainActivity : ComponentActivity() {
     companion object {
@@ -95,8 +100,23 @@ class MainActivity : ComponentActivity() {
 fun MainAppScreen() {
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    val viewModel: TranslateViewModel = viewModel()
-    
+    // Hand-built dependencies for the view model. Replaced by AppContainer in the
+    // task-6 platform-interface pass; a plain ViewModel + factory for now.
+    val appContext = context.applicationContext
+    val viewModel: TranslateViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer {
+                TranslateViewModel(
+                    api = KtorTranslationApi(apiKey = BuildConfig.GEMINI_API_KEY),
+                    repository = RoomTranslationHistoryRepository(
+                        TranslationDatabase.getDatabase(appContext).translationDao()
+                    ),
+                    broadcaster = WearTranslationBroadcaster(appContext),
+                )
+            }
+        }
+    )
+
     // Collect model flows
     val sourceText by viewModel.sourceText.collectAsState()
     val translationState by viewModel.translationState.collectAsState()
@@ -158,9 +178,9 @@ fun MainAppScreen() {
         val dualState = viewModel.dualHeadsetState.value
         if (dualState.isDualHeadsetModeEnabled && isConversationA != null) {
             val userStr = if (isConversationA) "User 1" else "User 2"
-            Toast.makeText(context, "Listening on $userStr's headset...", Toast.LENGTH_SHORT).show()
+            viewModel.showMessage("Listening on $userStr's headset...")
         }
-        
+
         try {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -172,35 +192,24 @@ fun MainAppScreen() {
             }
             speechLauncher.launch(intent)
         } catch (e: Exception) {
-            Toast.makeText(context, "Voice input is not supported on this device.", Toast.LENGTH_SHORT).show()
+            viewModel.showMessage("Voice input is not supported on this device.")
         }
     }
 
-    // Watch sync triggering
-    LaunchedEffect(translationState) {
-        val state = translationState
-        if (state is TranslationState.Success) {
-            WearSyncManager.syncTranslationToWear(
-                context,
-                state.originalText,
-                state.translatedText,
-                sourceLang,
-                targetLang
-            )
-            WearSyncManager.sendWearableNotification(
-                context,
-                state.originalText,
-                state.translatedText,
-                sourceLang,
-                targetLang
-            )
+    // Voice-input status/errors are surfaced as snackbars, driven by the VM's
+    // one-shot message stream (replaces the old Toast calls).
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(Unit) {
+        viewModel.messages.collect { message ->
+            snackbarHostState.showSnackbar(message)
         }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
-            containerColor = MaterialTheme.colorScheme.background
+            containerColor = MaterialTheme.colorScheme.background,
+            snackbarHost = { SnackbarHost(snackbarHostState) }
         ) { innerPadding ->
         Box(
             modifier = Modifier
