@@ -1,0 +1,9 @@
+{
+  "isWarning": true,
+  "explanation": "The literal translation changes the tone; in the target culture this reads as overly blunt.",
+  "suggestions": [
+    { "tone": "Polite", "text": "Could you please help me?" },
+    { "tone": "Casual", "text": "Can you help?" },
+    { "tone": "Direct", "text": "Help me." }
+  ]
+}

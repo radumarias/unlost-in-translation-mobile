@@ -1,17 +1,18 @@
 package com.example.ui.viewmodel
 
-import android.app.Application
 import android.util.Log
-import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.TranslationDao
-import com.example.data.TranslationDatabase
 import com.example.data.TranslationEntity
+import com.example.data.TranslationHistoryRepository
 import com.example.model.Language
-import com.example.network.TranslationService
+import com.example.network.TranslationApi
+import com.example.wear.TranslationBroadcaster
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -45,11 +46,23 @@ data class ConversationDraft(
     val validationState: ValidationState = ValidationState.Idle
 )
 
-class TranslateViewModel(application: Application) : AndroidViewModel(application) {
+class TranslateViewModel(
+    private val api: TranslationApi,
+    private val repository: TranslationHistoryRepository,
+    private val broadcaster: TranslationBroadcaster,
+) : ViewModel() {
     companion object {
         private const val TAG = "TranslateViewModel"
     }
-    private val translationDao: TranslationDao = TranslationDatabase.getDatabase(application).translationDao()
+
+    // One-shot user messages (voice-input status/errors) surfaced as snackbars by
+    // the UI; replaces the Toast calls that used to live in the composable.
+    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    val messages = _messages.asSharedFlow()
+
+    fun showMessage(message: String) {
+        _messages.tryEmit(message)
+    }
 
     // Text inputs and outputs
     private val _sourceText = MutableStateFlow("")
@@ -73,10 +86,10 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
     val isAiEnhanced = _isAiEnhanced.asStateFlow()
 
     // Database entries
-    val history: StateFlow<List<TranslationEntity>> = translationDao.getAllTranslations()
+    val history: StateFlow<List<TranslationEntity>> = repository.allTranslations()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val starred: StateFlow<List<TranslationEntity>> = translationDao.getStarredTranslations()
+    val starred: StateFlow<List<TranslationEntity>> = repository.starredTranslations()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // Conversation Mode States
@@ -180,31 +193,25 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
 
         viewModelScope.launch {
             try {
+                val src = _sourceLanguage.value
+                val trg = _targetLanguage.value
+
                 // 1. Initial translation (Fast)
-                val translated = if (_isAiEnhanced.value) {
-                    TranslationService.translateGemini(
-                        text = text,
-                        sourceLangName = _sourceLanguage.value.name,
-                        targetLangName = _targetLanguage.value.name
-                    )
-                } else {
-                    TranslationService.translateGoogle(
-                        text = text,
-                        sourceLang = _sourceLanguage.value.code,
-                        targetLang = _targetLanguage.value.code
-                    )
-                }
+                val translated = translatePrimary(text, src, trg)
 
                 _translationState.value = TranslationState.Success(text, translated)
                 saveTranslationToDatabase(text, translated)
+                // Platform side-effect (Wear sync + notification) — moved out of the
+                // UI's LaunchedEffect into the VM so the UI owns no platform I/O.
+                broadcaster.broadcast(text, translated, src, trg)
 
                 // 2. Parallel tasks: Round Trip & Validation
                 launch {
                     try {
-                        val roundTrip = TranslationService.translateGoogle(
+                        val roundTrip = api.translateGoogle(
                             text = translated,
-                            sourceLang = _targetLanguage.value.code,
-                            targetLang = _sourceLanguage.value.code
+                            sourceLang = trg.code,
+                            targetLang = src.code
                         )
                         val currentState = _translationState.value
                         if (currentState is TranslationState.Success && currentState.translatedText == translated) {
@@ -216,48 +223,39 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
                 }
 
                 launch {
-                    try {
-                        val json = TranslationService.validateTranslationGemini(
-                            originalText = text,
-                            translatedText = translated,
-                            sourceLangName = _sourceLanguage.value.name,
-                            targetLangName = _targetLanguage.value.name
-                        )
-                        
-                        val isWarning = json.optBoolean("isWarning", false)
-                        val explanation = json.optString("explanation", "")
-                        val suggestionsList = mutableListOf<Suggestion>()
-                        val suggestionsArray = json.optJSONArray("suggestions")
-                        if (suggestionsArray != null) {
-                            for (i in 0 until suggestionsArray.length()) {
-                                val sugObj = suggestionsArray.optJSONObject(i)
-                                if (sugObj != null) {
-                                    val tone = sugObj.optString("tone", "Alternative")
-                                    val text = sugObj.optString("text", "")
-                                    if (text.isNotBlank()) {
-                                        suggestionsList.add(Suggestion(tone, text))
-                                    }
-                                } else {
-                                    // Fallback if it's a plain string
-                                    val plainString = suggestionsArray.optString(i)
-                                    if (plainString.isNotBlank()) {
-                                        suggestionsList.add(Suggestion("Alternative", plainString))
-                                    }
-                                }
-                            }
-                        }
-
-                        _validationState.value = ValidationState.Success(isWarning, explanation, suggestionsList)
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Validation exception", e)
-                        _validationState.value = ValidationState.Error("Validation failed: ${e.message}")
-                    }
+                    _validationState.value = runValidation(text, translated, src.name, trg.name)
                 }
 
             } catch (e: Exception) {
                 _translationState.value = TranslationState.Error(e.message ?: "Failed to perform translation")
             }
         }
+    }
+
+    /** Primary translation call, honouring the AI-Enhanced (Gemini vs Google) toggle. */
+    private suspend fun translatePrimary(text: String, source: Language, target: Language): String =
+        if (_isAiEnhanced.value) {
+            api.translateGemini(text, source.name, target.name)
+        } else {
+            api.translateGoogle(text, source.code, target.code)
+        }
+
+    /**
+     * Cultural validation shared by the translate and conversation-draft pipelines.
+     * Returns [ValidationState.Success] or, on failure, [ValidationState.Error]
+     * with the same "Validation failed: …" message as before.
+     */
+    private suspend fun runValidation(
+        originalText: String,
+        translatedText: String,
+        sourceLangName: String,
+        targetLangName: String,
+    ): ValidationState = try {
+        val result = api.validateTranslation(originalText, translatedText, sourceLangName, targetLangName)
+        ValidationState.Success(result.isWarning, result.explanation, result.suggestions)
+    } catch (e: Exception) {
+        Log.e(TAG, "Validation exception", e)
+        ValidationState.Error("Validation failed: ${e.message}")
     }
 
     private suspend fun saveTranslationToDatabase(original: String, translated: String) {
@@ -270,7 +268,7 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
                 targetLangCode = _targetLanguage.value.code,
                 targetLangName = _targetLanguage.value.name
             )
-            translationDao.insertTranslation(entity)
+            repository.insert(entity)
         } catch (e: Exception) {
             Log.e(TAG, "Failed saving translation to database: ", e)
         }
@@ -278,19 +276,19 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun toggleStarred(translation: TranslationEntity) {
         viewModelScope.launch {
-            translationDao.updateStarredState(translation.id, !translation.isStarred)
+            repository.setStarred(translation.id, !translation.isStarred)
         }
     }
 
     fun deleteHistoricalItem(id: Long) {
         viewModelScope.launch {
-            translationDao.deleteById(id)
+            repository.deleteById(id)
         }
     }
 
     fun clearHistory() {
         viewModelScope.launch {
-            translationDao.clearHistory()
+            repository.clearHistory()
         }
     }
 
@@ -324,11 +322,11 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
                 val targetLangCode = if (isLanguageA) _targetLanguage.value.code else _sourceLanguage.value.code
 
                 val translation = if (_isAiEnhanced.value) {
-                    TranslationService.translateGemini(text, sourceLangName, targetLangName)
+                    api.translateGemini(text, sourceLangName, targetLangName)
                 } else {
-                    TranslationService.translateGoogle(text, sourceLangCode, targetLangCode)
+                    api.translateGoogle(text, sourceLangCode, targetLangCode)
                 }
-                
+
                 _conversationDraft.value = _conversationDraft.value?.copy(
                     translatedText = translation,
                     isTranslating = false
@@ -337,42 +335,16 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
                 // Parallel: round trip and cultural validation
                 launch {
                     try {
-                        val roundTrip = TranslationService.translateGoogle(translation, targetLangCode, sourceLangCode)
+                        val roundTrip = api.translateGoogle(translation, targetLangCode, sourceLangCode)
                         _conversationDraft.value = _conversationDraft.value?.copy(roundTripText = roundTrip)
                     } catch (e: Exception) {
                         Log.e(TAG, "Draft round trip exception", e)
                     }
                 }
-                
+
                 launch {
-                    try {
-                        val json = TranslationService.validateTranslationGemini(
-                            originalText = text,
-                            translatedText = translation,
-                            sourceLangName = sourceLangName,
-                            targetLangName = targetLangName
-                        )
-                        val isWarning = json.optBoolean("isWarning", false)
-                        val explanation = json.optString("explanation", "")
-                        val suggestionsList = mutableListOf<Suggestion>()
-                        val suggestionsArray = json.optJSONArray("suggestions")
-                        if (suggestionsArray != null) {
-                            for (i in 0 until suggestionsArray.length()) {
-                                val sugObj = suggestionsArray.optJSONObject(i)
-                                if (sugObj != null) {
-                                    suggestionsList.add(Suggestion(sugObj.optString("tone", "Alternative"), sugObj.optString("text", "")))
-                                } else {
-                                    suggestionsList.add(Suggestion("Alternative", suggestionsArray.optString(i)))
-                                }
-                            }
-                        }
-                        _conversationDraft.value = _conversationDraft.value?.copy(
-                            validationState = ValidationState.Success(isWarning, explanation, suggestionsList.filter { it.text.isNotBlank() })
-                        )
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Draft validation exception", e)
-                        _conversationDraft.value = _conversationDraft.value?.copy(validationState = ValidationState.Error("Validation failed: ${e.message}"))
-                    }
+                    val validation = runValidation(text, translation, sourceLangName, targetLangName)
+                    _conversationDraft.value = _conversationDraft.value?.copy(validationState = validation)
                 }
 
             } catch (e: Exception) {
