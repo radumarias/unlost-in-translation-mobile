@@ -7,9 +7,10 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.TranslationDao
 import com.example.data.TranslationDatabase
 import com.example.data.TranslationEntity
+import com.example.BuildConfig
 import com.example.model.Language
-import com.example.network.TranslationParsers
-import com.example.network.TranslationService
+import com.example.network.KtorTranslationApi
+import com.example.network.TranslationApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +52,10 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
         private const val TAG = "TranslateViewModel"
     }
     private val translationDao: TranslationDao = TranslationDatabase.getDatabase(application).translationDao()
+
+    // Translation backend. Instantiated here for now; constructor-injected in the
+    // task-5 view-model refactor (design §4).
+    private val api: TranslationApi = KtorTranslationApi(apiKey = BuildConfig.GEMINI_API_KEY)
 
     // Text inputs and outputs
     private val _sourceText = MutableStateFlow("")
@@ -183,13 +188,13 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
             try {
                 // 1. Initial translation (Fast)
                 val translated = if (_isAiEnhanced.value) {
-                    TranslationService.translateGemini(
+                    api.translateGemini(
                         text = text,
                         sourceLangName = _sourceLanguage.value.name,
                         targetLangName = _targetLanguage.value.name
                     )
                 } else {
-                    TranslationService.translateGoogle(
+                    api.translateGoogle(
                         text = text,
                         sourceLang = _sourceLanguage.value.code,
                         targetLang = _targetLanguage.value.code
@@ -202,7 +207,7 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
                 // 2. Parallel tasks: Round Trip & Validation
                 launch {
                     try {
-                        val roundTrip = TranslationService.translateGoogle(
+                        val roundTrip = api.translateGoogle(
                             text = translated,
                             sourceLang = _targetLanguage.value.code,
                             targetLang = _sourceLanguage.value.code
@@ -218,17 +223,14 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
 
                 launch {
                     try {
-                        val json = TranslationService.validateTranslationGemini(
+                        val result = api.validateTranslation(
                             originalText = text,
                             translatedText = translated,
                             sourceLangName = _sourceLanguage.value.name,
                             targetLangName = _targetLanguage.value.name
                         )
-                        
-                        val parsed = TranslationParsers.parseValidation(json)
-                        val suggestionsList = parsed.suggestions.map { Suggestion(it.tone, it.text) }
 
-                        _validationState.value = ValidationState.Success(parsed.isWarning, parsed.explanation, suggestionsList)
+                        _validationState.value = ValidationState.Success(result.isWarning, result.explanation, result.suggestions)
                     } catch (e: Exception) {
                         Log.e(TAG, "Validation exception", e)
                         _validationState.value = ValidationState.Error("Validation failed: ${e.message}")
@@ -305,9 +307,9 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
                 val targetLangCode = if (isLanguageA) _targetLanguage.value.code else _sourceLanguage.value.code
 
                 val translation = if (_isAiEnhanced.value) {
-                    TranslationService.translateGemini(text, sourceLangName, targetLangName)
+                    api.translateGemini(text, sourceLangName, targetLangName)
                 } else {
-                    TranslationService.translateGoogle(text, sourceLangCode, targetLangCode)
+                    api.translateGoogle(text, sourceLangCode, targetLangCode)
                 }
                 
                 _conversationDraft.value = _conversationDraft.value?.copy(
@@ -318,7 +320,7 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
                 // Parallel: round trip and cultural validation
                 launch {
                     try {
-                        val roundTrip = TranslationService.translateGoogle(translation, targetLangCode, sourceLangCode)
+                        val roundTrip = api.translateGoogle(translation, targetLangCode, sourceLangCode)
                         _conversationDraft.value = _conversationDraft.value?.copy(roundTripText = roundTrip)
                     } catch (e: Exception) {
                         Log.e(TAG, "Draft round trip exception", e)
@@ -327,16 +329,14 @@ class TranslateViewModel(application: Application) : AndroidViewModel(applicatio
                 
                 launch {
                     try {
-                        val json = TranslationService.validateTranslationGemini(
+                        val result = api.validateTranslation(
                             originalText = text,
                             translatedText = translation,
                             sourceLangName = sourceLangName,
                             targetLangName = targetLangName
                         )
-                        val parsed = TranslationParsers.parseValidation(json)
-                        val suggestionsList = parsed.suggestions.map { Suggestion(it.tone, it.text) }
                         _conversationDraft.value = _conversationDraft.value?.copy(
-                            validationState = ValidationState.Success(parsed.isWarning, parsed.explanation, suggestionsList)
+                            validationState = ValidationState.Success(result.isWarning, result.explanation, result.suggestions)
                         )
                     } catch (e: Exception) {
                         Log.e(TAG, "Draft validation exception", e)

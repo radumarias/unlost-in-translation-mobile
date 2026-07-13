@@ -1,7 +1,9 @@
 package com.example.wear
 
 import android.util.Log
-import com.example.network.TranslationService
+import com.example.BuildConfig
+import com.example.network.KtorTranslationApi
+import com.example.network.TranslationApi
 import com.google.android.gms.wearable.MessageEvent
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
@@ -16,6 +18,9 @@ class WearTranslationService : WearableListenerService() {
         private const val TAG = "WearTranslationService"
     }
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // Google-only path from the watch (design §9); the Gemini key is unused here.
+    private val api: TranslationApi = KtorTranslationApi(apiKey = BuildConfig.GEMINI_API_KEY)
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
         super.onMessageReceived(messageEvent)
@@ -35,7 +40,7 @@ class WearTranslationService : WearableListenerService() {
 
                     if (text.isNotBlank()) {
                         // Deliver translation
-                        val translated = TranslationService.translateGoogle(text, sourceLang, targetLang)
+                        val translated = api.translateGoogle(text, sourceLang, targetLang)
                         
                         // Send response back to the wear device
                         val messageClient = Wearable.getMessageClient(applicationContext)
