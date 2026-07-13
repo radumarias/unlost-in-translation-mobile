@@ -8,7 +8,7 @@ Android translation app (Kotlin + Jetpack Compose, Material 3) exported from Goo
 
 ## Build & Test Commands
 
-There is **no Gradle wrapper** (`gradlew`) committed. Either open the project in Android Studio, or generate one first with a locally installed Gradle (`gradle wrapper`). Commands below assume the wrapper exists; substitute `gradle` otherwise.
+The Gradle wrapper (`gradlew`, pinned to Gradle 9.3.1) is committed — run all commands through it. On first run it downloads the distribution (checksum-verified via `distributionSha256Sum`).
 
 ```bash
 ./gradlew :app:assembleDebug              # build debug APK
@@ -20,7 +20,7 @@ There is **no Gradle wrapper** (`gradlew`) committed. Either open the project in
 ```
 
 - Unit tests run with Robolectric (`@Config(sdk = [36])`, Android resources enabled). Roborazzi screenshot references live in `app/src/test/screenshots/`.
-- Toolchain: AGP 9.1.1, Kotlin 2.2.10, KSP (Room + Moshi codegen), Java 11, compileSdk/targetSdk 36, minSdk 24. Versions are centralized in `gradle/libs.versions.toml`.
+- Toolchain: Gradle 9.3.1 (wrapper), AGP 9.1.1, Kotlin 2.2.10, KSP (Room + Moshi codegen), Java 11, compileSdk/targetSdk 36, minSdk 24. Versions are centralized in `gradle/libs.versions.toml`.
 
 ## Local Setup (from README)
 

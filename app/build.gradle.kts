@@ -65,6 +65,13 @@ secrets {
   defaultPropertiesFileName = ".env.example"
 }
 
+// Roborazzi screenshot references are committed under src/test/screenshots/
+// (see CLAUDE.md) so recordRoborazziDebug / verifyRoborazziDebug operate on
+// the versioned baselines rather than the transient build/ output dir.
+roborazzi {
+  outputDir.set(file("src/test/screenshots"))
+}
+
 // Some unused dependencies are commented out below instead of being removed.
 // This makes it easy to add them back in the future if needed.
 dependencies {

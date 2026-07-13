@@ -1,0 +1,6 @@
+# Gradle wrapper: the POSIX launcher must stay LF, the Windows one CRLF.
+gradlew            text eol=lf
+gradlew.bat        text eol=crlf
+*.jar              binary
+*.keystore         binary
+*.jks              binary
