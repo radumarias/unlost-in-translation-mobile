@@ -59,6 +59,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.model.Language
 import com.example.speech.TTSHelper
+import com.example.ui.components.LanguagePickerDialog
 import com.example.ui.theme.MyApplicationTheme
 import com.example.ui.viewmodel.TranslationState
 import com.example.ui.viewmodel.ValidationState
@@ -1494,111 +1495,6 @@ fun MainAppScreen() {
                     }
                 }
             }
-            }
-        }
-    }
-}
-
-@Composable
-fun LanguagePickerDialog(
-    title: String,
-    currentlySelected: Language,
-    onDismiss: () -> Unit,
-    onSelect: (Language) -> Unit
-) {
-    var searchQuery by remember { mutableStateOf("") }
-    val filteredLanguages = remember(searchQuery) {
-        if (searchQuery.isBlank()) {
-            Language.supportedLanguages
-        } else {
-            Language.supportedLanguages.filter {
-                it.name.contains(searchQuery, ignoreCase = true) ||
-                it.code.contains(searchQuery, ignoreCase = true)
-            }
-        }
-    }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .fillMaxHeight(0.8f)
-                .testTag("language_picker_dialog"),
-            shape = RoundedCornerShape(24.dp)
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(20.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = title,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close Picker", modifier = Modifier.size(20.dp))
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search language...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(18.dp)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
-                    singleLine = true
-                )
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                LazyColumn(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    items(filteredLanguages) { lang ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(
-                                    if (currentlySelected.code == lang.code) {
-                                        MaterialTheme.colorScheme.primaryContainer
-                                    } else {
-                                        Color.Transparent
-                                    }
-                                )
-                                .clickable { onSelect(lang) }
-                                .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = lang.flag, fontSize = 22.sp)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Text(
-                                text = lang.name,
-                                fontSize = 16.sp,
-                                fontWeight = if (currentlySelected.code == lang.code) FontWeight.Bold else FontWeight.Normal,
-                                color = if (currentlySelected.code == lang.code) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
-                            )
-                            Spacer(modifier = Modifier.weight(1f))
-                            if (currentlySelected.code == lang.code) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Selected",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-                    }
-                }
             }
         }
     }
