@@ -58,7 +58,6 @@ val generateSecrets by tasks.registering {
 }
 
 kotlin {
-  // Phase 2: Android target only. wasmJs is added in Phase 3.
   @Suppress("UnstableApiUsage")
   android {
     namespace = "com.example.shared"
@@ -67,6 +66,13 @@ kotlin {
     // Opt into the host-side (JVM) unit-test compilation so commonTest is wired
     // to a real target and runs via :shared:testAndroidHostTest.
     withHostTest {}
+  }
+
+  // Phase 3: web target. The browser() runner drives :webApp; the module itself
+  // exposes commonMain + wasmJsMain to the web build.
+  @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+  wasmJs {
+    browser()
   }
 
   sourceSets {
@@ -84,6 +90,10 @@ kotlin {
       implementation(libs.ktor.client.okhttp)
       implementation(libs.androidx.room.runtime)
       implementation(libs.androidx.room.ktx)
+    }
+    wasmJsMain.dependencies {
+      implementation(libs.ktor.client.js)
+      implementation(libs.kotlinx.browser)
     }
     commonTest.dependencies {
       implementation(libs.kotlin.test)
