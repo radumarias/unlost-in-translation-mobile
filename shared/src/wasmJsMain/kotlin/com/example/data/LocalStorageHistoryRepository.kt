@@ -1,6 +1,7 @@
 package com.example.data
 
 import com.example.model.Translation
+import com.example.model.TranslationSerializer
 import com.example.platform.AppLog
 import kotlinx.browser.localStorage
 import kotlinx.coroutines.flow.Flow
@@ -32,7 +33,7 @@ class LocalStorageHistoryRepository(
     }
 
     private val json = Json { ignoreUnknownKeys = true }
-    private val listSerializer = ListSerializer(Translation.serializer())
+    private val listSerializer = ListSerializer(TranslationSerializer)
 
     // Source of truth. Kept sorted newest-first so the flows can map directly.
     private val state = MutableStateFlow(load())
