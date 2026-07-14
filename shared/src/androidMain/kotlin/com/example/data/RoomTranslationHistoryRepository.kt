@@ -6,8 +6,8 @@ import kotlinx.coroutines.flow.map
 
 /**
  * Room-backed [TranslationHistoryRepository]. Maps the Room [TranslationEntity]
- * to/from the shared domain [Translation]. Stays in :app until the Room layer
- * moves to shared/androidMain.
+ * to/from the shared domain [Translation]. Lives in shared/androidMain alongside
+ * the Room layer.
  */
 class RoomTranslationHistoryRepository(
     private val dao: TranslationDao,
