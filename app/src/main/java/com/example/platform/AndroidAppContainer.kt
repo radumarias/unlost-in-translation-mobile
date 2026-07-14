@@ -1,7 +1,7 @@
 package com.example.platform
 
 import android.content.Context
-import com.example.BuildConfig
+import com.example.AppSecrets
 import com.example.data.RoomTranslationHistoryRepository
 import com.example.data.TranslationDatabase
 import com.example.data.TranslationHistoryRepository
@@ -28,7 +28,7 @@ class AndroidAppContainer(
     private val appContext = context.applicationContext
 
     override val api: TranslationApi = KtorTranslationApi(
-        apiKey = BuildConfig.GEMINI_API_KEY,
+        apiKey = AppSecrets.geminiApiKey,
         client = translationHttpClient(OkHttp.create()),
     )
 

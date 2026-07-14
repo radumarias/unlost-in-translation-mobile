@@ -1,35 +1,35 @@
 package com.example.model
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /**
  * Locks `Language.getByCode` lookup + fallback and the language-tag values used
  * at the TTS / speech-recognition boundary (Phase 1 tasks 2-3). Pure Kotlin, no
- * Android dependency.
+ * Android dependency — lives in commonTest.
  */
 class LanguageTest {
 
     @Test
-    fun `getByCode returns the matching language`() {
+    fun getByCode_returns_the_matching_language() {
         val ro = Language.getByCode("ro")
         assertEquals("Romanian", ro.name)
         assertEquals("ro-RO", ro.languageTag)
     }
 
     @Test
-    fun `getByCode falls back to English for unknown code`() {
+    fun getByCode_falls_back_to_English_for_unknown_code() {
         val fallback = Language.getByCode("xx")
         assertEquals("en", fallback.code)
         assertEquals("en-US", fallback.languageTag)
     }
 
     @Test
-    fun `all supported languages carry a BCP47 language tag`() {
+    fun all_supported_languages_carry_a_BCP47_language_tag() {
         assertEquals(16, Language.supportedLanguages.size)
         Language.supportedLanguages.forEach { lang ->
-            assertTrue("${lang.code} tag missing region", lang.languageTag.contains("-"))
+            assertTrue(lang.languageTag.contains("-"), "${lang.code} tag missing region")
         }
     }
 }

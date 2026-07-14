@@ -1,7 +1,7 @@
 package com.example.wear
 
 import android.util.Log
-import com.example.BuildConfig
+import com.example.AppSecrets
 import com.example.network.KtorTranslationApi
 import com.example.network.TranslationApi
 import com.example.network.translationHttpClient
@@ -23,7 +23,7 @@ class WearTranslationService : WearableListenerService() {
 
     // Google-only path from the watch (design §9); the Gemini key is unused here.
     private val api: TranslationApi = KtorTranslationApi(
-        apiKey = BuildConfig.GEMINI_API_KEY,
+        apiKey = AppSecrets.geminiApiKey,
         client = translationHttpClient(OkHttp.create()),
     )
 
