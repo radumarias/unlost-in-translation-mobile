@@ -2,7 +2,6 @@ plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
   alias(libs.plugins.roborazzi)
-  alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -94,11 +93,11 @@ dependencies {
   // implementation(libs.firebase.ai)
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
-  implementation(libs.kotlinx.serialization.json)
-  implementation(libs.ktor.client.core)
+  // Only the OkHttp engine is referenced directly (AndroidAppContainer /
+  // WearTranslationService build it); ktor-core, content-negotiation, the JSON
+  // serializer, and kotlinx.serialization itself are used inside :shared and
+  // reach the app at runtime transitively.
   implementation(libs.ktor.client.okhttp)
-  implementation(libs.ktor.client.content.negotiation)
-  implementation(libs.ktor.serialization.kotlinx.json)
   // implementation(libs.play.services.location)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
