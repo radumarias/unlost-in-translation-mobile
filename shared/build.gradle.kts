@@ -3,6 +3,8 @@ plugins {
   alias(libs.plugins.android.kotlin.multiplatform.library)
   alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.google.devtools.ksp)
+  alias(libs.plugins.compose.multiplatform)
+  alias(libs.plugins.kotlin.compose)
 }
 
 // --- Secrets codegen (design §6) ---
@@ -84,6 +86,13 @@ kotlin {
         implementation(libs.ktor.client.core)
         implementation(libs.ktor.client.content.negotiation)
         implementation(libs.ktor.serialization.kotlinx.json)
+        // Compose Multiplatform (design §1: shared UI in commonMain). Provided by
+        // the compose-multiplatform plugin's `compose` extension, not the catalog.
+        implementation(compose.runtime)
+        implementation(compose.foundation)
+        implementation(compose.material3)
+        implementation(compose.materialIconsExtended)
+        implementation(compose.ui)
       }
     }
     androidMain.dependencies {
