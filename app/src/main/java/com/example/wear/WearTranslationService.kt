@@ -1,10 +1,12 @@
 package com.example.wear
 
 import android.util.Log
-import com.example.BuildConfig
+import com.example.AppSecrets
 import com.example.network.KtorTranslationApi
 import com.example.network.TranslationApi
+import com.example.network.translationHttpClient
 import com.google.android.gms.wearable.MessageEvent
+import io.ktor.client.engine.okhttp.OkHttp
 import com.google.android.gms.wearable.Wearable
 import com.google.android.gms.wearable.WearableListenerService
 import kotlinx.coroutines.CoroutineScope
@@ -20,7 +22,10 @@ class WearTranslationService : WearableListenerService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     // Google-only path from the watch (design §9); the Gemini key is unused here.
-    private val api: TranslationApi = KtorTranslationApi(apiKey = BuildConfig.GEMINI_API_KEY)
+    private val api: TranslationApi = KtorTranslationApi(
+        apiKey = AppSecrets.geminiApiKey,
+        client = translationHttpClient(OkHttp.create()),
+    )
 
     override fun onMessageReceived(messageEvent: MessageEvent) {
         super.onMessageReceived(messageEvent)

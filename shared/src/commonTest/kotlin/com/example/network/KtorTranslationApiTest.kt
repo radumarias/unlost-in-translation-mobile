@@ -5,21 +5,22 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
-import io.ktor.http.HttpHeaders
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Assert.fail
-import org.junit.Test
+import kotlinx.serialization.json.JsonPrimitive
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.test.fail
 
 /**
  * End-to-end tests for [KtorTranslationApi] using Ktor's MockEngine — no real
  * network. Verifies request/response wiring, the preserved error messages, and
- * the API-key guard (Phase 1 task 4).
+ * the API-key guard (Phase 1 task 4). Common code, so lives in commonTest.
  */
 class KtorTranslationApiTest {
 
@@ -40,18 +41,18 @@ class KtorTranslationApiTest {
     }
 
     private fun geminiTextResponse(text: String): String {
-        val escaped = LenientJson.encodeToString(kotlinx.serialization.json.JsonPrimitive.serializer(), kotlinx.serialization.json.JsonPrimitive(text))
+        val escaped = LenientJson.encodeToString(JsonPrimitive.serializer(), JsonPrimitive(text))
         return """{"candidates":[{"content":{"parts":[{"text":$escaped}]}}]}"""
     }
 
     @Test
-    fun `translateGoogle parses body`() = runTest {
+    fun translateGoogle_parses_body() = runTest {
         val api = apiReturning(HttpStatusCode.OK, "[[[\"Hola\",\"Hello\",null,null,10]],null,\"en\"]")
         assertEquals("Hola", api.translateGoogle("Hello", "en", "es"))
     }
 
     @Test
-    fun `translateGoogle url-encodes the query and sets params`() = runTest {
+    fun translateGoogle_url_encodes_the_query_and_sets_params() = runTest {
         var capturedUrl = ""
         val engine = MockEngine { request ->
             capturedUrl = request.url.toString()
@@ -68,24 +69,24 @@ class KtorTranslationApiTest {
         }
         KtorTranslationApi(apiKey = "k", client = client).translateGoogle("a & b?", "en", "es")
 
-        assertTrue(capturedUrl, capturedUrl.contains("client=gtx"))
-        assertTrue(capturedUrl, capturedUrl.contains("sl=en"))
-        assertTrue(capturedUrl, capturedUrl.contains("tl=es"))
-        assertTrue(capturedUrl, capturedUrl.contains("dt=t"))
+        assertTrue(capturedUrl.contains("client=gtx"), capturedUrl)
+        assertTrue(capturedUrl.contains("sl=en"), capturedUrl)
+        assertTrue(capturedUrl.contains("tl=es"), capturedUrl)
+        assertTrue(capturedUrl.contains("dt=t"), capturedUrl)
         // raw '&' / '?' from the text must be percent-encoded, not injected as
         // extra query delimiters
-        assertTrue(capturedUrl, capturedUrl.contains("q=a"))
-        assertFalse("raw ampersand leaked into query: $capturedUrl", capturedUrl.contains("b?"))
+        assertTrue(capturedUrl.contains("q=a"), capturedUrl)
+        assertFalse(capturedUrl.contains("b?"), "raw ampersand leaked into query: $capturedUrl")
     }
 
     @Test
-    fun `translateGoogle blank text short-circuits`() = runTest {
+    fun translateGoogle_blank_text_short_circuits() = runTest {
         val api = apiReturning(HttpStatusCode.OK, "unused")
         assertEquals("", api.translateGoogle("   ", "en", "es"))
     }
 
     @Test
-    fun `translateGoogle non-2xx preserves HTTP error message`() = runTest {
+    fun translateGoogle_non_2xx_preserves_HTTP_error_message() = runTest {
         val api = apiReturning(HttpStatusCode.BadGateway, "nope")
         try {
             api.translateGoogle("Hello", "en", "es")
@@ -96,13 +97,13 @@ class KtorTranslationApiTest {
     }
 
     @Test
-    fun `translateGemini trims text`() = runTest {
+    fun translateGemini_trims_text() = runTest {
         val api = apiReturning(HttpStatusCode.OK, geminiTextResponse("  Hola  "))
         assertEquals("Hola", api.translateGemini("Hello", "English", "Spanish"))
     }
 
     @Test
-    fun `translateGemini server error includes status and body`() = runTest {
+    fun translateGemini_server_error_includes_status_and_body() = runTest {
         val api = apiReturning(HttpStatusCode.InternalServerError, "boom")
         try {
             api.translateGemini("Hello", "English", "Spanish")
@@ -114,7 +115,7 @@ class KtorTranslationApiTest {
     }
 
     @Test
-    fun `gemini paths reject placeholder key before any request`() = runTest {
+    fun gemini_paths_reject_placeholder_key_before_any_request() = runTest {
         val api = apiReturning(HttpStatusCode.OK, "unused", apiKey = "MY_GEMINI_API_KEY")
         try {
             api.translateGemini("Hello", "English", "Spanish")
@@ -125,7 +126,7 @@ class KtorTranslationApiTest {
     }
 
     @Test
-    fun `validateTranslation parses fenced json body`() = runTest {
+    fun validateTranslation_parses_fenced_json_body() = runTest {
         val inner = "```json\n{\"isWarning\":true,\"explanation\":\"careful\",\"suggestions\":[{\"tone\":\"Polite\",\"text\":\"Please help\"}]}\n```"
         val api = apiReturning(HttpStatusCode.OK, geminiTextResponse(inner))
         val result = api.validateTranslation("Hi", "Hola", "English", "Spanish")

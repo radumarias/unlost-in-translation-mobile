@@ -39,8 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.data.TranslationEntity
 import com.example.model.Language
+import com.example.model.Translation
 
 /**
  * History / Saved list view. Extracted verbatim from MainAppScreen's non-translate
@@ -55,13 +55,13 @@ import com.example.model.Language
 @Composable
 fun HistoryScreen(
     tab: String,
-    items: List<TranslationEntity>,
+    items: List<Translation>,
     showClearAll: Boolean,
     onClearAll: () -> Unit,
-    onOpenItem: (TranslationEntity) -> Unit,
-    onDeleteItem: (TranslationEntity) -> Unit,
-    onSpeak: (TranslationEntity) -> Unit,
-    onToggleStar: (TranslationEntity) -> Unit,
+    onOpenItem: (Translation) -> Unit,
+    onDeleteItem: (Translation) -> Unit,
+    onSpeak: (Translation) -> Unit,
+    onToggleStar: (Translation) -> Unit,
 ) {
     Column(
         modifier = Modifier.fillMaxSize()

@@ -1,7 +1,0 @@
-```json
-{
-  "isWarning": false,
-  "explanation": "Looks good.",
-  "suggestions": []
-}
-```
