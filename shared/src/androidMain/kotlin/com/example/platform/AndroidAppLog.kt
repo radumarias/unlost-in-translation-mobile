@@ -1,6 +1,6 @@
 package com.example.platform
 
-/** Android [AppLog] backed by `android.util.Log`. Moves to shared/androidMain in task 6. */
+/** Android [AppLog] backed by `android.util.Log`. */
 class AndroidAppLog : AppLog {
     override fun d(tag: String, message: String) {
         android.util.Log.d(tag, message)

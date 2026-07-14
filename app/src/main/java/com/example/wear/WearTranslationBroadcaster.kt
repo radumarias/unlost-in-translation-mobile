@@ -5,7 +5,9 @@ import com.example.model.Language
 
 /**
  * Android [TranslationBroadcaster]: delegates to [WearSyncManager] (Data +
- * notification). Moves to shared/androidMain in task 6.
+ * notification). Stays in :app for Phase 2 because [WearSyncManager] references
+ * the app's MainActivity + R; it moves to :shared behind a DI abstraction in
+ * Phase 3.
  */
 class WearTranslationBroadcaster(
     private val context: Context,
