@@ -93,10 +93,12 @@ kotlin {
         implementation(compose.material3)
         implementation(compose.materialIconsExtended)
         implementation(compose.ui)
-        // Multiplatform ViewModel (design §3: shared TranslateViewModel). Epoch
-        // millis that used System.currentTimeMillis() now come from the stdlib
-        // kotlin.time.Clock (no extra dependency).
+        // Multiplatform ViewModel (design §3: shared TranslateViewModel) + the
+        // compose `viewModel {}` factory used by App.kt. Epoch millis that used
+        // System.currentTimeMillis() now come from the stdlib kotlin.time.Clock
+        // (no extra dependency).
         implementation(libs.androidx.lifecycle.viewmodel)
+        implementation(libs.androidx.lifecycle.viewmodel.compose.kmp)
       }
     }
     androidMain.dependencies {
