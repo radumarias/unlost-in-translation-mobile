@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Mic
@@ -25,6 +26,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,6 +63,8 @@ fun ConversationScreen(
     targetLang: Language,
     speechSynthesizer: SpeechSynthesizer,
     audioOutputCatalog: AudioOutputCatalog,
+    showVoiceInput: Boolean,
+    showDualHeadset: Boolean,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
 ) {
     val conversationHistory by viewModel.conversationHistory.collectAsState()
@@ -86,22 +90,25 @@ fun ConversationScreen(
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(modifier = Modifier.weight(1f))
-            val dualHeadsetState by viewModel.dualHeadsetState.collectAsState()
-            var showDualHeadsetSetup by remember { mutableStateOf(false) }
-            IconButton(onClick = { showDualHeadsetSetup = true }) {
-                Icon(
-                    Icons.Default.Headphones,
-                    contentDescription = "Dual Headset Setup",
-                    tint = if (dualHeadsetState.isDualHeadsetModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            // Dual-headset entry is Android-only (design §8 capability gating); hidden on web.
+            if (showDualHeadset) {
+                val dualHeadsetState by viewModel.dualHeadsetState.collectAsState()
+                var showDualHeadsetSetup by remember { mutableStateOf(false) }
+                IconButton(onClick = { showDualHeadsetSetup = true }) {
+                    Icon(
+                        Icons.Default.Headphones,
+                        contentDescription = "Dual Headset Setup",
+                        tint = if (dualHeadsetState.isDualHeadsetModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
-            if (showDualHeadsetSetup) {
-                DualHeadsetSetupDialog(
-                    viewModel = viewModel,
-                    catalog = audioOutputCatalog,
-                    onDismiss = { showDualHeadsetSetup = false }
-                )
+                if (showDualHeadsetSetup) {
+                    DualHeadsetSetupDialog(
+                        viewModel = viewModel,
+                        catalog = audioOutputCatalog,
+                        onDismiss = { showDualHeadsetSetup = false }
+                    )
+                }
             }
         }
 
@@ -181,37 +188,62 @@ fun ConversationScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Speaker A (Source)
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Speaker A (Source). Mic FAB when voice input is available; a typed
+                // input field otherwise (web MVP: plan §7 Phase 3 acceptance —
+                // "conversation mode works via typed input"). Both feed the same
+                // prepareConversationPart → draft-confirmation flow.
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = if (showVoiceInput) Modifier else Modifier.weight(1f).padding(horizontal = 8.dp)
+                ) {
                     Text(
                         text = sourceLang.name + " " + sourceLang.flag,
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    FloatingActionButton(
-                        onClick = { launchVoiceInput(true, sourceLang) },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.testTag("mic_party_a")
-                    ) {
-                        Icon(Icons.Default.Mic, contentDescription = "Mic A")
+                    if (showVoiceInput) {
+                        FloatingActionButton(
+                            onClick = { launchVoiceInput(true, sourceLang) },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.testTag("mic_party_a")
+                        ) {
+                            Icon(Icons.Default.Mic, contentDescription = "Mic A")
+                        }
+                    } else {
+                        ConversationTypedInput(
+                            languageName = sourceLang.name,
+                            testTag = "typed_input_party_a",
+                            onSubmit = { viewModel.prepareConversationPart(it, isLanguageA = true) }
+                        )
                     }
                 }
 
                 // Speaker B (Target)
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = if (showVoiceInput) Modifier else Modifier.weight(1f).padding(horizontal = 8.dp)
+                ) {
                     Text(
                         text = targetLang.name + " " + targetLang.flag,
                         fontWeight = FontWeight.Medium,
                         fontSize = 14.sp
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    FloatingActionButton(
-                        onClick = { launchVoiceInput(false, targetLang) },
-                        containerColor = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.testTag("mic_party_b")
-                    ) {
-                        Icon(Icons.Default.Mic, contentDescription = "Mic B")
+                    if (showVoiceInput) {
+                        FloatingActionButton(
+                            onClick = { launchVoiceInput(false, targetLang) },
+                            containerColor = MaterialTheme.colorScheme.secondary,
+                            modifier = Modifier.testTag("mic_party_b")
+                        ) {
+                            Icon(Icons.Default.Mic, contentDescription = "Mic B")
+                        }
+                    } else {
+                        ConversationTypedInput(
+                            languageName = targetLang.name,
+                            testTag = "typed_input_party_b",
+                            onSubmit = { viewModel.prepareConversationPart(it, isLanguageA = false) }
+                        )
                     }
                 }
             }
@@ -247,4 +279,38 @@ fun ConversationScreen(
             targetLangName = tName
         )
     }
+}
+
+/**
+ * Typed replacement for a speaker's mic FAB when voice input is unavailable
+ * (web MVP). Submitting hands the text to the same draft-confirmation pipeline
+ * that voice recognition feeds.
+ */
+@Composable
+private fun ConversationTypedInput(
+    languageName: String,
+    testTag: String,
+    onSubmit: (String) -> Unit,
+) {
+    var text by remember { mutableStateOf("") }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { text = it },
+        placeholder = { Text("Type in $languageName…", fontSize = 14.sp) },
+        singleLine = true,
+        trailingIcon = {
+            IconButton(
+                onClick = {
+                    onSubmit(text.trim())
+                    text = ""
+                },
+                enabled = text.isNotBlank()
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send $languageName message")
+            }
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(testTag)
+    )
 }

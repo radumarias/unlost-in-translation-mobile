@@ -49,6 +49,7 @@ fun BottomNavBar(
     activeBottomTab: String,
     onSelectTab: (String) -> Unit,
     showMicRow: Boolean,
+    showVoiceInput: Boolean,
     onConversationMode: () -> Unit,
     onMic: () -> Unit,
     sourceTextBlank: Boolean,
@@ -92,24 +93,27 @@ fun BottomNavBar(
 
                     Spacer(modifier = Modifier.width(36.dp))
 
-                    // Center Circle Mic Button (60x60, prominent theme blue)
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(56.dp)
-                            .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
-                            .clickable { onMic() }
-                            .testTag("main_mic_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Mic,
-                            contentDescription = "Record Speech",
-                            tint = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(26.dp)
-                        )
-                    }
+                    // Center Circle Mic Button — voice input only (design §8 capability
+                    // gating). Hidden on web (capabilities.voiceInput = false).
+                    if (showVoiceInput) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(56.dp)
+                                .background(MaterialTheme.colorScheme.primary, shape = CircleShape)
+                                .clickable { onMic() }
+                                .testTag("main_mic_button")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Mic,
+                                contentDescription = "Record Speech",
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
 
-                    Spacer(modifier = Modifier.width(36.dp))
+                        Spacer(modifier = Modifier.width(36.dp))
+                    }
 
                     // Right Button (Quick keyboard edit / close)
                     IconButton(

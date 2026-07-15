@@ -129,6 +129,8 @@ fun App(
                             targetLang = targetLang,
                             speechSynthesizer = container.speechSynthesizer,
                             audioOutputCatalog = container.audioOutputCatalog,
+                            showVoiceInput = container.capabilities.voiceInput,
+                            showDualHeadset = container.capabilities.dualHeadset,
                             launchVoiceInput = launchVoiceInput,
                         )
                     } else {
@@ -152,6 +154,7 @@ fun App(
                                         viewModel = viewModel,
                                         isAiEnhanced = isAiEnhanced,
                                         audioOutputCatalog = container.audioOutputCatalog,
+                                        showDualHeadset = container.capabilities.dualHeadset,
                                     )
 
                                     LanguageBar(
@@ -183,6 +186,7 @@ fun App(
                                         starred = starred,
                                         speechSynthesizer = container.speechSynthesizer,
                                         platformActions = container.platformActions,
+                                        showVoiceInput = container.capabilities.voiceInput,
                                         launchVoiceInput = launchVoiceInput,
                                         onShowValidationDetails = { showValidationDetails = it },
                                     )
@@ -220,6 +224,7 @@ fun App(
                                 activeBottomTab = activeBottomTab,
                                 onSelectTab = { activeBottomTab = it },
                                 showMicRow = activeBottomTab == "translate",
+                                showVoiceInput = container.capabilities.voiceInput,
                                 onConversationMode = { viewModel.setConversationMode(true) },
                                 onMic = { launchVoiceInput(null, sourceLang) },
                                 sourceTextBlank = sourceText.isBlank(),

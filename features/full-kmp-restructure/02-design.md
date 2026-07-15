@@ -228,7 +228,7 @@ Shared-UI substitutions required by the move to commonMain:
 - Theme: port static light/dark schemes as-is; drop the (default-off) `dynamicColor` branch — Android can layer it back later via a wrapper in `:app` (YAGNI now).
 - `Icons.Default.*` / extended icons: CMP ships `material-icons-extended` for common code — imports unchanged.
 
-Capability gating in UI: headset icon + dual-headset dialog render only if `capabilities.dualHeadset`; mic buttons only if `capabilities.voiceInput`.
+Capability gating in UI: headset icon + dual-headset dialog render only if `capabilities.dualHeadset`; mic buttons only if `capabilities.voiceInput`. When `voiceInput` is false, the conversation deck swaps each speaker's mic FAB for a typed-input field feeding the same `prepareConversationPart` draft flow (Phase 3 MVP acceptance: "conversation mode works via typed input").
 
 ## 9. Entry Points
 

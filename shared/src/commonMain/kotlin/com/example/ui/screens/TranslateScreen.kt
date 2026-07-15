@@ -95,6 +95,7 @@ fun TranslateScreen(
     starred: List<Translation>,
     speechSynthesizer: SpeechSynthesizer,
     platformActions: PlatformActions,
+    showVoiceInput: Boolean,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
     onShowValidationDetails: (ValidationState.Success) -> Unit,
 ) {
@@ -170,14 +171,17 @@ fun TranslateScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = { launchVoiceInput(null, sourceLang) }
-                        ) {
-                            Icon(
-                                Icons.Default.Mic,
-                                contentDescription = "Record Speech",
-                                tint = MaterialTheme.colorScheme.primary
-                            )
+                        // Voice input only (design §8 capability gating); hidden on web.
+                        if (showVoiceInput) {
+                            IconButton(
+                                onClick = { launchVoiceInput(null, sourceLang) }
+                            ) {
+                                Icon(
+                                    Icons.Default.Mic,
+                                    contentDescription = "Record Speech",
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
                         }
 
                         IconButton(

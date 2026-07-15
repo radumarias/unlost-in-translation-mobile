@@ -47,6 +47,7 @@ fun AppTopBar(
     viewModel: TranslateViewModel,
     isAiEnhanced: Boolean,
     audioOutputCatalog: AudioOutputCatalog,
+    showDualHeadset: Boolean,
 ) {
     // Top branding line with AI toggle
     Row(
@@ -73,22 +74,26 @@ fun AppTopBar(
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            val dualHeadsetState by viewModel.dualHeadsetState.collectAsState()
-            var showDualHeadsetSetup by remember { mutableStateOf(false) }
-            IconButton(onClick = { showDualHeadsetSetup = true }) {
-                Icon(
-                    Icons.Default.Headphones,
-                    contentDescription = "Dual Headset Setup",
-                    tint = if (dualHeadsetState.isDualHeadsetModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            // Dual-headset entry point is Android-only (design §8 capability gating:
+            // renders only when capabilities.dualHeadset). Web hides the icon + dialog.
+            if (showDualHeadset) {
+                val dualHeadsetState by viewModel.dualHeadsetState.collectAsState()
+                var showDualHeadsetSetup by remember { mutableStateOf(false) }
+                IconButton(onClick = { showDualHeadsetSetup = true }) {
+                    Icon(
+                        Icons.Default.Headphones,
+                        contentDescription = "Dual Headset Setup",
+                        tint = if (dualHeadsetState.isDualHeadsetModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
 
-            if (showDualHeadsetSetup) {
-                DualHeadsetSetupDialog(
-                    viewModel = viewModel,
-                    catalog = audioOutputCatalog,
-                    onDismiss = { showDualHeadsetSetup = false }
-                )
+                if (showDualHeadsetSetup) {
+                    DualHeadsetSetupDialog(
+                        viewModel = viewModel,
+                        catalog = audioOutputCatalog,
+                        onDismiss = { showDualHeadsetSetup = false }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.width(4.dp))
