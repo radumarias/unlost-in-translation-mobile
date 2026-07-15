@@ -228,8 +228,7 @@ fun MainAppScreen() {
                     viewModel = viewModel,
                     sourceLang = sourceLang,
                     targetLang = targetLang,
-                    ttsHelper = ttsHelper,
-                    context = context,
+                    speechSynthesizer = container.speechSynthesizer,
                     audioOutputCatalog = container.audioOutputCatalog,
                     launchVoiceInput = { isConversationA, language -> launchVoiceInput(isConversationA, language) },
                 )
@@ -284,8 +283,8 @@ fun MainAppScreen() {
                                 validationState = validationState,
                                 history = history,
                                 starred = starred,
-                                ttsHelper = ttsHelper,
-                                context = context,
+                                speechSynthesizer = container.speechSynthesizer,
+                                platformActions = container.platformActions,
                                 launchVoiceInput = { isConversationA, language -> launchVoiceInput(isConversationA, language) },
                                 onShowValidationDetails = { showValidationDetails = it },
                             )

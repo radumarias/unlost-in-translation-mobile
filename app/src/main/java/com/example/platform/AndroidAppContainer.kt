@@ -43,6 +43,8 @@ class AndroidAppContainer(
 
     override val log: AppLog = AndroidAppLog()
 
+    override val platformActions: PlatformActions = AndroidPlatformActions(appContext)
+
     override val capabilities: PlatformCapabilities = PlatformCapabilities(
         voiceInput = true,
         dualHeadset = true,

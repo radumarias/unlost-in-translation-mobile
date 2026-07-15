@@ -36,6 +36,8 @@ class WebAppContainer : AppContainer {
 
     override val broadcaster: TranslationBroadcaster = WebTranslationBroadcaster
 
+    override val platformActions: PlatformActions = WebPlatformActions
+
     override val capabilities: PlatformCapabilities = PlatformCapabilities(
         voiceInput = false,
         dualHeadset = false,

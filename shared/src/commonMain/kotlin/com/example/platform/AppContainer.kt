@@ -18,5 +18,6 @@ interface AppContainer {
     val audioOutputCatalog: AudioOutputCatalog
     val broadcaster: TranslationBroadcaster
     val log: AppLog
+    val platformActions: PlatformActions
     val capabilities: PlatformCapabilities
 }

@@ -127,6 +127,10 @@ data class AudioOutputDevice(val id: Int, val label: String, val isBluetooth: Bo
 interface TranslationBroadcaster {                  // Wear abstraction; web: no-op object
     fun broadcast(sourceText: String, translatedText: String, source: Language, target: Language)
 }
+interface PlatformActions {                         // clipboard + share (Phase 3 addition)
+    fun copyToClipboard(text: String)               // android: ClipboardManager; web: navigator.clipboard
+    fun share(text: String)                         // android: ACTION_SEND chooser; web: navigator.share → clipboard fallback
+}
 data class PlatformCapabilities(
     val voiceInput: Boolean,        // android: true; web: SpeechRecognition feature-detect
     val dualHeadset: Boolean,       // android: true; web: false → hides headset icon + dialog
@@ -140,6 +144,8 @@ interface AppContainer {
     val voiceInput: VoiceInput
     val audioOutputCatalog: AudioOutputCatalog
     val broadcaster: TranslationBroadcaster
+    val log: AppLog                 // §D10 logging seam
+    val platformActions: PlatformActions   // Phase 3 addition (clipboard + share)
     val capabilities: PlatformCapabilities
 }
 ```
@@ -216,7 +222,7 @@ Gradle task in `:shared` (registered as a commonMain generated source dir, wired
 
 Shared-UI substitutions required by the move to commonMain:
 
-- `Toast.makeText(...)` → Material3 `SnackbarHostState` (a `LaunchedEffect`-driven host already fits the scaffold). Affects voice-input status/error toasts.
+- `Toast.makeText(...)` → Material3 `SnackbarHostState` (a `LaunchedEffect`-driven host already fits the scaffold). Affects voice-input status/error toasts **and** the in-screen status toasts that moved to commonMain — "Added to star history.", "Copied translation!", "Deleted from history", and the conversation "Playing translation to …'s headset…" — all now route through `viewModel.showMessage` → the shared snackbar. (`ClipboardManager`/share `Intent` are also platform-side now, behind the §3 `PlatformActions` seam; see below.)
 - `android.util.Log` → `AppLog`.
 - `LocalContext`-dependent bits stay platform-side behind the §3 interfaces.
 - Theme: port static light/dark schemes as-is; drop the (default-off) `dynamicColor` branch — Android can layer it back later via a wrapper in `:app` (YAGNI now).

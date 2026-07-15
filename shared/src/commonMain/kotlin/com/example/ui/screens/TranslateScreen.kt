@@ -1,10 +1,5 @@
 package com.example.ui.screens
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.content.Intent
-import android.widget.Toast
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -70,23 +65,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.Language
 import com.example.model.Translation
-import com.example.speech.TTSHelper
+import com.example.platform.PlatformActions
+import com.example.platform.SpeechSynthesizer
 import com.example.ui.viewmodel.TranslateViewModel
 import com.example.ui.viewmodel.TranslationState
 import com.example.ui.viewmodel.ValidationState
-import java.util.Locale
 
 /**
  * Translate-tab workspace: the input card (text field + mic/speak/translate
  * action bar) and the animated result card (translation, round-trip check,
  * cultural-validation banner, and speak/copy/share tools).
  *
- * Extracted verbatim from MainAppScreen's `activeBottomTab == "translate"`
- * branch. It still takes the [viewModel], [ttsHelper] and [context] directly
- * (VM injection and the platform-service abstractions land in later Phase 1
- * tasks); TTS dual-headset routing, clipboard, and share intents are unchanged.
- * The keyboard controller is re-derived locally; tapping the validation banner
- * is surfaced through [onShowValidationDetails].
+ * In commonMain (design §1). Platform touch goes through seams: TTS via
+ * [speechSynthesizer] ([SpeechSynthesizer.speak] takes a BCP-47 tag directly, no
+ * java.util.Locale), clipboard/share via [platformActions], and status toasts via
+ * `viewModel.showMessage` (a snackbar host consumes them). The keyboard controller
+ * is re-derived locally; tapping the validation banner is surfaced through
+ * [onShowValidationDetails].
  */
 @Composable
 fun TranslateScreen(
@@ -98,8 +93,8 @@ fun TranslateScreen(
     validationState: ValidationState,
     history: List<Translation>,
     starred: List<Translation>,
-    ttsHelper: TTSHelper,
-    context: Context,
+    speechSynthesizer: SpeechSynthesizer,
+    platformActions: PlatformActions,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
     onShowValidationDetails: (ValidationState.Success) -> Unit,
 ) {
@@ -189,7 +184,7 @@ fun TranslateScreen(
                             onClick = {
                                 val dualState = viewModel.dualHeadsetState.value
                                 val targetDevice = if (dualState.isDualHeadsetModeEnabled) dualState.deviceA else null
-                                ttsHelper.speak(sourceText, Locale.forLanguageTag(sourceLang.languageTag), targetDevice)
+                                speechSynthesizer.speak(sourceText, sourceLang.languageTag, targetDevice)
                             },
                             enabled = sourceText.isNotBlank()
                         ) {
@@ -275,7 +270,7 @@ fun TranslateScreen(
                                             if (existingEntity != null) {
                                                 viewModel.toggleStarred(existingEntity)
                                             } else {
-                                                Toast.makeText(context, "Added to star history.", Toast.LENGTH_SHORT).show()
+                                                viewModel.showMessage("Added to star history.")
                                             }
                                         },
                                         modifier = Modifier.size(24.dp)
@@ -414,7 +409,7 @@ fun TranslateScreen(
                                         onClick = {
                                             val dualState = viewModel.dualHeadsetState.value
                                             val targetDevice = if (dualState.isDualHeadsetModeEnabled) dualState.deviceB else null
-                                            ttsHelper.speak(state.translatedText, Locale.forLanguageTag(targetLang.languageTag), targetDevice)
+                                            speechSynthesizer.speak(state.translatedText, targetLang.languageTag, targetDevice)
                                         },
                                         modifier = Modifier
                                             .padding(horizontal = 4.dp)
@@ -432,10 +427,8 @@ fun TranslateScreen(
                                     // Copy Clipboard
                                     IconButton(
                                         onClick = {
-                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                            val clip = ClipData.newPlainText("translation", state.translatedText)
-                                            clipboard.setPrimaryClip(clip)
-                                            Toast.makeText(context, "Copied translation!", Toast.LENGTH_SHORT).show()
+                                            platformActions.copyToClipboard(state.translatedText)
+                                            viewModel.showMessage("Copied translation!")
                                         },
                                         modifier = Modifier
                                             .padding(horizontal = 4.dp)
@@ -453,11 +446,7 @@ fun TranslateScreen(
                                     // Share tool
                                     IconButton(
                                         onClick = {
-                                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                                type = "text/plain"
-                                                putExtra(Intent.EXTRA_TEXT, state.translatedText)
-                                            }
-                                            context.startActivity(Intent.createChooser(intent, "Share translation"))
+                                            platformActions.share(state.translatedText)
                                         },
                                         modifier = Modifier
                                             .padding(horizontal = 4.dp)

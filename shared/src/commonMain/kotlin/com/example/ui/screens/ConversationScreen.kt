@@ -1,7 +1,5 @@
 package com.example.ui.screens
 
-import android.content.Context
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -44,27 +42,24 @@ import androidx.compose.ui.unit.sp
 import com.example.ui.components.DualHeadsetSetupDialog
 import com.example.model.Language
 import com.example.platform.AudioOutputCatalog
-import com.example.speech.TTSHelper
+import com.example.platform.SpeechSynthesizer
 import com.example.ui.components.ConversationDraftDialog
 import com.example.ui.viewmodel.TranslateViewModel
-import java.util.Locale
 
 /**
  * Conversation split-screen: bilingual message flow plus the two-party mic deck,
  * the dual-headset setup entry point, and the draft-confirmation dialog.
  *
- * Extracted verbatim from MainAppScreen's `isConversationMode` branch. It still
- * takes the [viewModel], [ttsHelper] and [context] directly (VM injection and
- * the platform-service abstractions land in later Phase 1 tasks); TTS routing
- * and dual-headset device selection are kept unchanged.
+ * In commonMain (design §1). TTS goes through [speechSynthesizer] (BCP-47 tag,
+ * no java.util.Locale) and status toasts through `viewModel.showMessage`; the
+ * dual-headset device selection stays behind the [audioOutputCatalog] seam.
  */
 @Composable
 fun ConversationScreen(
     viewModel: TranslateViewModel,
     sourceLang: Language,
     targetLang: Language,
-    ttsHelper: TTSHelper,
-    context: Context,
+    speechSynthesizer: SpeechSynthesizer,
     audioOutputCatalog: AudioOutputCatalog,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
 ) {
@@ -157,7 +152,7 @@ fun ConversationScreen(
                                     val d = if (viewModel.dualHeadsetState.value.isDualHeadsetModeEnabled) {
                                         if (item.speakA) viewModel.dualHeadsetState.value.deviceB else viewModel.dualHeadsetState.value.deviceA
                                     } else null
-                                    ttsHelper.speak(item.translated, Locale.forLanguageTag(l.languageTag), d)
+                                    speechSynthesizer.speak(item.translated, l.languageTag, d)
                                 },
                                 modifier = Modifier.size(24.dp)
                             ) {
@@ -234,13 +229,13 @@ fun ConversationScreen(
                     val dualState = viewModel.dualHeadsetState.value
                     if (dualState.isDualHeadsetModeEnabled) {
                         val userStr = if (isA) "User 2" else "User 1"
-                        Toast.makeText(context, "Playing translation to $userStr's headset...", Toast.LENGTH_SHORT).show()
+                        viewModel.showMessage("Playing translation to $userStr's headset...")
                     }
-                    val targetLocale = Locale.forLanguageTag(if (isA) targetLang.languageTag else sourceLang.languageTag)
+                    val targetLanguageTag = if (isA) targetLang.languageTag else sourceLang.languageTag
                     val targetDevice = if (dualState.isDualHeadsetModeEnabled) {
                         if (isA) dualState.deviceB else dualState.deviceA
                     } else null
-                    ttsHelper.speak(translated, targetLocale, targetDevice)
+                    speechSynthesizer.speak(translated, targetLanguageTag, targetDevice)
                 }
             },
             onCancel = { viewModel.cancelConversationDraft() },
