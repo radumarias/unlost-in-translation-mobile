@@ -3,6 +3,7 @@ package com.example.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,10 +15,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Card
@@ -39,9 +41,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ui.components.DualHeadsetSetupDialog
+import com.example.ui.components.DualHeadsetEntry
 import com.example.model.Language
 import com.example.platform.AudioOutputCatalog
 import com.example.platform.SpeechSynthesizer
@@ -90,26 +93,11 @@ fun ConversationScreen(
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(modifier = Modifier.weight(1f))
-            // Dual-headset entry is Android-only (design §8 capability gating); hidden on web.
-            if (showDualHeadset) {
-                val dualHeadsetState by viewModel.dualHeadsetState.collectAsState()
-                var showDualHeadsetSetup by remember { mutableStateOf(false) }
-                IconButton(onClick = { showDualHeadsetSetup = true }) {
-                    Icon(
-                        Icons.Default.Headphones,
-                        contentDescription = "Dual Headset Setup",
-                        tint = if (dualHeadsetState.isDualHeadsetModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                if (showDualHeadsetSetup) {
-                    DualHeadsetSetupDialog(
-                        viewModel = viewModel,
-                        catalog = audioOutputCatalog,
-                        onDismiss = { showDualHeadsetSetup = false }
-                    )
-                }
-            }
+            DualHeadsetEntry(
+                viewModel = viewModel,
+                catalog = audioOutputCatalog,
+                show = showDualHeadset
+            )
         }
 
         // Conversational History Message Flow
@@ -188,64 +176,25 @@ fun ConversationScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Speaker A (Source). Mic FAB when voice input is available; a typed
-                // input field otherwise (web MVP: plan §7 Phase 3 acceptance —
+                // One SpeakerInput per party: mic FAB when voice input is available,
+                // typed input field otherwise (web MVP: plan §7 Phase 3 acceptance —
                 // "conversation mode works via typed input"). Both feed the same
                 // prepareConversationPart → draft-confirmation flow.
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = if (showVoiceInput) Modifier else Modifier.weight(1f).padding(horizontal = 8.dp)
-                ) {
-                    Text(
-                        text = sourceLang.name + " " + sourceLang.flag,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    if (showVoiceInput) {
-                        FloatingActionButton(
-                            onClick = { launchVoiceInput(true, sourceLang) },
-                            containerColor = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.testTag("mic_party_a")
-                        ) {
-                            Icon(Icons.Default.Mic, contentDescription = "Mic A")
-                        }
-                    } else {
-                        ConversationTypedInput(
-                            languageName = sourceLang.name,
-                            testTag = "typed_input_party_a",
-                            onSubmit = { viewModel.prepareConversationPart(it, isLanguageA = true) }
-                        )
-                    }
-                }
+                SpeakerInput(
+                    language = sourceLang,
+                    isLanguageA = true,
+                    showVoiceInput = showVoiceInput,
+                    onVoiceClick = { launchVoiceInput(true, sourceLang) },
+                    onSubmit = { viewModel.prepareConversationPart(it, isLanguageA = true) }
+                )
 
-                // Speaker B (Target)
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = if (showVoiceInput) Modifier else Modifier.weight(1f).padding(horizontal = 8.dp)
-                ) {
-                    Text(
-                        text = targetLang.name + " " + targetLang.flag,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    if (showVoiceInput) {
-                        FloatingActionButton(
-                            onClick = { launchVoiceInput(false, targetLang) },
-                            containerColor = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.testTag("mic_party_b")
-                        ) {
-                            Icon(Icons.Default.Mic, contentDescription = "Mic B")
-                        }
-                    } else {
-                        ConversationTypedInput(
-                            languageName = targetLang.name,
-                            testTag = "typed_input_party_b",
-                            onSubmit = { viewModel.prepareConversationPart(it, isLanguageA = false) }
-                        )
-                    }
-                }
+                SpeakerInput(
+                    language = targetLang,
+                    isLanguageA = false,
+                    showVoiceInput = showVoiceInput,
+                    onVoiceClick = { launchVoiceInput(false, targetLang) },
+                    onSubmit = { viewModel.prepareConversationPart(it, isLanguageA = false) }
+                )
             }
         }
     }
@@ -282,6 +231,48 @@ fun ConversationScreen(
 }
 
 /**
+ * One party's input slot on the conversation deck: language label above either
+ * the mic FAB (voice input available) or a typed-input field (web MVP). Both
+ * feed the same prepareConversationPart → draft-confirmation flow.
+ */
+@Composable
+private fun RowScope.SpeakerInput(
+    language: Language,
+    isLanguageA: Boolean,
+    showVoiceInput: Boolean,
+    onVoiceClick: () -> Unit,
+    onSubmit: (String) -> Unit,
+) {
+    val party = if (isLanguageA) "a" else "b"
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = if (showVoiceInput) Modifier else Modifier.weight(1f).padding(horizontal = 8.dp)
+    ) {
+        Text(
+            text = language.name + " " + language.flag,
+            fontWeight = FontWeight.Medium,
+            fontSize = 14.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        if (showVoiceInput) {
+            FloatingActionButton(
+                onClick = onVoiceClick,
+                containerColor = if (isLanguageA) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.testTag("mic_party_$party")
+            ) {
+                Icon(Icons.Default.Mic, contentDescription = if (isLanguageA) "Mic A" else "Mic B")
+            }
+        } else {
+            ConversationTypedInput(
+                languageName = language.name,
+                testTag = "typed_input_party_$party",
+                onSubmit = onSubmit
+            )
+        }
+    }
+}
+
+/**
  * Typed replacement for a speaker's mic FAB when voice input is unavailable
  * (web MVP). Submitting hands the text to the same draft-confirmation pipeline
  * that voice recognition feeds.
@@ -293,17 +284,22 @@ private fun ConversationTypedInput(
     onSubmit: (String) -> Unit,
 ) {
     var text by remember { mutableStateOf("") }
+    val submit = {
+        if (text.isNotBlank()) {
+            onSubmit(text.trim())
+            text = ""
+        }
+    }
     OutlinedTextField(
         value = text,
         onValueChange = { text = it },
         placeholder = { Text("Type in $languageName…", fontSize = 14.sp) },
         singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+        keyboardActions = KeyboardActions(onSend = { submit() }),
         trailingIcon = {
             IconButton(
-                onClick = {
-                    onSubmit(text.trim())
-                    text = ""
-                },
+                onClick = submit,
                 enabled = text.isNotBlank()
             ) {
                 Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send $languageName message")

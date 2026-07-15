@@ -24,6 +24,37 @@ import com.example.ui.viewmodel.DualHeadsetModel
 import com.example.ui.viewmodel.TranslateViewModel
 
 /**
+ * The dual-headset entry point shared by the top bar and the conversation header:
+ * headphones icon (tinted while the mode is on) that opens [DualHeadsetSetupDialog].
+ * Renders nothing unless [show] — dual-headset is Android-only (design §8
+ * capability gating), so web hides the icon and dialog entirely.
+ */
+@Composable
+fun DualHeadsetEntry(
+    viewModel: TranslateViewModel,
+    catalog: AudioOutputCatalog,
+    show: Boolean,
+) {
+    if (!show) return
+    val dualHeadsetState by viewModel.dualHeadsetState.collectAsState()
+    var showSetup by remember { mutableStateOf(false) }
+    IconButton(onClick = { showSetup = true }) {
+        Icon(
+            Icons.Default.Headphones,
+            contentDescription = "Dual Headset Setup",
+            tint = if (dualHeadsetState.isDualHeadsetModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+    if (showSetup) {
+        DualHeadsetSetupDialog(
+            viewModel = viewModel,
+            catalog = catalog,
+            onDismiss = { showSetup = false }
+        )
+    }
+}
+
+/**
  * Dual-headset setup. Rewritten against [AudioOutputCatalog] (Phase 1 task 6): it
  * no longer touches AudioManager / MediaPlayer directly — device enumeration and
  * the test tone come from the catalog, and the "playing test sound" message goes

@@ -10,21 +10,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.SettingsSuggest
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -74,27 +67,11 @@ fun AppTopBar(
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Dual-headset entry point is Android-only (design §8 capability gating:
-            // renders only when capabilities.dualHeadset). Web hides the icon + dialog.
-            if (showDualHeadset) {
-                val dualHeadsetState by viewModel.dualHeadsetState.collectAsState()
-                var showDualHeadsetSetup by remember { mutableStateOf(false) }
-                IconButton(onClick = { showDualHeadsetSetup = true }) {
-                    Icon(
-                        Icons.Default.Headphones,
-                        contentDescription = "Dual Headset Setup",
-                        tint = if (dualHeadsetState.isDualHeadsetModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-
-                if (showDualHeadsetSetup) {
-                    DualHeadsetSetupDialog(
-                        viewModel = viewModel,
-                        catalog = audioOutputCatalog,
-                        onDismiss = { showDualHeadsetSetup = false }
-                    )
-                }
-            }
+            DualHeadsetEntry(
+                viewModel = viewModel,
+                catalog = audioOutputCatalog,
+                show = showDualHeadset
+            )
 
             Spacer(modifier = Modifier.width(4.dp))
 

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -72,7 +71,9 @@ fun BottomNavBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 8.dp),
-                    horizontalArrangement = Arrangement.Center,
+                    // spacedBy keeps the same 36dp gaps as the old manual Spacers on
+                    // Android, and stays balanced on web where the mic is hidden.
+                    horizontalArrangement = Arrangement.spacedBy(36.dp, Alignment.CenterHorizontally),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Left Button (Conversation Split mode launcher)
@@ -90,8 +91,6 @@ fun BottomNavBar(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-
-                    Spacer(modifier = Modifier.width(36.dp))
 
                     // Center Circle Mic Button — voice input only (design §8 capability
                     // gating). Hidden on web (capabilities.voiceInput = false).
@@ -111,8 +110,6 @@ fun BottomNavBar(
                                 modifier = Modifier.size(26.dp)
                             )
                         }
-
-                        Spacer(modifier = Modifier.width(36.dp))
                     }
 
                     // Right Button (Quick keyboard edit / close)
