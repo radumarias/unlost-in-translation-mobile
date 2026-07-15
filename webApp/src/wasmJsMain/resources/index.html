@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Translate</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f7f9fb;
+        }
+
+        /* Unsupported-browser banner (design §63). Shown until the Wasm module
+           boots and hides it; also the fallback if Kotlin/Wasm fails to load
+           (e.g. a browser without WasmGC). */
+        #unsupported {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 24px;
+            text-align: center;
+            color: #1e293b;
+        }
+        #unsupported h1 { font-size: 20px; margin: 0; }
+        #unsupported p { font-size: 14px; color: #64748b; max-width: 32rem; margin: 0; }
+    </style>
+</head>
+<body>
+    <div id="unsupported">
+        <h1>Loading Translate…</h1>
+        <p>
+            If this message doesn't disappear, your browser may not support
+            Kotlin/Wasm (WebAssembly Garbage Collection). Try the latest Chrome,
+            Edge, or Firefox.
+        </p>
+    </div>
+    <script type="application/javascript">
+        // Hide the banner once the Wasm app has mounted into <body>. Compose
+        // adds a <canvas>; when it appears, the app is up.
+        var observer = new MutationObserver(function () {
+            if (document.querySelector('canvas')) {
+                var banner = document.getElementById('unsupported');
+                if (banner) banner.style.display = 'none';
+                observer.disconnect();
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+    </script>
+    <script src="webApp.js"></script>
+</body>
+</html>
