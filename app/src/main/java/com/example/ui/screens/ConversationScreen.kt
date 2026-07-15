@@ -41,7 +41,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.DualHeadsetSetupDialog
+import com.example.ui.components.DualHeadsetSetupDialog
 import com.example.model.Language
 import com.example.platform.AudioOutputCatalog
 import com.example.speech.TTSHelper
