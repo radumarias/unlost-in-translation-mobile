@@ -129,6 +129,7 @@ fun MainAppScreen() {
                     api = container.api,
                     repository = container.historyRepository,
                     broadcaster = container.broadcaster,
+                    log = container.log,
                 )
             }
         }

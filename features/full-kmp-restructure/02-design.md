@@ -153,13 +153,20 @@ class TranslateViewModel(
     private val api: TranslationApi,
     private val repository: TranslationHistoryRepository,
     private val broadcaster: TranslationBroadcaster,
+    private val log: AppLog,   // deviation: see note below
 ) : ViewModel()
 ```
+
+> **Deviation (Phase 3, recorded per the design-contract rule):** the constructor
+> gained a `log: AppLog` parameter. The original `android.util.Log` calls in the
+> VM can't cross into commonMain, so the VM logs through the design §3 `AppLog`
+> seam, injected from `AppContainer.log`. No behavior change — the same tags and
+> messages, forwarded to Logcat on Android and the console on web.
 
 - All existing `StateFlow`s, states (`TranslationState`, `ValidationState`, `ConversationDraft`, `ConversationItem`) and public methods keep their names and semantics.
 - **Wear side-effect moves here** from `MainActivity`'s `LaunchedEffect(translationState)`: after a successful primary translation, the VM calls `broadcaster.broadcast(...)`. UI no longer owns platform side-effects (SRP); web build injects a no-op.
 - **Pipeline consolidation (DRY)**: one private helper implements translate → persist? → parallel(round-trip, validation) with callbacks for state delivery; `triggerTranslation` (persists, updates main-screen flows) and `prepareConversationPart` (no persist, updates draft flow) both call it. Behavior preserved, including the round-trip staleness guard (`currentState.translatedText == translated`).
-- Construction in shared UI: `viewModel { TranslateViewModel(container.api, container.historyRepository, container.broadcaster) }` (CMP lifecycle factory lambda — works on both targets).
+- Construction in shared UI: `viewModel { TranslateViewModel(container.api, container.historyRepository, container.broadcaster, container.log) }` (CMP lifecycle factory lambda — works on both targets).
 - `System.currentTimeMillis()` (entity timestamp, `ConversationItem`) → `kotlin.time.Clock.System.now().toEpochMilliseconds()` or `TimeSource` equivalent available in common.
 
 ## 5. Networking Design (Ktor)
