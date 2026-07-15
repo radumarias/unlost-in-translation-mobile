@@ -38,10 +38,15 @@ data class Translation(
 )
 
 /**
- * Hand-written [KSerializer] for [Translation]. Mirrors what `@Serializable` would
- * generate: a class descriptor with the nine properties in declaration order,
- * `id`/`isStarred` optional (they have defaults). See [Translation] for why the
- * annotation is not used.
+ * Hand-written [KSerializer] for [Translation]: a class descriptor with the nine
+ * properties in declaration order, `id`/`isStarred` optional (they have defaults).
+ * Unlike plugin-generated code under `encodeDefaults=false`, serialize() always
+ * writes all nine fields, defaulted optionals included — harmless for the
+ * localStorage round-trip, which is this serializer's only consumer. Missing
+ * required fields on decode throw (matching `@Serializable` semantics), so a
+ * structurally-valid-but-incomplete stored row trips the repository's
+ * corrupt-data recovery instead of decoding to blank text. See [Translation] for
+ * why the annotation is not used.
  */
 object TranslationSerializer : KSerializer<Translation> {
     override val descriptor: SerialDescriptor =
@@ -81,8 +86,11 @@ object TranslationSerializer : KSerializer<Translation> {
         var targetLangName = ""
         var timestamp = 0L
         var isStarred = false
+        var seen = 0
         while (true) {
-            when (val index = decodeElementIndex(descriptor)) {
+            val index = decodeElementIndex(descriptor)
+            if (index == CompositeDecoder.DECODE_DONE) break
+            when (index) {
                 0 -> id = decodeLongElement(descriptor, 0)
                 1 -> sourceText = decodeStringElement(descriptor, 1)
                 2 -> translatedText = decodeStringElement(descriptor, 2)
@@ -92,8 +100,18 @@ object TranslationSerializer : KSerializer<Translation> {
                 6 -> targetLangName = decodeStringElement(descriptor, 6)
                 7 -> timestamp = decodeLongElement(descriptor, 7)
                 8 -> isStarred = decodeBooleanElement(descriptor, 8)
-                CompositeDecoder.DECODE_DONE -> break
                 else -> throw SerializationException("Unexpected index $index")
+            }
+            seen = seen or (1 shl index)
+        }
+        // Required fields (everything but the defaulted id/isStarred) must be
+        // present, as with @Serializable — otherwise a partial row would decode
+        // to blank strings instead of tripping the caller's corrupt-data path.
+        for (i in 1..7) {
+            if (seen and (1 shl i) == 0) {
+                throw SerializationException(
+                    "Missing required field '${descriptor.getElementName(i)}' in Translation JSON"
+                )
             }
         }
         Translation(

@@ -65,6 +65,18 @@ webApp/src/wasmJsMain/
 └── resources/index.html         # canvas host + unsupported-browser banner
 ```
 
+> **Layout deviations (recorded per the design-contract rule):**
+> - There is no `di/` package. `AppContainer` (+ `PlatformCapabilities`, `PlatformActions`)
+>   lives in `com.example.platform` alongside the other seams, and `WebAppContainer`
+>   in `shared/wasmJsMain/.../platform/`.
+> - `AndroidAppContainer` lives in **`:app`** (`app/src/main/.../platform/`), not
+>   `shared/androidMain`: it wires `WearTranslationBroadcaster`, which references
+>   `MainActivity`/`R` from `:app` and cannot move into `:shared` without a further
+>   notification abstraction (deferred).
+> - `DualHeadsetEntry` (the gated headset icon + dialog opener shared by the top bar
+>   and the conversation header) lives in `components/DualHeadsetSetupDialog.kt`
+>   rather than a separate file.
+
 ## 2. Domain Models (commonMain)
 
 ```kotlin
@@ -104,12 +116,14 @@ Key change vs today: `validateTranslation` returns a **parsed** `ValidationResul
 
 ```kotlin
 interface TranslationHistoryRepository {
-    fun observeAll(): Flow<List<Translation>>       // timestamp DESC
-    fun observeStarred(): Flow<List<Translation>>
+    // Actual method names (deviation, recorded): allTranslations() / starredTranslations()
+    // / clearHistory() instead of observeAll() / observeStarred() / clearAll().
+    fun allTranslations(): Flow<List<Translation>>  // timestamp DESC
+    fun starredTranslations(): Flow<List<Translation>>
     suspend fun insert(translation: Translation): Long
-    suspend fun setStarred(id: Long, starred: Boolean)
+    suspend fun setStarred(id: Long, isStarred: Boolean)
     suspend fun deleteById(id: Long)
-    suspend fun clearAll()                          // current semantics: deletes starred too
+    suspend fun clearHistory()                      // current semantics: deletes starred too
 }
 
 interface SpeechSynthesizer {                       // absorbs TTSHelper's public surface
@@ -119,6 +133,14 @@ interface SpeechSynthesizer {                       // absorbs TTSHelper's publi
 interface VoiceInput {                              // null = cancelled/unavailable
     suspend fun recognize(languageTag: String, prompt: String): String?
 }
+// Deviation (Phase 3, recorded): the live voice-input path is a
+// `launchVoiceInput(isConversationA: Boolean?, language: Language)` lambda that the
+// platform entry point passes into App() — Android backs it with the
+// RecognizerIntent launcher in MainActivity; web passes a no-op (the UI is gated
+// off by capabilities.voiceInput anyway). `container.voiceInput` is currently
+// `UnavailableVoiceInput` on both platforms; Phase 4's WebVoiceInput must wire the
+// App lambda (or migrate both platforms onto this container seam), NOT just the
+// container field — no UI code calls container.voiceInput today.
 interface AudioOutputCatalog {                      // dual-headset support
     fun listOutputDevices(): List<AudioOutputDevice>          // web: emptyList()
 }
@@ -203,7 +225,7 @@ Gradle task in `:shared` (registered as a commonMain generated source dir, wired
 
 ## 8. UI Decomposition Map
 
-`MainActivity.kt` (1867 lines) is split with **zero visual/behavioral change** (Roborazzi-verified). Current line ranges → target files:
+`MainActivity.kt` (1867 lines) is split with **zero visual/behavioral change** (Roborazzi-verified). One exception, recorded: the Kotlin 2.2.10→2.3.20 bump (Phase 3 toolchain, required by CMP 1.11 on wasm) changed text rendering imperceptibly, so the baseline was re-recorded once at that commit; every later UI move is verified byte-identical against the re-recorded baseline. Current line ranges → target files:
 
 | Current (MainActivity.kt) | Lines | Target (shared/ui/) |
 |---|---|---|

@@ -11,6 +11,8 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import org.w3c.dom.get
 import org.w3c.dom.set
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /**
  * Web [TranslationHistoryRepository] backed by `localStorage` (design §7).
@@ -44,6 +46,9 @@ class LocalStorageHistoryRepository(
             json.decodeFromString(listSerializer, raw).sortedByDescending { it.timestamp }
         } catch (e: Exception) {
             log.e(TAG, "Corrupt history in localStorage; starting empty", e)
+            // Drop the corrupt payload so it isn't re-parsed (and re-logged) by
+            // every future instance; recovery is "start empty", not "keep bad bytes".
+            localStorage.removeItem(STORAGE_KEY)
             emptyList()
         }
     }
@@ -88,7 +93,6 @@ class LocalStorageHistoryRepository(
     }
 }
 
-/** Wall-clock milliseconds from the browser. */
-private fun nowMillis(): Long = jsDateNow().toLong()
-
-private fun jsDateNow(): Double = js("Date.now()")
+/** Wall-clock epoch milliseconds — same source the shared view model uses. */
+@OptIn(ExperimentalTime::class)
+private fun nowMillis(): Long = Clock.System.now().toEpochMilliseconds()

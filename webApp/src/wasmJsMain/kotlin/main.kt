@@ -1,3 +1,4 @@
+import androidx.compose.runtime.remember
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
 import com.example.platform.createAppContainer
@@ -15,8 +16,11 @@ import kotlinx.browser.document
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     ComposeViewport(document.body!!) {
+        // remember: the container (Ktor client, localStorage repository) must be
+        // built once, not on recomposition of the root — mirrors MainActivity.
+        val container = remember { createAppContainer() }
         App(
-            container = createAppContainer(),
+            container = container,
             launchVoiceInput = { _, _ -> },
         )
     }

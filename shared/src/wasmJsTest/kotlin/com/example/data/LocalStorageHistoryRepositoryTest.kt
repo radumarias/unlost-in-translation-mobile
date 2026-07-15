@@ -106,11 +106,26 @@ class LocalStorageHistoryRepositoryTest {
 
         assertEquals(emptyList(), repository.allTranslations().first())
         assertEquals(1, log.errors.size, "corrupt payload must be logged")
+        // Recovery also drops the corrupt payload so later instances start clean.
+        assertEquals(null, localStorage.getItem(storageKey))
         // The repository must still be writable after recovery.
         repository.insert(translation("fresh", timestamp = 1_000L))
         assertEquals(
             listOf("fresh"),
             LocalStorageHistoryRepository(log).allTranslations().first().map { it.sourceText },
         )
+    }
+
+    @Test
+    fun structurallyValidButIncompleteRow_triggersCorruptRecoveryNotBlankRows() = runTest {
+        // Valid JSON array, but the row is missing required fields (sourceText etc.).
+        localStorage.setItem(storageKey, """[{"id":1,"isStarred":false}]""")
+        val log = RecordingLog()
+
+        val repository = LocalStorageHistoryRepository(log)
+
+        // Must recover to empty (and log), not render a blank/garbage history row.
+        assertEquals(emptyList(), repository.allTranslations().first())
+        assertEquals(1, log.errors.size, "incomplete row must be treated as corrupt")
     }
 }
