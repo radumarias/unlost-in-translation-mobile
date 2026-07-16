@@ -86,6 +86,27 @@ class KtorTranslationApiTest {
     }
 
     @Test
+    fun engine_error_is_normalized_to_exception() = runTest {
+        // Regression (Phase 4 task 3): the wasm Js engine throws kotlin.Error
+        // ("Fail to fetch") when offline. The API contract is "failures are
+        // Exceptions" — an Error must not escape past the view model's
+        // catch(Exception) and strand the UI on the loading state.
+        val engine = MockEngine { throw Error("Fail to fetch") }
+        val client = HttpClient(engine) {
+            expectSuccess = false
+            install(ContentNegotiation) { json(LenientJson) }
+            install(HttpTimeout)
+        }
+        val api = KtorTranslationApi(apiKey = "k", client = client)
+        try {
+            api.translateGoogle("Hello", "en", "es")
+            fail("expected an Exception")
+        } catch (e: Exception) {
+            assertTrue(e.message!!.contains("Fail to fetch"), "message was: ${e.message}")
+        }
+    }
+
+    @Test
     fun translateGoogle_non_2xx_preserves_HTTP_error_message() = runTest {
         val api = apiReturning(HttpStatusCode.BadGateway, "nope")
         try {

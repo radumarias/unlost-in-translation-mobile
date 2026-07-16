@@ -221,6 +221,7 @@ class TranslateViewModel(
 - Gemini request DTOs: `contents[].parts[].text`, `safetySettings` (4 categories, `BLOCK_NONE`), `generationConfig.responseMimeType = "application/json"` for validation only. Model id `gemini-3.5-flash` and the two prompts are copied verbatim (they are product behavior).
 - API-key guard preserved: blank or `MY_GEMINI_API_KEY` → throw "Gemini API key is not configured…" before any request.
 - `User-Agent: Mozilla/5.0` header: kept on Android; on wasm the browser forbids setting it — the design accepts the browser's own UA (endpoint verified to work with it).
+- Error contract (Phase 4 task 3, recorded): every `TranslationApi` failure surfaces as an `Exception` — an `apiCall` wrapper in `KtorTranslationApi` normalizes non-Exception `Throwable`s, because the wasm Js engine throws `kotlin.Error` ("Fail to fetch") when offline, which escaped the VM's `catch (e: Exception)` and stranded the UI on the loading state. Exceptions (incl. cancellation) pass through unchanged, keeping the verbatim messages above; regression test in `KtorTranslationApiTest`.
 
 ## 6. Secrets (D6)
 
