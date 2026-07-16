@@ -65,8 +65,9 @@ fun rememberTranslateViewModel(container: AppContainer): TranslateViewModel = vi
  * Platform entry points call `App(container, launchVoiceInput)`:
  * - Android: `MainActivity.setContent { App(container, ::launchVoiceInput) }`,
  *   where `launchVoiceInput` bridges to the RecognizerIntent activity launcher.
- * - Web: `ComposeViewport { App(createAppContainer(), launchVoiceInput = { _, _ -> }) }`
- *   (voice input is capability-gated off until Phase 4).
+ * - Web: `ComposeViewport { App(container, launchVoiceInput) }`, where the lambda
+ *   routes through `container.voiceInput` (WebVoiceInput on Chromium; elsewhere
+ *   the mic UI is hidden by `capabilities.voiceInput = false`).
  *
  * [launchVoiceInput] stays a caller-supplied callback because the Android
  * implementation needs an Activity-scoped result launcher that can't live in
@@ -131,6 +132,7 @@ fun App(
                             audioOutputCatalog = container.audioOutputCatalog,
                             showVoiceInput = container.capabilities.voiceInput,
                             showDualHeadset = container.capabilities.dualHeadset,
+                            extendedGlyphs = container.capabilities.extendedGlyphs,
                             launchVoiceInput = launchVoiceInput,
                         )
                     } else {
@@ -160,6 +162,7 @@ fun App(
                                     LanguageBar(
                                         sourceLang = sourceLang,
                                         targetLang = targetLang,
+                                        extendedGlyphs = container.capabilities.extendedGlyphs,
                                         onSwap = { viewModel.swapLanguages() },
                                         onChooseSource = { choosingSourceLanguage = true },
                                         onChooseTarget = { choosingTargetLanguage = true },
@@ -196,6 +199,7 @@ fun App(
                                         tab = activeBottomTab,
                                         items = if (activeBottomTab == "history") history else starred,
                                         showClearAll = activeBottomTab == "history" && history.isNotEmpty(),
+                                        extendedGlyphs = container.capabilities.extendedGlyphs,
                                         onClearAll = { viewModel.clearHistory() },
                                         onOpenItem = { item ->
                                             viewModel.setSourceLanguage(Language.getByCode(item.sourceLangCode))
@@ -246,6 +250,7 @@ fun App(
                         LanguagePickerDialog(
                             title = "Translate from",
                             currentlySelected = sourceLang,
+                            extendedGlyphs = container.capabilities.extendedGlyphs,
                             onDismiss = { choosingSourceLanguage = false },
                             onSelect = {
                                 viewModel.setSourceLanguage(it)
@@ -259,6 +264,7 @@ fun App(
                         LanguagePickerDialog(
                             title = "Translate to",
                             currentlySelected = targetLang,
+                            extendedGlyphs = container.capabilities.extendedGlyphs,
                             onDismiss = { choosingTargetLanguage = false },
                             onSelect = {
                                 viewModel.setTargetLanguage(it)

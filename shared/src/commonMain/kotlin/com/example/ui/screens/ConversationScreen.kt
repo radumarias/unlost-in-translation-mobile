@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.DualHeadsetEntry
 import com.example.model.Language
+import com.example.model.flagLabel
 import com.example.platform.AudioOutputCatalog
 import com.example.platform.SpeechSynthesizer
 import com.example.ui.components.ConversationDraftDialog
@@ -68,6 +69,7 @@ fun ConversationScreen(
     audioOutputCatalog: AudioOutputCatalog,
     showVoiceInput: Boolean,
     showDualHeadset: Boolean,
+    extendedGlyphs: Boolean,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
 ) {
     val conversationHistory by viewModel.conversationHistory.collectAsState()
@@ -184,6 +186,7 @@ fun ConversationScreen(
                     language = sourceLang,
                     isLanguageA = true,
                     showVoiceInput = showVoiceInput,
+                    extendedGlyphs = extendedGlyphs,
                     onVoiceClick = { launchVoiceInput(true, sourceLang) },
                     onSubmit = { viewModel.prepareConversationPart(it, isLanguageA = true) }
                 )
@@ -192,6 +195,7 @@ fun ConversationScreen(
                     language = targetLang,
                     isLanguageA = false,
                     showVoiceInput = showVoiceInput,
+                    extendedGlyphs = extendedGlyphs,
                     onVoiceClick = { launchVoiceInput(false, targetLang) },
                     onSubmit = { viewModel.prepareConversationPart(it, isLanguageA = false) }
                 )
@@ -240,6 +244,7 @@ private fun RowScope.SpeakerInput(
     language: Language,
     isLanguageA: Boolean,
     showVoiceInput: Boolean,
+    extendedGlyphs: Boolean,
     onVoiceClick: () -> Unit,
     onSubmit: (String) -> Unit,
 ) {
@@ -249,7 +254,7 @@ private fun RowScope.SpeakerInput(
         modifier = if (showVoiceInput) Modifier else Modifier.weight(1f).padding(horizontal = 8.dp)
     ) {
         Text(
-            text = language.name + " " + language.flag,
+            text = language.name + " " + language.flagLabel(extendedGlyphs),
             fontWeight = FontWeight.Medium,
             fontSize = 14.sp
         )

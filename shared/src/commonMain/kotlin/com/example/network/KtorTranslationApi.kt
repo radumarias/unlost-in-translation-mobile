@@ -50,14 +50,16 @@ class KtorTranslationApi(
             parameters.append("q", text)
         }.buildString()
 
-        val response = client.get(url) {
-            header("User-Agent", "Mozilla/5.0")
-            timeout { requestTimeoutMillis = GOOGLE_TIMEOUT_MS }
+        return apiCall {
+            val response = client.get(url) {
+                header("User-Agent", "Mozilla/5.0")
+                timeout { requestTimeoutMillis = GOOGLE_TIMEOUT_MS }
+            }
+            if (!response.status.isSuccess()) {
+                throw Exception("HTTP error code: ${response.status.value}")
+            }
+            GoogleResponseParser.extract(response.bodyAsText())
         }
-        if (!response.status.isSuccess()) {
-            throw Exception("HTTP error code: ${response.status.value}")
-        }
-        return GoogleResponseParser.extract(response.bodyAsText())
     }
 
     override suspend fun translateGemini(text: String, sourceLangName: String, targetLangName: String): String {
@@ -70,14 +72,15 @@ class KtorTranslationApi(
             safetySettings = GEMINI_SAFETY_SETTINGS,
         )
 
-        val response = postGemini(request)
-        if (!response.status.isSuccess()) {
-            val errorStr = runCatching { response.bodyAsText() }.getOrNull() ?: "Unknown error"
-            throw Exception("Gemini server returned error: ${response.status.value} - $errorStr")
+        return apiCall {
+            val response = postGemini(request)
+            if (!response.status.isSuccess()) {
+                val errorStr = runCatching { response.bodyAsText() }.getOrNull() ?: "Unknown error"
+                throw Exception("Gemini server returned error: ${response.status.value} - $errorStr")
+            }
+            val parsed = response.body<GeminiResponse>()
+            parsed.candidates.first().content.parts.first().text.trim()
         }
-        val parsed = response.body<GeminiResponse>()
-        val rawText = parsed.candidates.first().content.parts.first().text
-        return rawText.trim()
     }
 
     override suspend fun validateTranslation(
@@ -113,14 +116,35 @@ class KtorTranslationApi(
             generationConfig = GeminiGenerationConfig(responseMimeType = "application/json"),
         )
 
-        val response = postGemini(request)
-        if (!response.status.isSuccess()) {
-            throw Exception("Gemini server returned error: ${response.status.value}")
+        return apiCall {
+            val response = postGemini(request)
+            if (!response.status.isSuccess()) {
+                throw Exception("Gemini server returned error: ${response.status.value}")
+            }
+            val parsed = response.body<GeminiResponse>()
+            GeminiParser.parseValidation(parsed.candidates.first().content.parts.first().text)
         }
-        val parsed = response.body<GeminiResponse>()
-        val rawText = parsed.candidates.first().content.parts.first().text
-        return GeminiParser.parseValidation(rawText)
     }
+
+    /**
+     * Runs a network call, normalizing failures to [Exception] — the
+     * [TranslationApi] error contract callers catch. The wasm Js engine
+     * surfaces fetch failures as [kotlin.Error] ("Fail to fetch"), which
+     * escaped the view model's catch(Exception) and left the UI on
+     * "Translating..." forever (Phase 4 task 3 finding); Android's OkHttp
+     * engine throws IOException and is unaffected. Exceptions pass through
+     * unchanged — including cancellation and Ktor's HttpRequestTimeoutException
+     * (an IOException, so callers surface a timeout as an ordinary error) —
+     * preserving the verbatim messages the tests pin. `inline` is
+     * load-bearing: it lets the non-suspend [block] wrap suspend calls (the
+     * lambda body is inlined into the suspend call sites).
+     */
+    private inline fun <T> apiCall(block: () -> T): T =
+        try {
+            block()
+        } catch (t: Throwable) {
+            throw t as? Exception ?: Exception(t.message ?: "Network request failed", t)
+        }
 
     private suspend fun postGemini(request: GeminiRequest): HttpResponse {
         val url = "https://generativelanguage.googleapis.com/v1beta/models/$GEMINI_MODEL:generateContent?key=$apiKey"

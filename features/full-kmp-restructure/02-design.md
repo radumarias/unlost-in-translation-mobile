@@ -136,11 +136,26 @@ interface VoiceInput {                              // null = cancelled/unavaila
 // Deviation (Phase 3, recorded): the live voice-input path is a
 // `launchVoiceInput(isConversationA: Boolean?, language: Language)` lambda that the
 // platform entry point passes into App() — Android backs it with the
-// RecognizerIntent launcher in MainActivity; web passes a no-op (the UI is gated
-// off by capabilities.voiceInput anyway). `container.voiceInput` is currently
-// `UnavailableVoiceInput` on both platforms; Phase 4's WebVoiceInput must wire the
-// App lambda (or migrate both platforms onto this container seam), NOT just the
-// container field — no UI code calls container.voiceInput today.
+// RecognizerIntent launcher in MainActivity (its `container.voiceInput` stays
+// `UnavailableVoiceInput`; the activity-result launcher cannot live behind this
+// suspend seam without Activity plumbing).
+// Phase 4 (recorded): the web entry point's lambda now routes through
+// `container.voiceInput` — `WebVoiceInput` (SpeechRecognition, one-shot, aborts
+// on coroutine cancellation) when `speechRecognitionAvailable()` (Chromium AND
+// window.isSecureContext — insecure origins keep the constructor but recognition
+// can never start), `UnavailableVoiceInput` otherwise, with
+// `capabilities.voiceInput` set from the same probe. `prompt` is surfaced as a
+// snackbar on web — there is no system "Speak now" dialog for it to appear in —
+// and the prompt string is shared via `TranslateViewModel.voiceInputPrompt`.
+// Result routing is shared: both entry points call
+// `TranslateViewModel.onVoiceInputResult(spokenText, isConversationA)`
+// (main mic → setSourceText + triggerTranslation; conversation →
+// prepareConversationPart; blank/null ignored). Hard recognition failures
+// (blocked mic, no network, unsupported language) throw `VoiceInputException`
+// with a user-displayable message that the web entry point snackbars —
+// Android-parity with MainActivity's catch; "no-speech"/"aborted" stay null
+// (dialog-cancel equivalents). The web runs one recognition at a time: a new
+// mic tap cancels the in-flight job, which aborts the browser session.
 interface AudioOutputCatalog {                      // dual-headset support
     fun listOutputDevices(): List<AudioOutputDevice>          // web: emptyList()
 }
@@ -154,9 +169,10 @@ interface PlatformActions {                         // clipboard + share (Phase 
     fun share(text: String)                         // android: ACTION_SEND chooser; web: navigator.share → clipboard fallback
 }
 data class PlatformCapabilities(
-    val voiceInput: Boolean,        // android: true; web: SpeechRecognition feature-detect
+    val voiceInput: Boolean,        // android: true; web: SpeechRecognition feature-detect (secure context)
     val dualHeadset: Boolean,       // android: true; web: false → hides headset icon + dialog
     val wearSync: Boolean,          // android: true; web: false
+    val extendedGlyphs: Boolean,    // android: true; web: false → language codes instead of flag emoji (Phase 4 task 2)
 )
 
 interface AppContainer {
@@ -205,6 +221,7 @@ class TranslateViewModel(
 - Gemini request DTOs: `contents[].parts[].text`, `safetySettings` (4 categories, `BLOCK_NONE`), `generationConfig.responseMimeType = "application/json"` for validation only. Model id `gemini-3.5-flash` and the two prompts are copied verbatim (they are product behavior).
 - API-key guard preserved: blank or `MY_GEMINI_API_KEY` → throw "Gemini API key is not configured…" before any request.
 - `User-Agent: Mozilla/5.0` header: kept on Android; on wasm the browser forbids setting it — the design accepts the browser's own UA (endpoint verified to work with it).
+- Error contract (Phase 4 task 3, recorded): every `TranslationApi` failure surfaces as an `Exception` — an `apiCall` wrapper in `KtorTranslationApi` normalizes non-Exception `Throwable`s, because the wasm Js engine throws `kotlin.Error` ("Fail to fetch") when offline, which escaped the VM's `catch (e: Exception)` and stranded the UI on the loading state. Exceptions (incl. cancellation) pass through unchanged, keeping the verbatim messages above; regression test in `KtorTranslationApiTest`.
 
 ## 6. Secrets (D6)
 
@@ -252,6 +269,8 @@ Shared-UI substitutions required by the move to commonMain:
 
 Capability gating in UI: headset icon + dual-headset dialog render only if `capabilities.dualHeadset`; mic buttons only if `capabilities.voiceInput`. When `voiceInput` is false, the conversation deck swaps each speaker's mic FAB for a typed-input field feeding the same `prepareConversationPart` draft flow (Phase 3 MVP acceptance: "conversation mode works via typed input").
 
+Flag-emoji decision (Phase 4 task 2, owner-approved): web shows uppercase language codes instead of flag emoji — the wasm canvas ships no emoji font, so flags drew as boxes (Phase 3 finding). Mechanism (data-driven per the architecture's gating rule — no expect/actual branching): `PlatformCapabilities.extendedGlyphs` (Android true / web false), threaded like the other capability flags into LanguageBar, LanguagePickerDialog, HistoryScreen, and ConversationScreen, feeding `Language.flagLabel(extendedGlyphs)`. The history row's "➔" dingbat has the same coverage gap — and so does "→" U+2192 (verified empirically) — so web uses ASCII "->", deliberately local to HistoryScreen (single call site; promote it next to `flagLabel` only if a second screen needs a direction glyph). Android rendering is untouched (Roborazzi-gated). Wear notification code in :app keeps raw `flag`/"➔" deliberately — it is Android-only. Bundling an emoji font subset was rejected for now (~100KB + unverified COLR support in skiko/CMP-wasm); revisit only if product wants real flags on web.
+
 ## 9. Entry Points
 
 - **Android**: `MainActivity.onCreate` builds `createAppContainer(context)` (androidMain) + `AndroidVoiceInput(this)` (activity-result bridge, provided into the container), then `setContent { App(container) }`. `WearTranslationService` continues to be manifest-declared in `:app` and calls the shared `TranslationApi` directly (Google path only, as today).
@@ -267,3 +286,17 @@ Capability gating in UI: headset icon + dual-headset dialog render only if `capa
 | Manual | both | emulator smoke (translate, history, star, conversation); `:webApp:wasmJsBrowserDevelopmentRun` smoke in Chrome |
 
 Fakes live in `shared/src/commonTest/.../fakes/` and are the reusable seam for all future VM tests.
+
+## 11. Production Web Bundle (Phase 4 task 4, measured)
+
+`./gradlew :webApp:wasmJsBrowserDistribution` → `webApp/build/dist/wasmJs/productionExecutable/`. Measured 2026-07-16 (Kotlin 2.3.20 / CMP 1.11.1, binaryen-optimized release):
+
+| Artifact | Raw | Gzip (what the wire pays) |
+|---|---|---|
+| app `.wasm` (Kotlin + Compose code) | 8.65 MB | 3.33 MB |
+| skiko `.wasm` (Skia runtime) | 4.36 MB | 1.28 MB |
+| `webApp.js` loader | 539 KB | 102 KB |
+| `index.html` | 2.2 KB | 1.0 KB |
+| **First-load transfer (gzip)** | | **≈ 4.7 MB** |
+
+The 1.5 MB `webApp.js.map` ships in the dist but is only fetched by DevTools. DCE is effective: the dev app `.wasm` is 26.7 MB vs 8.65 MB in release, and unused `material-icons-extended` icons are stripped by the wasm DCE (keeping the dependency costs bundle size only for icons actually referenced). Verified: the production dist served statically boots in headless Chrome and translates end-to-end (screenshot smoke). Serving requires correct `application/wasm` MIME and benefits from gzip/brotli — GitHub Pages provides both.

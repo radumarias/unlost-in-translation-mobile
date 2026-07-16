@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.Language
+import com.example.model.flagLabel
 
 /**
  * Header language selector: source pill, swap button, target pill.
@@ -39,6 +40,7 @@ import com.example.model.Language
 fun LanguageBar(
     sourceLang: Language,
     targetLang: Language,
+    extendedGlyphs: Boolean,
     onSwap: () -> Unit,
     onChooseSource: () -> Unit,
     onChooseTarget: () -> Unit,
@@ -64,7 +66,7 @@ fun LanguageBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                Text(text = sourceLang.flag + " ", fontSize = 16.sp)
+                Text(text = sourceLang.flagLabel(extendedGlyphs) + " ", fontSize = 16.sp)
                 Text(
                     text = sourceLang.name,
                     fontWeight = FontWeight.Bold,
@@ -113,7 +115,7 @@ fun LanguageBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                Text(text = targetLang.flag + " ", fontSize = 16.sp)
+                Text(text = targetLang.flagLabel(extendedGlyphs) + " ", fontSize = 16.sp)
                 Text(
                     text = targetLang.name,
                     fontWeight = FontWeight.Bold,

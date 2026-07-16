@@ -49,5 +49,6 @@ class AndroidAppContainer(
         voiceInput = true,
         dualHeadset = true,
         wearSync = true,
+        extendedGlyphs = true,
     )
 }

@@ -41,11 +41,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.model.Language
+import com.example.model.flagLabel
 
 @Composable
 fun LanguagePickerDialog(
     title: String,
     currentlySelected: Language,
+    extendedGlyphs: Boolean,
     onDismiss: () -> Unit,
     onSelect: (Language) -> Unit
 ) {
@@ -122,7 +124,7 @@ fun LanguagePickerDialog(
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = lang.flag, fontSize = 22.sp)
+                            Text(text = lang.flagLabel(extendedGlyphs), fontSize = 22.sp)
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
                                 text = lang.name,

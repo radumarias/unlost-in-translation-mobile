@@ -9,3 +9,12 @@ plugins {
   alias(libs.plugins.android.kotlin.multiplatform.library) apply false
   alias(libs.plugins.compose.multiplatform) apply false
 }
+
+// Dependabot alerts #1/#2: the wasm dev toolchain (webpack-dev-server/karma)
+// pulls a vulnerable transitive `ws` (< 8.21.0 — DoS + uninitialized-memory
+// advisories). Dev-machine-only (never in the shipped wasm bundle), but pin it
+// forward via a yarn resolution in kotlin-js-store/wasm/yarn.lock.
+plugins.withType<org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnPlugin> {
+  extensions.getByType<org.jetbrains.kotlin.gradle.targets.wasm.yarn.WasmYarnRootExtension>()
+    .resolution("ws", "^8.21.0")
+}

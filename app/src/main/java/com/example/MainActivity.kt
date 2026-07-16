@@ -24,6 +24,7 @@ import com.example.platform.UnavailableVoiceInput
 import com.example.speech.TTSHelper
 import com.example.ui.App
 import com.example.ui.rememberTranslateViewModel
+import com.example.ui.viewmodel.TranslateViewModel
 
 /**
  * Android entry point (design §9). Keeps only what needs an Activity/Context:
@@ -73,16 +74,8 @@ private fun AndroidApp() {
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull() ?: ""
-            if (spokenText.isNotBlank()) {
-                val reqIsA = pendingVoiceRequestIsA
-                if (reqIsA != null) {
-                    viewModel.prepareConversationPart(spokenText, isLanguageA = reqIsA)
-                } else {
-                    viewModel.setSourceText(spokenText)
-                    viewModel.triggerTranslation()
-                }
-            }
+            val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            viewModel.onVoiceInputResult(spokenText, pendingVoiceRequestIsA)
         }
         pendingVoiceRequestIsA = null
     }
@@ -103,11 +96,11 @@ private fun AndroidApp() {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, language.languageTag)
                 putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, language.languageTag)
                 putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf(language.languageTag))
-                putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now (${language.name})...")
+                putExtra(RecognizerIntent.EXTRA_PROMPT, TranslateViewModel.voiceInputPrompt(language))
             }
             speechLauncher.launch(intent)
         } catch (e: Exception) {
-            viewModel.showMessage("Voice input is not supported on this device.")
+            viewModel.showMessage(TranslateViewModel.VOICE_INPUT_UNSUPPORTED_MESSAGE)
         }
     }
 

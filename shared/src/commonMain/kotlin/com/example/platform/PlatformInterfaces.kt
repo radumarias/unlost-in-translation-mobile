@@ -56,4 +56,11 @@ data class PlatformCapabilities(
     val voiceInput: Boolean,
     val dualHeadset: Boolean,
     val wearSync: Boolean,
+    /**
+     * True when the platform's text stack renders extended glyphs — emoji
+     * flags, dingbats like "➔". Android does (system emoji font); the web
+     * canvas ships no such font, so those draw as boxes and the UI falls back
+     * to plain-text stand-ins (Phase 4 decision, design §8).
+     */
+    val extendedGlyphs: Boolean,
 )
