@@ -34,6 +34,9 @@ class TranslateViewModel(
          * web surfaces it as a snackbar (no system dialog exists there).
          */
         fun voiceInputPrompt(language: Language): String = "Speak now (${language.name})..."
+
+        /** Shown when launching the platform recognizer fails outright. */
+        const val VOICE_INPUT_UNSUPPORTED_MESSAGE = "Voice input is not supported on this device."
     }
 
     /**

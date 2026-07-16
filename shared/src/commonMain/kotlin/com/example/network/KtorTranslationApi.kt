@@ -132,9 +132,12 @@ class KtorTranslationApi(
      * surfaces fetch failures as [kotlin.Error] ("Fail to fetch"), which
      * escaped the view model's catch(Exception) and left the UI on
      * "Translating..." forever (Phase 4 task 3 finding); Android's OkHttp
-     * engine throws IOException and is unaffected. Exceptions (including
-     * cancellation) pass through unchanged, preserving the verbatim error
-     * messages the tests pin.
+     * engine throws IOException and is unaffected. Exceptions pass through
+     * unchanged — including cancellation and Ktor's HttpRequestTimeoutException
+     * (an IOException, so callers surface a timeout as an ordinary error) —
+     * preserving the verbatim messages the tests pin. `inline` is
+     * load-bearing: it lets the non-suspend [block] wrap suspend calls (the
+     * lambda body is inlined into the suspend call sites).
      */
     private inline fun <T> apiCall(block: () -> T): T =
         try {

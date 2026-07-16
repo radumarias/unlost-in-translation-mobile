@@ -100,7 +100,7 @@ private fun AndroidApp() {
             }
             speechLauncher.launch(intent)
         } catch (e: Exception) {
-            viewModel.showMessage("Voice input is not supported on this device.")
+            viewModel.showMessage(TranslateViewModel.VOICE_INPUT_UNSUPPORTED_MESSAGE)
         }
     }
 
