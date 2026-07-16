@@ -1,7 +1,10 @@
 plugins {
   alias(libs.plugins.kotlin.multiplatform)
   alias(libs.plugins.android.kotlin.multiplatform.library)
-  alias(libs.plugins.kotlin.serialization)
+  // NOTE: the kotlinx-serialization compiler plugin is deliberately NOT applied:
+  // every serializer is hand-written (see LenientJson kdoc) because the plugin
+  // crashes the FIR compiler when co-resident with the Compose plugin on wasmJs.
+  // The kotlinx-serialization-json RUNTIME dependency below is still used.
   alias(libs.plugins.google.devtools.ksp)
   alias(libs.plugins.compose.multiplatform)
   alias(libs.plugins.kotlin.compose)
