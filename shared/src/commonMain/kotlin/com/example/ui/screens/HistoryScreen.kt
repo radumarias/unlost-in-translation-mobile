@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.Language
+import com.example.model.flagLabel
 import com.example.model.Translation
 
 /**
@@ -57,12 +58,16 @@ fun HistoryScreen(
     tab: String,
     items: List<Translation>,
     showClearAll: Boolean,
+    extendedGlyphs: Boolean,
     onClearAll: () -> Unit,
     onOpenItem: (Translation) -> Unit,
     onDeleteItem: (Translation) -> Unit,
     onSpeak: (Translation) -> Unit,
     onToggleStar: (Translation) -> Unit,
 ) {
+    // "➔" (U+2794) is outside the web canvas's font coverage just like the
+    // flags — and so is "→" (U+2192, verified empirically) — hence ASCII there.
+    val directionArrow = if (extendedGlyphs) "➔" else "->"
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -149,7 +154,7 @@ fun HistoryScreen(
                                     val srcLang = Language.getByCode(item.sourceLangCode)
                                     val trgLang = Language.getByCode(item.targetLangCode)
                                     Text(
-                                        text = "${srcLang.flag} ${srcLang.name}  ➔  ${trgLang.flag} ${trgLang.name}",
+                                        text = "${srcLang.flagLabel(extendedGlyphs)} ${srcLang.name}  $directionArrow  ${trgLang.flagLabel(extendedGlyphs)} ${trgLang.name}",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
                                         color = MaterialTheme.colorScheme.secondary

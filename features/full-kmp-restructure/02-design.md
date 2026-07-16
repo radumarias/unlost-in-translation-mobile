@@ -169,9 +169,10 @@ interface PlatformActions {                         // clipboard + share (Phase 
     fun share(text: String)                         // android: ACTION_SEND chooser; web: navigator.share → clipboard fallback
 }
 data class PlatformCapabilities(
-    val voiceInput: Boolean,        // android: true; web: SpeechRecognition feature-detect
+    val voiceInput: Boolean,        // android: true; web: SpeechRecognition feature-detect (secure context)
     val dualHeadset: Boolean,       // android: true; web: false → hides headset icon + dialog
     val wearSync: Boolean,          // android: true; web: false
+    val extendedGlyphs: Boolean,    // android: true; web: false → language codes instead of flag emoji (Phase 4 task 2)
 )
 
 interface AppContainer {
@@ -266,6 +267,8 @@ Shared-UI substitutions required by the move to commonMain:
 - `Icons.Default.*` / extended icons: CMP ships `material-icons-extended` for common code — imports unchanged.
 
 Capability gating in UI: headset icon + dual-headset dialog render only if `capabilities.dualHeadset`; mic buttons only if `capabilities.voiceInput`. When `voiceInput` is false, the conversation deck swaps each speaker's mic FAB for a typed-input field feeding the same `prepareConversationPart` draft flow (Phase 3 MVP acceptance: "conversation mode works via typed input").
+
+Flag-emoji decision (Phase 4 task 2, owner-approved): web shows uppercase language codes instead of flag emoji — the wasm canvas ships no emoji font, so flags drew as boxes (Phase 3 finding). Mechanism (data-driven per the architecture's gating rule — no expect/actual branching): `PlatformCapabilities.extendedGlyphs` (Android true / web false), threaded like the other capability flags into LanguageBar, LanguagePickerDialog, HistoryScreen, and ConversationScreen, feeding `Language.flagLabel(extendedGlyphs)`. The history row's "➔" dingbat has the same coverage gap — and so does "→" U+2192 (verified empirically) — so web uses ASCII "->" (local to HistoryScreen). Android rendering is untouched (Roborazzi-gated). Wear notification code in :app keeps raw `flag`/"➔" deliberately — it is Android-only. Bundling an emoji font subset was rejected for now (~100KB + unverified COLR support in skiko/CMP-wasm); revisit only if product wants real flags on web.
 
 ## 9. Entry Points
 

@@ -132,6 +132,7 @@ fun App(
                             audioOutputCatalog = container.audioOutputCatalog,
                             showVoiceInput = container.capabilities.voiceInput,
                             showDualHeadset = container.capabilities.dualHeadset,
+                            extendedGlyphs = container.capabilities.extendedGlyphs,
                             launchVoiceInput = launchVoiceInput,
                         )
                     } else {
@@ -161,6 +162,7 @@ fun App(
                                     LanguageBar(
                                         sourceLang = sourceLang,
                                         targetLang = targetLang,
+                                        extendedGlyphs = container.capabilities.extendedGlyphs,
                                         onSwap = { viewModel.swapLanguages() },
                                         onChooseSource = { choosingSourceLanguage = true },
                                         onChooseTarget = { choosingTargetLanguage = true },
@@ -197,6 +199,7 @@ fun App(
                                         tab = activeBottomTab,
                                         items = if (activeBottomTab == "history") history else starred,
                                         showClearAll = activeBottomTab == "history" && history.isNotEmpty(),
+                                        extendedGlyphs = container.capabilities.extendedGlyphs,
                                         onClearAll = { viewModel.clearHistory() },
                                         onOpenItem = { item ->
                                             viewModel.setSourceLanguage(Language.getByCode(item.sourceLangCode))
@@ -247,6 +250,7 @@ fun App(
                         LanguagePickerDialog(
                             title = "Translate from",
                             currentlySelected = sourceLang,
+                            extendedGlyphs = container.capabilities.extendedGlyphs,
                             onDismiss = { choosingSourceLanguage = false },
                             onSelect = {
                                 viewModel.setSourceLanguage(it)
@@ -260,6 +264,7 @@ fun App(
                         LanguagePickerDialog(
                             title = "Translate to",
                             currentlySelected = targetLang,
+                            extendedGlyphs = container.capabilities.extendedGlyphs,
                             onDismiss = { choosingTargetLanguage = false },
                             onSelect = {
                                 viewModel.setTargetLanguage(it)

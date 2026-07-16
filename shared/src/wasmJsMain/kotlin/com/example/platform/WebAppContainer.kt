@@ -45,6 +45,8 @@ class WebAppContainer : AppContainer {
         voiceInput = voiceInputAvailable,
         dualHeadset = false,
         wearSync = false,
+        // The wasm canvas ships no emoji font — flags/dingbats draw as boxes.
+        extendedGlyphs = false,
     )
 }
 
