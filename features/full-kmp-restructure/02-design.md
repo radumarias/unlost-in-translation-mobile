@@ -211,6 +211,7 @@ class TranslateViewModel(
 - **Wear side-effect moves here** from `MainActivity`'s `LaunchedEffect(translationState)`: after a successful primary translation, the VM calls `broadcaster.broadcast(...)`. UI no longer owns platform side-effects (SRP); web build injects a no-op.
 - **Pipeline consolidation (DRY)**: one private helper implements translate → persist? → parallel(round-trip, validation) with callbacks for state delivery; `triggerTranslation` (persists, updates main-screen flows) and `prepareConversationPart` (no persist, updates draft flow) both call it. Behavior preserved, including the round-trip staleness guard (`currentState.translatedText == translated`).
 - Construction in shared UI: `viewModel { TranslateViewModel(container.api, container.historyRepository, container.broadcaster, container.log) }` (CMP lifecycle factory lambda — works on both targets).
+- Defect fixed (Phase 5, recorded): the §10 "language swap-on-conflict" test exposed that `setSourceLanguage`/`setTargetLanguage` assigned the new language *before* swapping, so picking the current target as the new source swapped two equal values and collapsed both pickers to the same language. Present verbatim since the initial AI-Studio import (all phases ported it faithfully); fixed to swap before assigning, matching this design's intended semantics.
 - `System.currentTimeMillis()` (entity timestamp, `ConversationItem`) → `kotlin.time.Clock.System.now().toEpochMilliseconds()` or `TimeSource` equivalent available in common.
 
 ## 5. Networking Design (Ktor)
