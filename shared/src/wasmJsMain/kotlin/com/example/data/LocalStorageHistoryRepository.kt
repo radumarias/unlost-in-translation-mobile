@@ -54,12 +54,16 @@ class LocalStorageHistoryRepository(
     }
 
     private fun persist(list: List<Translation>) {
-        state.value = list
+        // Write first, publish second: if the write fails (quota, privacy mode)
+        // the visible history stays consistent with what will survive a reload,
+        // instead of showing a mutation that silently vanishes next session.
         try {
             localStorage[STORAGE_KEY] = json.encodeToString(listSerializer, list)
         } catch (e: Exception) {
-            log.e(TAG, "Failed writing history to localStorage", e)
+            log.e(TAG, "Failed writing history to localStorage; change not applied", e)
+            return
         }
+        state.value = list
     }
 
     override fun allTranslations(): Flow<List<Translation>> = state
