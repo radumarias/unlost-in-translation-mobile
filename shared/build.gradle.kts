@@ -3,6 +3,8 @@ plugins {
   alias(libs.plugins.android.kotlin.multiplatform.library)
   alias(libs.plugins.kotlin.serialization)
   alias(libs.plugins.google.devtools.ksp)
+  alias(libs.plugins.compose.multiplatform)
+  alias(libs.plugins.kotlin.compose)
 }
 
 // --- Secrets codegen (design §6) ---
@@ -58,7 +60,6 @@ val generateSecrets by tasks.registering {
 }
 
 kotlin {
-  // Phase 2: Android target only. wasmJs is added in Phase 3.
   @Suppress("UnstableApiUsage")
   android {
     namespace = "com.example.shared"
@@ -67,6 +68,13 @@ kotlin {
     // Opt into the host-side (JVM) unit-test compilation so commonTest is wired
     // to a real target and runs via :shared:testAndroidHostTest.
     withHostTest {}
+  }
+
+  // Phase 3: web target. The browser() runner drives :webApp; the module itself
+  // exposes commonMain + wasmJsMain to the web build.
+  @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
+  wasmJs {
+    browser()
   }
 
   sourceSets {
@@ -78,12 +86,29 @@ kotlin {
         implementation(libs.ktor.client.core)
         implementation(libs.ktor.client.content.negotiation)
         implementation(libs.ktor.serialization.kotlinx.json)
+        // Compose Multiplatform (design §1: shared UI in commonMain). Provided by
+        // the compose-multiplatform plugin's `compose` extension, not the catalog.
+        implementation(compose.runtime)
+        implementation(compose.foundation)
+        implementation(compose.material3)
+        implementation(compose.materialIconsExtended)
+        implementation(compose.ui)
+        // Multiplatform ViewModel (design §3: shared TranslateViewModel) + the
+        // compose `viewModel {}` factory used by App.kt. Epoch millis that used
+        // System.currentTimeMillis() now come from the stdlib kotlin.time.Clock
+        // (no extra dependency).
+        implementation(libs.androidx.lifecycle.viewmodel)
+        implementation(libs.androidx.lifecycle.viewmodel.compose.kmp)
       }
     }
     androidMain.dependencies {
       implementation(libs.ktor.client.okhttp)
       implementation(libs.androidx.room.runtime)
       implementation(libs.androidx.room.ktx)
+    }
+    wasmJsMain.dependencies {
+      implementation(libs.ktor.client.js)
+      implementation(libs.kotlinx.browser)
     }
     commonTest.dependencies {
       implementation(libs.kotlin.test)

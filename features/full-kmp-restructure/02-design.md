@@ -65,6 +65,18 @@ webApp/src/wasmJsMain/
 └── resources/index.html         # canvas host + unsupported-browser banner
 ```
 
+> **Layout deviations (recorded per the design-contract rule):**
+> - There is no `di/` package. `AppContainer` (+ `PlatformCapabilities`, `PlatformActions`)
+>   lives in `com.example.platform` alongside the other seams, and `WebAppContainer`
+>   in `shared/wasmJsMain/.../platform/`.
+> - `AndroidAppContainer` lives in **`:app`** (`app/src/main/.../platform/`), not
+>   `shared/androidMain`: it wires `WearTranslationBroadcaster`, which references
+>   `MainActivity`/`R` from `:app` and cannot move into `:shared` without a further
+>   notification abstraction (deferred).
+> - `DualHeadsetEntry` (the gated headset icon + dialog opener shared by the top bar
+>   and the conversation header) lives in `components/DualHeadsetSetupDialog.kt`
+>   rather than a separate file.
+
 ## 2. Domain Models (commonMain)
 
 ```kotlin
@@ -104,12 +116,14 @@ Key change vs today: `validateTranslation` returns a **parsed** `ValidationResul
 
 ```kotlin
 interface TranslationHistoryRepository {
-    fun observeAll(): Flow<List<Translation>>       // timestamp DESC
-    fun observeStarred(): Flow<List<Translation>>
+    // Actual method names (deviation, recorded): allTranslations() / starredTranslations()
+    // / clearHistory() instead of observeAll() / observeStarred() / clearAll().
+    fun allTranslations(): Flow<List<Translation>>  // timestamp DESC
+    fun starredTranslations(): Flow<List<Translation>>
     suspend fun insert(translation: Translation): Long
-    suspend fun setStarred(id: Long, starred: Boolean)
+    suspend fun setStarred(id: Long, isStarred: Boolean)
     suspend fun deleteById(id: Long)
-    suspend fun clearAll()                          // current semantics: deletes starred too
+    suspend fun clearHistory()                      // current semantics: deletes starred too
 }
 
 interface SpeechSynthesizer {                       // absorbs TTSHelper's public surface
@@ -119,6 +133,14 @@ interface SpeechSynthesizer {                       // absorbs TTSHelper's publi
 interface VoiceInput {                              // null = cancelled/unavailable
     suspend fun recognize(languageTag: String, prompt: String): String?
 }
+// Deviation (Phase 3, recorded): the live voice-input path is a
+// `launchVoiceInput(isConversationA: Boolean?, language: Language)` lambda that the
+// platform entry point passes into App() — Android backs it with the
+// RecognizerIntent launcher in MainActivity; web passes a no-op (the UI is gated
+// off by capabilities.voiceInput anyway). `container.voiceInput` is currently
+// `UnavailableVoiceInput` on both platforms; Phase 4's WebVoiceInput must wire the
+// App lambda (or migrate both platforms onto this container seam), NOT just the
+// container field — no UI code calls container.voiceInput today.
 interface AudioOutputCatalog {                      // dual-headset support
     fun listOutputDevices(): List<AudioOutputDevice>          // web: emptyList()
 }
@@ -126,6 +148,10 @@ data class AudioOutputDevice(val id: Int, val label: String, val isBluetooth: Bo
 
 interface TranslationBroadcaster {                  // Wear abstraction; web: no-op object
     fun broadcast(sourceText: String, translatedText: String, source: Language, target: Language)
+}
+interface PlatformActions {                         // clipboard + share (Phase 3 addition)
+    fun copyToClipboard(text: String)               // android: ClipboardManager; web: navigator.clipboard
+    fun share(text: String)                         // android: ACTION_SEND chooser; web: navigator.share → clipboard fallback
 }
 data class PlatformCapabilities(
     val voiceInput: Boolean,        // android: true; web: SpeechRecognition feature-detect
@@ -140,6 +166,8 @@ interface AppContainer {
     val voiceInput: VoiceInput
     val audioOutputCatalog: AudioOutputCatalog
     val broadcaster: TranslationBroadcaster
+    val log: AppLog                 // §D10 logging seam
+    val platformActions: PlatformActions   // Phase 3 addition (clipboard + share)
     val capabilities: PlatformCapabilities
 }
 ```
@@ -153,13 +181,20 @@ class TranslateViewModel(
     private val api: TranslationApi,
     private val repository: TranslationHistoryRepository,
     private val broadcaster: TranslationBroadcaster,
+    private val log: AppLog,   // deviation: see note below
 ) : ViewModel()
 ```
+
+> **Deviation (Phase 3, recorded per the design-contract rule):** the constructor
+> gained a `log: AppLog` parameter. The original `android.util.Log` calls in the
+> VM can't cross into commonMain, so the VM logs through the design §3 `AppLog`
+> seam, injected from `AppContainer.log`. No behavior change — the same tags and
+> messages, forwarded to Logcat on Android and the console on web.
 
 - All existing `StateFlow`s, states (`TranslationState`, `ValidationState`, `ConversationDraft`, `ConversationItem`) and public methods keep their names and semantics.
 - **Wear side-effect moves here** from `MainActivity`'s `LaunchedEffect(translationState)`: after a successful primary translation, the VM calls `broadcaster.broadcast(...)`. UI no longer owns platform side-effects (SRP); web build injects a no-op.
 - **Pipeline consolidation (DRY)**: one private helper implements translate → persist? → parallel(round-trip, validation) with callbacks for state delivery; `triggerTranslation` (persists, updates main-screen flows) and `prepareConversationPart` (no persist, updates draft flow) both call it. Behavior preserved, including the round-trip staleness guard (`currentState.translatedText == translated`).
-- Construction in shared UI: `viewModel { TranslateViewModel(container.api, container.historyRepository, container.broadcaster) }` (CMP lifecycle factory lambda — works on both targets).
+- Construction in shared UI: `viewModel { TranslateViewModel(container.api, container.historyRepository, container.broadcaster, container.log) }` (CMP lifecycle factory lambda — works on both targets).
 - `System.currentTimeMillis()` (entity timestamp, `ConversationItem`) → `kotlin.time.Clock.System.now().toEpochMilliseconds()` or `TimeSource` equivalent available in common.
 
 ## 5. Networking Design (Ktor)
@@ -190,7 +225,7 @@ Gradle task in `:shared` (registered as a commonMain generated source dir, wired
 
 ## 8. UI Decomposition Map
 
-`MainActivity.kt` (1867 lines) is split with **zero visual/behavioral change** (Roborazzi-verified). Current line ranges → target files:
+`MainActivity.kt` (1867 lines) is split with **zero visual/behavioral change** (Roborazzi-verified). One exception, recorded: the Kotlin 2.2.10→2.3.20 bump (Phase 3 toolchain, required by CMP 1.11 on wasm) changed text rendering imperceptibly, so the baseline was re-recorded once at that commit; every later UI move is verified byte-identical against the re-recorded baseline. Current line ranges → target files:
 
 | Current (MainActivity.kt) | Lines | Target (shared/ui/) |
 |---|---|---|
@@ -209,13 +244,13 @@ Gradle task in `:shared` (registered as a commonMain generated source dir, wired
 
 Shared-UI substitutions required by the move to commonMain:
 
-- `Toast.makeText(...)` → Material3 `SnackbarHostState` (a `LaunchedEffect`-driven host already fits the scaffold). Affects voice-input status/error toasts.
+- `Toast.makeText(...)` → Material3 `SnackbarHostState` (a `LaunchedEffect`-driven host already fits the scaffold). Affects voice-input status/error toasts **and** the in-screen status toasts that moved to commonMain — "Added to star history.", "Copied translation!", "Deleted from history", and the conversation "Playing translation to …'s headset…" — all now route through `viewModel.showMessage` → the shared snackbar. (`ClipboardManager`/share `Intent` are also platform-side now, behind the §3 `PlatformActions` seam; see below.)
 - `android.util.Log` → `AppLog`.
 - `LocalContext`-dependent bits stay platform-side behind the §3 interfaces.
 - Theme: port static light/dark schemes as-is; drop the (default-off) `dynamicColor` branch — Android can layer it back later via a wrapper in `:app` (YAGNI now).
 - `Icons.Default.*` / extended icons: CMP ships `material-icons-extended` for common code — imports unchanged.
 
-Capability gating in UI: headset icon + dual-headset dialog render only if `capabilities.dualHeadset`; mic buttons only if `capabilities.voiceInput`.
+Capability gating in UI: headset icon + dual-headset dialog render only if `capabilities.dualHeadset`; mic buttons only if `capabilities.voiceInput`. When `voiceInput` is false, the conversation deck swaps each speaker's mic FAB for a typed-input field feeding the same `prepareConversationPart` draft flow (Phase 3 MVP acceptance: "conversation mode works via typed input").
 
 ## 9. Entry Points
 

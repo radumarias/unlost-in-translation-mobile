@@ -10,27 +10,19 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.SettingsSuggest
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.DualHeadsetSetupDialog
 import com.example.platform.AudioOutputCatalog
 import com.example.ui.viewmodel.TranslateViewModel
 
@@ -48,6 +40,7 @@ fun AppTopBar(
     viewModel: TranslateViewModel,
     isAiEnhanced: Boolean,
     audioOutputCatalog: AudioOutputCatalog,
+    showDualHeadset: Boolean,
 ) {
     // Top branding line with AI toggle
     Row(
@@ -74,23 +67,11 @@ fun AppTopBar(
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            val dualHeadsetState by viewModel.dualHeadsetState.collectAsState()
-            var showDualHeadsetSetup by remember { mutableStateOf(false) }
-            IconButton(onClick = { showDualHeadsetSetup = true }) {
-                Icon(
-                    Icons.Default.Headphones,
-                    contentDescription = "Dual Headset Setup",
-                    tint = if (dualHeadsetState.isDualHeadsetModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            if (showDualHeadsetSetup) {
-                DualHeadsetSetupDialog(
-                    viewModel = viewModel,
-                    catalog = audioOutputCatalog,
-                    onDismiss = { showDualHeadsetSetup = false }
-                )
-            }
+            DualHeadsetEntry(
+                viewModel = viewModel,
+                catalog = audioOutputCatalog,
+                show = showDualHeadset
+            )
 
             Spacer(modifier = Modifier.width(4.dp))
 

@@ -40,6 +40,17 @@ interface AudioOutputCatalog {
     fun playTestTone(deviceId: Int)
 }
 
+/**
+ * Clipboard + share actions the translate screen needs (design §8 §221:
+ * "LocalContext-dependent bits stay platform-side behind the §3 interfaces").
+ * Android: ClipboardManager + an ACTION_SEND chooser Intent. Web: the
+ * navigator.clipboard / Web Share APIs (or a no-op share where unsupported).
+ */
+interface PlatformActions {
+    fun copyToClipboard(text: String)
+    fun share(text: String)
+}
+
 /** Feature flags that gate capability-specific UI (design §3). */
 data class PlatformCapabilities(
     val voiceInput: Boolean,

@@ -1,12 +1,12 @@
 package com.example.ui.viewmodel
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.TranslationHistoryRepository
 import com.example.model.Language
 import com.example.model.Translation
 import com.example.network.TranslationApi
+import com.example.platform.AppLog
 import com.example.wear.TranslationBroadcaster
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,11 +16,14 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 class TranslateViewModel(
     private val api: TranslationApi,
     private val repository: TranslationHistoryRepository,
     private val broadcaster: TranslationBroadcaster,
+    private val log: AppLog,
 ) : ViewModel() {
     companion object {
         private const val TAG = "TranslateViewModel"
@@ -98,7 +101,8 @@ class TranslateViewModel(
         val text: String,
         val translated: String,
         val speakA: Boolean, // if true, spoken by Language A. Else Language B.
-        val timestamp: Long = System.currentTimeMillis()
+        @OptIn(ExperimentalTime::class)
+        val timestamp: Long = Clock.System.now().toEpochMilliseconds()
     )
 
     fun setSourceText(text: String) {
@@ -189,7 +193,7 @@ class TranslateViewModel(
                             _translationState.value = currentState.copy(roundTripText = roundTrip)
                         }
                     } catch (e: Exception) {
-                        Log.e(TAG, "Round trip exception", e)
+                        log.e(TAG, "Round trip exception", e)
                     }
                 }
 
@@ -225,7 +229,7 @@ class TranslateViewModel(
         val result = api.validateTranslation(originalText, translatedText, sourceLangName, targetLangName)
         ValidationState.Success(result.isWarning, result.explanation, result.suggestions)
     } catch (e: Exception) {
-        Log.e(TAG, "Validation exception", e)
+        log.e(TAG, "Validation exception", e)
         ValidationState.Error("Validation failed: ${e.message}")
     }
 
@@ -244,7 +248,7 @@ class TranslateViewModel(
             )
             repository.insert(translation)
         } catch (e: Exception) {
-            Log.e(TAG, "Failed saving translation to database: ", e)
+            log.e(TAG, "Failed saving translation to database: ", e)
         }
     }
 
@@ -312,7 +316,7 @@ class TranslateViewModel(
                         val roundTrip = api.translateGoogle(translation, targetLangCode, sourceLangCode)
                         _conversationDraft.value = _conversationDraft.value?.copy(roundTripText = roundTrip)
                     } catch (e: Exception) {
-                        Log.e(TAG, "Draft round trip exception", e)
+                        log.e(TAG, "Draft round trip exception", e)
                     }
                 }
 
@@ -322,7 +326,7 @@ class TranslateViewModel(
                 }
 
             } catch (e: Exception) {
-                Log.e(TAG, "Conversation mode translation failed: ", e)
+                log.e(TAG, "Conversation mode translation failed: ", e)
                 _conversationDraft.value = _conversationDraft.value?.copy(
                     isTranslating = false,
                     validationState = ValidationState.Error(e.message ?: "Failed at translation stage")

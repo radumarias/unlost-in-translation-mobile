@@ -1,8 +1,17 @@
 package com.example.network
 
 import com.example.ui.viewmodel.Suggestion
-import kotlinx.serialization.SerialName
-import kotlinx.serialization.Serializable
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.descriptors.buildClassSerialDescriptor
+import kotlinx.serialization.descriptors.element
+import kotlinx.serialization.encoding.CompositeDecoder
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.encoding.decodeStructure
+import kotlinx.serialization.encoding.encodeStructure
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -12,43 +21,253 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.modules.SerializersModule
 
-/** Lenient JSON: unknown keys ignored (Gemini/Google add fields we don't model). */
+/**
+ * Lenient JSON: unknown keys ignored (Gemini/Google add fields we don't model).
+ *
+ * The Gemini request/response DTOs below are serialized by hand-written
+ * [KSerializer]s rather than `@Serializable`: the serialization compiler plugin
+ * crashes (FIR NPE) when co-resident with the Compose compiler plugin on wasmJs,
+ * and the shared Compose UI (design §1) puts both plugins on commonMain. The two
+ * types Ktor resolves reflectively — [GeminiRequest] (request body) and
+ * [GeminiResponse] (response body) — are registered [contextual] here so Ktor's
+ * content negotiation finds them; nested DTO serializers are referenced directly.
+ */
 val LenientJson = Json {
     ignoreUnknownKeys = true
     isLenient = true
+    serializersModule = SerializersModule {
+        contextual(GeminiRequest::class, GeminiRequestSerializer)
+        contextual(GeminiResponse::class, GeminiResponseSerializer)
+    }
 }
 
 // --- Gemini request DTOs (contents / safetySettings / generationConfig) ---
 
-@Serializable
 data class GeminiRequest(
     val contents: List<GeminiContent>,
     val safetySettings: List<GeminiSafetySetting>,
     val generationConfig: GeminiGenerationConfig? = null,
 )
 
-@Serializable
 data class GeminiContent(val parts: List<GeminiPart>)
 
-@Serializable
 data class GeminiPart(val text: String)
 
-@Serializable
 data class GeminiSafetySetting(val category: String, val threshold: String)
 
-@Serializable
 data class GeminiGenerationConfig(
-    @SerialName("responseMimeType") val responseMimeType: String,
+    val responseMimeType: String,
 )
 
 // --- Gemini response DTO ---
 
-@Serializable
 data class GeminiResponse(val candidates: List<GeminiCandidate> = emptyList())
 
-@Serializable
 data class GeminiCandidate(val content: GeminiContent)
+
+// --- Hand-written serializers (see LenientJson kdoc for why not @Serializable) ---
+
+object GeminiPartSerializer : KSerializer<GeminiPart> {
+    override val descriptor: SerialDescriptor =
+        buildClassSerialDescriptor("GeminiPart") { element<String>("text") }
+
+    override fun serialize(encoder: Encoder, value: GeminiPart) {
+        encoder.encodeStructure(descriptor) {
+            encodeStringElement(descriptor, 0, value.text)
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): GeminiPart = decoder.decodeStructure(descriptor) {
+        var text: String? = null
+        while (true) {
+            when (val index = decodeElementIndex(descriptor)) {
+                0 -> text = decodeStringElement(descriptor, 0)
+                CompositeDecoder.DECODE_DONE -> break
+                else -> throw SerializationException("Unexpected index $index")
+            }
+        }
+        GeminiPart(text ?: throw SerializationException("Missing required field 'text' in GeminiPart JSON"))
+    }
+}
+
+object GeminiContentSerializer : KSerializer<GeminiContent> {
+    private val partsSerializer = ListSerializer(GeminiPartSerializer)
+    override val descriptor: SerialDescriptor =
+        buildClassSerialDescriptor("GeminiContent") {
+            element("parts", partsSerializer.descriptor)
+        }
+
+    override fun serialize(encoder: Encoder, value: GeminiContent) {
+        encoder.encodeStructure(descriptor) {
+            encodeSerializableElement(descriptor, 0, partsSerializer, value.parts)
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): GeminiContent = decoder.decodeStructure(descriptor) {
+        var parts: List<GeminiPart>? = null
+        while (true) {
+            when (val index = decodeElementIndex(descriptor)) {
+                0 -> parts = decodeSerializableElement(descriptor, 0, partsSerializer)
+                CompositeDecoder.DECODE_DONE -> break
+                else -> throw SerializationException("Unexpected index $index")
+            }
+        }
+        GeminiContent(parts ?: throw SerializationException("Missing required field 'parts' in GeminiContent JSON"))
+    }
+}
+
+object GeminiSafetySettingSerializer : KSerializer<GeminiSafetySetting> {
+    override val descriptor: SerialDescriptor =
+        buildClassSerialDescriptor("GeminiSafetySetting") {
+            element<String>("category")
+            element<String>("threshold")
+        }
+
+    override fun serialize(encoder: Encoder, value: GeminiSafetySetting) {
+        encoder.encodeStructure(descriptor) {
+            encodeStringElement(descriptor, 0, value.category)
+            encodeStringElement(descriptor, 1, value.threshold)
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): GeminiSafetySetting = decoder.decodeStructure(descriptor) {
+        var category: String? = null
+        var threshold: String? = null
+        while (true) {
+            when (val index = decodeElementIndex(descriptor)) {
+                0 -> category = decodeStringElement(descriptor, 0)
+                1 -> threshold = decodeStringElement(descriptor, 1)
+                CompositeDecoder.DECODE_DONE -> break
+                else -> throw SerializationException("Unexpected index $index")
+            }
+        }
+        GeminiSafetySetting(
+            category ?: throw SerializationException("Missing required field 'category' in GeminiSafetySetting JSON"),
+            threshold ?: throw SerializationException("Missing required field 'threshold' in GeminiSafetySetting JSON"),
+        )
+    }
+}
+
+object GeminiGenerationConfigSerializer : KSerializer<GeminiGenerationConfig> {
+    override val descriptor: SerialDescriptor =
+        buildClassSerialDescriptor("GeminiGenerationConfig") {
+            element<String>("responseMimeType")
+        }
+
+    override fun serialize(encoder: Encoder, value: GeminiGenerationConfig) {
+        encoder.encodeStructure(descriptor) {
+            encodeStringElement(descriptor, 0, value.responseMimeType)
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): GeminiGenerationConfig = decoder.decodeStructure(descriptor) {
+        var responseMimeType: String? = null
+        while (true) {
+            when (val index = decodeElementIndex(descriptor)) {
+                0 -> responseMimeType = decodeStringElement(descriptor, 0)
+                CompositeDecoder.DECODE_DONE -> break
+                else -> throw SerializationException("Unexpected index $index")
+            }
+        }
+        GeminiGenerationConfig(
+            responseMimeType
+                ?: throw SerializationException("Missing required field 'responseMimeType' in GeminiGenerationConfig JSON"),
+        )
+    }
+}
+
+object GeminiRequestSerializer : KSerializer<GeminiRequest> {
+    private val contentsSerializer = ListSerializer(GeminiContentSerializer)
+    private val safetySerializer = ListSerializer(GeminiSafetySettingSerializer)
+    override val descriptor: SerialDescriptor =
+        buildClassSerialDescriptor("GeminiRequest") {
+            element("contents", contentsSerializer.descriptor)
+            element("safetySettings", safetySerializer.descriptor)
+            element("generationConfig", GeminiGenerationConfigSerializer.descriptor, isOptional = true)
+        }
+
+    override fun serialize(encoder: Encoder, value: GeminiRequest) {
+        encoder.encodeStructure(descriptor) {
+            encodeSerializableElement(descriptor, 0, contentsSerializer, value.contents)
+            encodeSerializableElement(descriptor, 1, safetySerializer, value.safetySettings)
+            if (value.generationConfig != null) {
+                encodeSerializableElement(
+                    descriptor, 2, GeminiGenerationConfigSerializer, value.generationConfig,
+                )
+            }
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): GeminiRequest = decoder.decodeStructure(descriptor) {
+        var contents: List<GeminiContent> = emptyList()
+        var safetySettings: List<GeminiSafetySetting> = emptyList()
+        var generationConfig: GeminiGenerationConfig? = null
+        while (true) {
+            when (val index = decodeElementIndex(descriptor)) {
+                0 -> contents = decodeSerializableElement(descriptor, 0, contentsSerializer)
+                1 -> safetySettings = decodeSerializableElement(descriptor, 1, safetySerializer)
+                2 -> generationConfig =
+                    decodeSerializableElement(descriptor, 2, GeminiGenerationConfigSerializer)
+                CompositeDecoder.DECODE_DONE -> break
+                else -> throw SerializationException("Unexpected index $index")
+            }
+        }
+        GeminiRequest(contents, safetySettings, generationConfig)
+    }
+}
+
+object GeminiCandidateSerializer : KSerializer<GeminiCandidate> {
+    override val descriptor: SerialDescriptor =
+        buildClassSerialDescriptor("GeminiCandidate") {
+            element("content", GeminiContentSerializer.descriptor)
+        }
+
+    override fun serialize(encoder: Encoder, value: GeminiCandidate) {
+        encoder.encodeStructure(descriptor) {
+            encodeSerializableElement(descriptor, 0, GeminiContentSerializer, value.content)
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): GeminiCandidate = decoder.decodeStructure(descriptor) {
+        var content: GeminiContent? = null
+        while (true) {
+            when (val index = decodeElementIndex(descriptor)) {
+                0 -> content = decodeSerializableElement(descriptor, 0, GeminiContentSerializer)
+                CompositeDecoder.DECODE_DONE -> break
+                else -> throw SerializationException("Unexpected index $index")
+            }
+        }
+        GeminiCandidate(content ?: throw SerializationException("Missing content"))
+    }
+}
+
+object GeminiResponseSerializer : KSerializer<GeminiResponse> {
+    private val candidatesSerializer = ListSerializer(GeminiCandidateSerializer)
+    override val descriptor: SerialDescriptor =
+        buildClassSerialDescriptor("GeminiResponse") {
+            element("candidates", candidatesSerializer.descriptor, isOptional = true)
+        }
+
+    override fun serialize(encoder: Encoder, value: GeminiResponse) {
+        encoder.encodeStructure(descriptor) {
+            encodeSerializableElement(descriptor, 0, candidatesSerializer, value.candidates)
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): GeminiResponse = decoder.decodeStructure(descriptor) {
+        var candidates: List<GeminiCandidate> = emptyList()
+        while (true) {
+            when (val index = decodeElementIndex(descriptor)) {
+                0 -> candidates = decodeSerializableElement(descriptor, 0, candidatesSerializer)
+                CompositeDecoder.DECODE_DONE -> break
+                else -> throw SerializationException("Unexpected index $index")
+            }
+        }
+        GeminiResponse(candidates)
+    }
+}
 
 /** The four safety categories, all set to BLOCK_NONE — verbatim from the service. */
 val GEMINI_SAFETY_SETTINGS: List<GeminiSafetySetting> = listOf(

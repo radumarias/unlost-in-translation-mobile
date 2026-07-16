@@ -1,10 +1,9 @@
 package com.example.ui.screens
 
-import android.content.Context
-import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,9 +15,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Card
@@ -27,6 +28,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,33 +41,33 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.DualHeadsetSetupDialog
+import com.example.ui.components.DualHeadsetEntry
 import com.example.model.Language
 import com.example.platform.AudioOutputCatalog
-import com.example.speech.TTSHelper
+import com.example.platform.SpeechSynthesizer
 import com.example.ui.components.ConversationDraftDialog
 import com.example.ui.viewmodel.TranslateViewModel
-import java.util.Locale
 
 /**
  * Conversation split-screen: bilingual message flow plus the two-party mic deck,
  * the dual-headset setup entry point, and the draft-confirmation dialog.
  *
- * Extracted verbatim from MainAppScreen's `isConversationMode` branch. It still
- * takes the [viewModel], [ttsHelper] and [context] directly (VM injection and
- * the platform-service abstractions land in later Phase 1 tasks); TTS routing
- * and dual-headset device selection are kept unchanged.
+ * In commonMain (design §1). TTS goes through [speechSynthesizer] (BCP-47 tag,
+ * no java.util.Locale) and status toasts through `viewModel.showMessage`; the
+ * dual-headset device selection stays behind the [audioOutputCatalog] seam.
  */
 @Composable
 fun ConversationScreen(
     viewModel: TranslateViewModel,
     sourceLang: Language,
     targetLang: Language,
-    ttsHelper: TTSHelper,
-    context: Context,
+    speechSynthesizer: SpeechSynthesizer,
     audioOutputCatalog: AudioOutputCatalog,
+    showVoiceInput: Boolean,
+    showDualHeadset: Boolean,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
 ) {
     val conversationHistory by viewModel.conversationHistory.collectAsState()
@@ -91,23 +93,11 @@ fun ConversationScreen(
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(modifier = Modifier.weight(1f))
-            val dualHeadsetState by viewModel.dualHeadsetState.collectAsState()
-            var showDualHeadsetSetup by remember { mutableStateOf(false) }
-            IconButton(onClick = { showDualHeadsetSetup = true }) {
-                Icon(
-                    Icons.Default.Headphones,
-                    contentDescription = "Dual Headset Setup",
-                    tint = if (dualHeadsetState.isDualHeadsetModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            if (showDualHeadsetSetup) {
-                DualHeadsetSetupDialog(
-                    viewModel = viewModel,
-                    catalog = audioOutputCatalog,
-                    onDismiss = { showDualHeadsetSetup = false }
-                )
-            }
+            DualHeadsetEntry(
+                viewModel = viewModel,
+                catalog = audioOutputCatalog,
+                show = showDualHeadset
+            )
         }
 
         // Conversational History Message Flow
@@ -157,7 +147,7 @@ fun ConversationScreen(
                                     val d = if (viewModel.dualHeadsetState.value.isDualHeadsetModeEnabled) {
                                         if (item.speakA) viewModel.dualHeadsetState.value.deviceB else viewModel.dualHeadsetState.value.deviceA
                                     } else null
-                                    ttsHelper.speak(item.translated, Locale.forLanguageTag(l.languageTag), d)
+                                    speechSynthesizer.speak(item.translated, l.languageTag, d)
                                 },
                                 modifier = Modifier.size(24.dp)
                             ) {
@@ -186,39 +176,25 @@ fun ConversationScreen(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Speaker A (Source)
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = sourceLang.name + " " + sourceLang.flag,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    FloatingActionButton(
-                        onClick = { launchVoiceInput(true, sourceLang) },
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.testTag("mic_party_a")
-                    ) {
-                        Icon(Icons.Default.Mic, contentDescription = "Mic A")
-                    }
-                }
+                // One SpeakerInput per party: mic FAB when voice input is available,
+                // typed input field otherwise (web MVP: plan §7 Phase 3 acceptance —
+                // "conversation mode works via typed input"). Both feed the same
+                // prepareConversationPart → draft-confirmation flow.
+                SpeakerInput(
+                    language = sourceLang,
+                    isLanguageA = true,
+                    showVoiceInput = showVoiceInput,
+                    onVoiceClick = { launchVoiceInput(true, sourceLang) },
+                    onSubmit = { viewModel.prepareConversationPart(it, isLanguageA = true) }
+                )
 
-                // Speaker B (Target)
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = targetLang.name + " " + targetLang.flag,
-                        fontWeight = FontWeight.Medium,
-                        fontSize = 14.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    FloatingActionButton(
-                        onClick = { launchVoiceInput(false, targetLang) },
-                        containerColor = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.testTag("mic_party_b")
-                    ) {
-                        Icon(Icons.Default.Mic, contentDescription = "Mic B")
-                    }
-                }
+                SpeakerInput(
+                    language = targetLang,
+                    isLanguageA = false,
+                    showVoiceInput = showVoiceInput,
+                    onVoiceClick = { launchVoiceInput(false, targetLang) },
+                    onSubmit = { viewModel.prepareConversationPart(it, isLanguageA = false) }
+                )
             }
         }
     }
@@ -234,13 +210,13 @@ fun ConversationScreen(
                     val dualState = viewModel.dualHeadsetState.value
                     if (dualState.isDualHeadsetModeEnabled) {
                         val userStr = if (isA) "User 2" else "User 1"
-                        Toast.makeText(context, "Playing translation to $userStr's headset...", Toast.LENGTH_SHORT).show()
+                        viewModel.showMessage("Playing translation to $userStr's headset...")
                     }
-                    val targetLocale = Locale.forLanguageTag(if (isA) targetLang.languageTag else sourceLang.languageTag)
+                    val targetLanguageTag = if (isA) targetLang.languageTag else sourceLang.languageTag
                     val targetDevice = if (dualState.isDualHeadsetModeEnabled) {
                         if (isA) dualState.deviceB else dualState.deviceA
                     } else null
-                    ttsHelper.speak(translated, targetLocale, targetDevice)
+                    speechSynthesizer.speak(translated, targetLanguageTag, targetDevice)
                 }
             },
             onCancel = { viewModel.cancelConversationDraft() },
@@ -252,4 +228,85 @@ fun ConversationScreen(
             targetLangName = tName
         )
     }
+}
+
+/**
+ * One party's input slot on the conversation deck: language label above either
+ * the mic FAB (voice input available) or a typed-input field (web MVP). Both
+ * feed the same prepareConversationPart → draft-confirmation flow.
+ */
+@Composable
+private fun RowScope.SpeakerInput(
+    language: Language,
+    isLanguageA: Boolean,
+    showVoiceInput: Boolean,
+    onVoiceClick: () -> Unit,
+    onSubmit: (String) -> Unit,
+) {
+    val party = if (isLanguageA) "a" else "b"
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = if (showVoiceInput) Modifier else Modifier.weight(1f).padding(horizontal = 8.dp)
+    ) {
+        Text(
+            text = language.name + " " + language.flag,
+            fontWeight = FontWeight.Medium,
+            fontSize = 14.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        if (showVoiceInput) {
+            FloatingActionButton(
+                onClick = onVoiceClick,
+                containerColor = if (isLanguageA) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.testTag("mic_party_$party")
+            ) {
+                Icon(Icons.Default.Mic, contentDescription = if (isLanguageA) "Mic A" else "Mic B")
+            }
+        } else {
+            ConversationTypedInput(
+                languageName = language.name,
+                testTag = "typed_input_party_$party",
+                onSubmit = onSubmit
+            )
+        }
+    }
+}
+
+/**
+ * Typed replacement for a speaker's mic FAB when voice input is unavailable
+ * (web MVP). Submitting hands the text to the same draft-confirmation pipeline
+ * that voice recognition feeds.
+ */
+@Composable
+private fun ConversationTypedInput(
+    languageName: String,
+    testTag: String,
+    onSubmit: (String) -> Unit,
+) {
+    var text by remember { mutableStateOf("") }
+    val submit = {
+        if (text.isNotBlank()) {
+            onSubmit(text.trim())
+            text = ""
+        }
+    }
+    OutlinedTextField(
+        value = text,
+        onValueChange = { text = it },
+        placeholder = { Text("Type in $languageName…", fontSize = 14.sp) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+        keyboardActions = KeyboardActions(onSend = { submit() }),
+        trailingIcon = {
+            IconButton(
+                onClick = submit,
+                enabled = text.isNotBlank()
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send $languageName message")
+            }
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag(testTag)
+    )
 }
