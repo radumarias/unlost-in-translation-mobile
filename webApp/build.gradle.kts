@@ -22,6 +22,10 @@ kotlin {
       implementation(project(":shared"))
       implementation(compose.runtime)
       implementation(compose.ui)
+      // main.kt references TranslateViewModel (a ViewModel subtype) directly for
+      // the voice-input routing; :shared exposes lifecycle as `implementation`,
+      // so this module needs its own compile-time dependency.
+      implementation(libs.androidx.lifecycle.viewmodel)
     }
   }
 }

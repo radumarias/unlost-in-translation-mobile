@@ -65,8 +65,9 @@ fun rememberTranslateViewModel(container: AppContainer): TranslateViewModel = vi
  * Platform entry points call `App(container, launchVoiceInput)`:
  * - Android: `MainActivity.setContent { App(container, ::launchVoiceInput) }`,
  *   where `launchVoiceInput` bridges to the RecognizerIntent activity launcher.
- * - Web: `ComposeViewport { App(createAppContainer(), launchVoiceInput = { _, _ -> }) }`
- *   (voice input is capability-gated off until Phase 4).
+ * - Web: `ComposeViewport { App(container, launchVoiceInput) }`, where the lambda
+ *   routes through `container.voiceInput` (WebVoiceInput on Chromium; elsewhere
+ *   the mic UI is hidden by `capabilities.voiceInput = false`).
  *
  * [launchVoiceInput] stays a caller-supplied callback because the Android
  * implementation needs an Activity-scoped result launcher that can't live in

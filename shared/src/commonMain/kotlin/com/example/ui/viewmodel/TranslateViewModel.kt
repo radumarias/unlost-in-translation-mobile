@@ -27,6 +27,29 @@ class TranslateViewModel(
 ) : ViewModel() {
     companion object {
         private const val TAG = "TranslateViewModel"
+
+        /**
+         * The "Speak now" voice prompt, shared so platforms cannot drift:
+         * Android shows it inside the RecognizerIntent dialog (EXTRA_PROMPT),
+         * web surfaces it as a snackbar (no system dialog exists there).
+         */
+        fun voiceInputPrompt(language: Language): String = "Speak now (${language.name})..."
+    }
+
+    /**
+     * Routes a completed voice-recognition result identically on every platform
+     * (design §8): a conversation request feeds the draft flow for the given
+     * party; a main-mic request replaces the source text and translates. Null or
+     * blank text (cancelled/empty recognition) is ignored.
+     */
+    fun onVoiceInputResult(spokenText: String?, isConversationA: Boolean?) {
+        if (spokenText.isNullOrBlank()) return
+        if (isConversationA != null) {
+            prepareConversationPart(spokenText, isLanguageA = isConversationA)
+        } else {
+            setSourceText(spokenText)
+            triggerTranslation()
+        }
     }
 
     // One-shot user messages (voice-input status/errors) surfaced as snackbars by

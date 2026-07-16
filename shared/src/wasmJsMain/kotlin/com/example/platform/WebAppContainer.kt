@@ -12,11 +12,13 @@ import io.ktor.client.engine.js.Js
 
 /**
  * Web [AppContainer]. Mirror of the Android container but with browser-backed
- * services: localStorage history, Web Speech API TTS, and no-ops for the
- * Android-only capabilities (Wear sync, dual-headset). Voice input is not wired
- * yet (Phase 4) so it reports "no result".
+ * services: localStorage history, Web Speech API TTS and speech recognition
+ * (the latter feature-detected — Chromium only), and no-ops for the
+ * Android-only capabilities (Wear sync, dual-headset).
  */
 class WebAppContainer : AppContainer {
+
+    private val voiceInputAvailable = speechRecognitionAvailable()
 
     override val log: AppLog = WebAppLog()
 
@@ -30,7 +32,8 @@ class WebAppContainer : AppContainer {
 
     override val speechSynthesizer: SpeechSynthesizer = WebSpeechSynthesizer()
 
-    override val voiceInput: VoiceInput = UnavailableVoiceInput
+    override val voiceInput: VoiceInput =
+        if (voiceInputAvailable) WebVoiceInput(log) else UnavailableVoiceInput
 
     override val audioOutputCatalog: AudioOutputCatalog = WebAudioOutputCatalog
 
@@ -39,7 +42,7 @@ class WebAppContainer : AppContainer {
     override val platformActions: PlatformActions = WebPlatformActions
 
     override val capabilities: PlatformCapabilities = PlatformCapabilities(
-        voiceInput = false,
+        voiceInput = voiceInputAvailable,
         dualHeadset = false,
         wearSync = false,
     )

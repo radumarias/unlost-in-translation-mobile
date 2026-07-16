@@ -136,11 +136,26 @@ interface VoiceInput {                              // null = cancelled/unavaila
 // Deviation (Phase 3, recorded): the live voice-input path is a
 // `launchVoiceInput(isConversationA: Boolean?, language: Language)` lambda that the
 // platform entry point passes into App() — Android backs it with the
-// RecognizerIntent launcher in MainActivity; web passes a no-op (the UI is gated
-// off by capabilities.voiceInput anyway). `container.voiceInput` is currently
-// `UnavailableVoiceInput` on both platforms; Phase 4's WebVoiceInput must wire the
-// App lambda (or migrate both platforms onto this container seam), NOT just the
-// container field — no UI code calls container.voiceInput today.
+// RecognizerIntent launcher in MainActivity (its `container.voiceInput` stays
+// `UnavailableVoiceInput`; the activity-result launcher cannot live behind this
+// suspend seam without Activity plumbing).
+// Phase 4 (recorded): the web entry point's lambda now routes through
+// `container.voiceInput` — `WebVoiceInput` (SpeechRecognition, one-shot, aborts
+// on coroutine cancellation) when `speechRecognitionAvailable()` (Chromium AND
+// window.isSecureContext — insecure origins keep the constructor but recognition
+// can never start), `UnavailableVoiceInput` otherwise, with
+// `capabilities.voiceInput` set from the same probe. `prompt` is surfaced as a
+// snackbar on web — there is no system "Speak now" dialog for it to appear in —
+// and the prompt string is shared via `TranslateViewModel.voiceInputPrompt`.
+// Result routing is shared: both entry points call
+// `TranslateViewModel.onVoiceInputResult(spokenText, isConversationA)`
+// (main mic → setSourceText + triggerTranslation; conversation →
+// prepareConversationPart; blank/null ignored). Hard recognition failures
+// (blocked mic, no network, unsupported language) throw `VoiceInputException`
+// with a user-displayable message that the web entry point snackbars —
+// Android-parity with MainActivity's catch; "no-speech"/"aborted" stay null
+// (dialog-cancel equivalents). The web runs one recognition at a time: a new
+// mic tap cancels the in-flight job, which aborts the browser session.
 interface AudioOutputCatalog {                      // dual-headset support
     fun listOutputDevices(): List<AudioOutputDevice>          // web: emptyList()
 }
