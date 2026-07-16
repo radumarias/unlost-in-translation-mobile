@@ -80,7 +80,7 @@ object GeminiPartSerializer : KSerializer<GeminiPart> {
     }
 
     override fun deserialize(decoder: Decoder): GeminiPart = decoder.decodeStructure(descriptor) {
-        var text = ""
+        var text: String? = null
         while (true) {
             when (val index = decodeElementIndex(descriptor)) {
                 0 -> text = decodeStringElement(descriptor, 0)
@@ -88,7 +88,7 @@ object GeminiPartSerializer : KSerializer<GeminiPart> {
                 else -> throw SerializationException("Unexpected index $index")
             }
         }
-        GeminiPart(text)
+        GeminiPart(text ?: throw SerializationException("Missing required field 'text' in GeminiPart JSON"))
     }
 }
 
@@ -106,7 +106,7 @@ object GeminiContentSerializer : KSerializer<GeminiContent> {
     }
 
     override fun deserialize(decoder: Decoder): GeminiContent = decoder.decodeStructure(descriptor) {
-        var parts: List<GeminiPart> = emptyList()
+        var parts: List<GeminiPart>? = null
         while (true) {
             when (val index = decodeElementIndex(descriptor)) {
                 0 -> parts = decodeSerializableElement(descriptor, 0, partsSerializer)
@@ -114,7 +114,7 @@ object GeminiContentSerializer : KSerializer<GeminiContent> {
                 else -> throw SerializationException("Unexpected index $index")
             }
         }
-        GeminiContent(parts)
+        GeminiContent(parts ?: throw SerializationException("Missing required field 'parts' in GeminiContent JSON"))
     }
 }
 
@@ -133,8 +133,8 @@ object GeminiSafetySettingSerializer : KSerializer<GeminiSafetySetting> {
     }
 
     override fun deserialize(decoder: Decoder): GeminiSafetySetting = decoder.decodeStructure(descriptor) {
-        var category = ""
-        var threshold = ""
+        var category: String? = null
+        var threshold: String? = null
         while (true) {
             when (val index = decodeElementIndex(descriptor)) {
                 0 -> category = decodeStringElement(descriptor, 0)
@@ -143,7 +143,10 @@ object GeminiSafetySettingSerializer : KSerializer<GeminiSafetySetting> {
                 else -> throw SerializationException("Unexpected index $index")
             }
         }
-        GeminiSafetySetting(category, threshold)
+        GeminiSafetySetting(
+            category ?: throw SerializationException("Missing required field 'category' in GeminiSafetySetting JSON"),
+            threshold ?: throw SerializationException("Missing required field 'threshold' in GeminiSafetySetting JSON"),
+        )
     }
 }
 
@@ -160,7 +163,7 @@ object GeminiGenerationConfigSerializer : KSerializer<GeminiGenerationConfig> {
     }
 
     override fun deserialize(decoder: Decoder): GeminiGenerationConfig = decoder.decodeStructure(descriptor) {
-        var responseMimeType = ""
+        var responseMimeType: String? = null
         while (true) {
             when (val index = decodeElementIndex(descriptor)) {
                 0 -> responseMimeType = decodeStringElement(descriptor, 0)
@@ -168,7 +171,10 @@ object GeminiGenerationConfigSerializer : KSerializer<GeminiGenerationConfig> {
                 else -> throw SerializationException("Unexpected index $index")
             }
         }
-        GeminiGenerationConfig(responseMimeType)
+        GeminiGenerationConfig(
+            responseMimeType
+                ?: throw SerializationException("Missing required field 'responseMimeType' in GeminiGenerationConfig JSON"),
+        )
     }
 }
 

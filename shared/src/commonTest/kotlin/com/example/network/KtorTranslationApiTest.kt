@@ -103,6 +103,21 @@ class KtorTranslationApiTest {
     }
 
     @Test
+    fun translateGemini_response_part_missing_text_fails_loudly() = runTest {
+        // Regression guard: the hand-written GeminiPartSerializer must enforce the
+        // required 'text' field like the @Serializable plugin did — a part object
+        // without it must fail the call, not decode to "" and reach the UI as an
+        // empty Success card.
+        val api = apiReturning(HttpStatusCode.OK, """{"candidates":[{"content":{"parts":[{}]}}]}""")
+        try {
+            val result = api.translateGemini("Hello", "English", "Spanish")
+            fail("expected a deserialization failure, got '$result'")
+        } catch (e: Exception) {
+            // Ktor may wrap the SerializationException; reaching here is the contract.
+        }
+    }
+
+    @Test
     fun translateGemini_server_error_includes_status_and_body() = runTest {
         val api = apiReturning(HttpStatusCode.InternalServerError, "boom")
         try {

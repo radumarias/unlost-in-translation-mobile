@@ -10,7 +10,7 @@ class WebAppLog : AppLog {
     }
 
     override fun e(tag: String, message: String, throwable: Throwable?) {
-        val detail = throwable?.let { ": ${it.message ?: it.toString()}" } ?: ""
+        val detail = throwable?.let { "\n${it.stackTraceToString()}" } ?: ""
         consoleError("[$tag] $message$detail")
     }
 }

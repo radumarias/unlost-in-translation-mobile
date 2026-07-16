@@ -40,6 +40,22 @@ import com.example.ui.viewmodel.TranslateViewModel
 import com.example.ui.viewmodel.ValidationState
 
 /**
+ * The single [TranslateViewModel] factory. Both [App] and the Android entry point
+ * (whose voice launcher needs the VM before `App` runs) resolve the VM through
+ * this, so there is one factory definition and — because `viewModel {}` keys on
+ * the VM type under the shared [LocalViewModelStoreOwner] — one instance.
+ */
+@Composable
+fun rememberTranslateViewModel(container: AppContainer): TranslateViewModel = viewModel {
+    TranslateViewModel(
+        api = container.api,
+        repository = container.historyRepository,
+        broadcaster = container.broadcaster,
+        log = container.log,
+    )
+}
+
+/**
  * Root shared composable (design §1/§9). Owns the [MyApplicationTheme], builds the
  * [TranslateViewModel] from the injected [container] via the CMP `viewModel {}`
  * factory (works on both targets), and assembles the whole app shell — top bar,
@@ -57,22 +73,6 @@ import com.example.ui.viewmodel.ValidationState
  * commonMain (design §8/§9); the `pendingVoiceRequestIsA` routing lives in the
  * caller.
  */
-/**
- * The single [TranslateViewModel] factory. Both [App] and the Android entry point
- * (whose voice launcher needs the VM before `App` runs) resolve the VM through
- * this, so there is one factory definition and — because `viewModel {}` keys on
- * the VM type under the shared [LocalViewModelStoreOwner] — one instance.
- */
-@Composable
-fun rememberTranslateViewModel(container: AppContainer): TranslateViewModel = viewModel {
-    TranslateViewModel(
-        api = container.api,
-        repository = container.historyRepository,
-        broadcaster = container.broadcaster,
-        log = container.log,
-    )
-}
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun App(
