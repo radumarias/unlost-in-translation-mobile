@@ -286,3 +286,17 @@ Flag-emoji decision (Phase 4 task 2, owner-approved): web shows uppercase langua
 | Manual | both | emulator smoke (translate, history, star, conversation); `:webApp:wasmJsBrowserDevelopmentRun` smoke in Chrome |
 
 Fakes live in `shared/src/commonTest/.../fakes/` and are the reusable seam for all future VM tests.
+
+## 11. Production Web Bundle (Phase 4 task 4, measured)
+
+`./gradlew :webApp:wasmJsBrowserDistribution` → `webApp/build/dist/wasmJs/productionExecutable/`. Measured 2026-07-16 (Kotlin 2.3.20 / CMP 1.11.1, binaryen-optimized release):
+
+| Artifact | Raw | Gzip (what the wire pays) |
+|---|---|---|
+| app `.wasm` (Kotlin + Compose code) | 8.65 MB | 3.33 MB |
+| skiko `.wasm` (Skia runtime) | 4.36 MB | 1.28 MB |
+| `webApp.js` loader | 539 KB | 102 KB |
+| `index.html` | 2.2 KB | 1.0 KB |
+| **First-load transfer (gzip)** | | **≈ 4.7 MB** |
+
+The 1.5 MB `webApp.js.map` ships in the dist but is only fetched by DevTools. DCE is effective: the dev app `.wasm` is 26.7 MB vs 8.65 MB in release, and unused `material-icons-extended` icons are stripped by the wasm DCE (keeping the dependency costs bundle size only for icons actually referenced). Verified: the production dist served statically boots in headless Chrome and translates end-to-end (screenshot smoke). Serving requires correct `application/wasm` MIME and benefits from gzip/brotli — GitHub Pages provides both.
