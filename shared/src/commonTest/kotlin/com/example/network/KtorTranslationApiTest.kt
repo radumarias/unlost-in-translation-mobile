@@ -146,6 +146,203 @@ class KtorTranslationApiTest {
     }
 
     @Test
+    fun gemini_sends_the_key_in_a_header_and_never_in_the_url() = runTest {
+        // Security regression guard. Ktor embeds the full request URL in its
+        // timeout exception message ("Request timeout has expired [url=...]"),
+        // and the view model renders that message on screen and writes it to
+        // logcat/console — so a key in the query string leaks on every timeout.
+        // Verified empirically before this fix: the key appeared verbatim in the
+        // exception message. Keep it in the header.
+        var capturedUrl = ""
+        var capturedHeader: String? = null
+        val engine = MockEngine { request ->
+            capturedUrl = request.url.toString()
+            capturedHeader = request.headers["x-goog-api-key"]
+            respond(
+                content = geminiTextResponse("Hola"),
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val client = HttpClient(engine) {
+            expectSuccess = false
+            install(ContentNegotiation) { json(LenientJson) }
+            install(HttpTimeout)
+        }
+        val api = KtorTranslationApi(apiKey = "SECRET-KEY-VALUE", client = client)
+
+        api.translateGemini("Hello", "English", "Spanish")
+
+        assertEquals("SECRET-KEY-VALUE", capturedHeader, "the key must travel in the header")
+        assertFalse(capturedUrl.contains("SECRET-KEY-VALUE"), "the key must never appear in the URL: $capturedUrl")
+        assertFalse(capturedUrl.contains("key="), "no key query parameter: $capturedUrl")
+    }
+
+    @Test
+    fun geminiTimeout_message_does_not_contain_the_key() = runTest {
+        // The end-to-end property the header change exists to guarantee.
+        val engine = MockEngine { request -> throw HttpRequestTimeoutException(request) }
+        val client = HttpClient(engine) {
+            expectSuccess = false
+            install(ContentNegotiation) { json(LenientJson) }
+            install(HttpTimeout)
+        }
+        val api = KtorTranslationApi(apiKey = "SECRET-KEY-VALUE", client = client)
+        try {
+            api.translateGemini("Hello", "English", "Spanish")
+            fail("expected a timeout exception")
+        } catch (e: Exception) {
+            assertFalse(
+                e.message!!.contains("SECRET-KEY-VALUE"),
+                "the timeout message must not carry the key: ${e.message}",
+            )
+        }
+    }
+
+    /**
+     * Gemini client backed by a scripted sequence of responses, one per attempt
+     * (the last entry repeats), counting how many attempts the API made.
+     */
+    private class SequencedGemini(
+        private val statuses: List<HttpStatusCode>,
+        private val bodies: List<String>,
+    ) {
+        var attempts = 0
+            private set
+        val api: KtorTranslationApi
+
+        init {
+            val engine = MockEngine { _ ->
+                val i = attempts
+                attempts++
+                respond(
+                    content = bodies[minOf(i, bodies.lastIndex)],
+                    status = statuses[minOf(i, statuses.lastIndex)],
+                    headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                )
+            }
+            val client = HttpClient(engine) {
+                expectSuccess = false
+                install(ContentNegotiation) { json(LenientJson) }
+                install(HttpTimeout)
+            }
+            api = KtorTranslationApi(apiKey = "test-key", client = client)
+        }
+    }
+
+    /** A 429 body for a short burst limit — worth retrying. */
+    private fun burstLimitBody(): String =
+        """{"error":{"code":429,"message":"Too many requests","status":"UNAVAILABLE"}}"""
+
+    /**
+     * A 429 body for an exhausted daily allowance, copied from the shape the
+     * live free-tier API returns. Not worth retrying — the quota does not come
+     * back for hours.
+     */
+    private fun quotaExhaustedBody(): String =
+        """{"error":{"code":429,"message":"You exceeded your current quota. Please retry in 8.9s.","status":"RESOURCE_EXHAUSTED","details":[{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaId":"GenerateRequestsPerDayPerProjectPerModel-FreeTier","quotaValue":"20"}]}]}}"""
+
+    @Test
+    fun gemini_retries_a_burst_rate_limit_then_succeeds() = runTest {
+        val seq = SequencedGemini(
+            statuses = listOf(HttpStatusCode.TooManyRequests, HttpStatusCode.OK),
+            bodies = listOf(burstLimitBody(), geminiTextResponse("Hola")),
+        )
+        assertEquals("Hola", seq.api.translateGemini("Hello", "English", "Spanish"))
+        assertEquals(2, seq.attempts, "expected one retry after the burst 429")
+    }
+
+    @Test
+    fun gemini_does_not_retry_an_exhausted_quota() = runTest {
+        // Measured against the live API: retrying an exhausted free-tier quota
+        // only spends more of an allowance that is already gone (it tripled the
+        // request volume and made every call fail). Fail once, immediately.
+        val seq = SequencedGemini(
+            statuses = listOf(HttpStatusCode.TooManyRequests),
+            bodies = listOf(quotaExhaustedBody()),
+        )
+        try {
+            seq.api.translateGemini("Hello", "English", "Spanish")
+            fail("expected exception")
+        } catch (e: Exception) {
+            assertEquals(KtorTranslationApi.GEMINI_QUOTA_MESSAGE, e.message)
+        }
+        assertEquals(1, seq.attempts, "an exhausted quota must not be retried")
+    }
+
+    @Test
+    fun gemini_retries_server_error_then_succeeds() = runTest {
+        val seq = SequencedGemini(
+            statuses = listOf(HttpStatusCode.ServiceUnavailable, HttpStatusCode.OK),
+            bodies = listOf("upstream down", geminiTextResponse("Hola")),
+        )
+        assertEquals("Hola", seq.api.translateGemini("Hello", "English", "Spanish"))
+        assertEquals(2, seq.attempts, "expected one retry after the 503")
+    }
+
+    @Test
+    fun gemini_gives_up_after_the_attempt_cap_and_preserves_the_error() = runTest {
+        val seq = SequencedGemini(
+            statuses = listOf(HttpStatusCode.ServiceUnavailable),
+            bodies = listOf("upstream down"),
+        )
+        try {
+            seq.api.translateGemini("Hello", "English", "Spanish")
+            fail("expected exception")
+        } catch (e: Exception) {
+            assertTrue(e.message!!.contains("503"), "message was: ${e.message}")
+        }
+        assertEquals(3, seq.attempts, "expected the 3-attempt cap")
+    }
+
+    @Test
+    fun gemini_does_not_retry_client_errors() = runTest {
+        // A 400 fails identically on a retry — surface it at once.
+        val seq = SequencedGemini(
+            statuses = listOf(HttpStatusCode.BadRequest),
+            bodies = listOf("bad request"),
+        )
+        try {
+            seq.api.translateGemini("Hello", "English", "Spanish")
+            fail("expected exception")
+        } catch (e: Exception) {
+            assertTrue(e.message!!.contains("400"), "message was: ${e.message}")
+        }
+        assertEquals(1, seq.attempts, "client errors must not be retried")
+    }
+
+    @Test
+    fun validateTranslation_surfaces_the_quota_message_verbatim() = runTest {
+        // The view model prints this message as-is (no "Validation failed:"
+        // prefix), so it must arrive intact.
+        val seq = SequencedGemini(
+            statuses = listOf(HttpStatusCode.TooManyRequests),
+            bodies = listOf(quotaExhaustedBody()),
+        )
+        try {
+            seq.api.validateTranslation("Hello", "Hola", "English", "Spanish")
+            fail("expected exception")
+        } catch (e: Exception) {
+            assertEquals(KtorTranslationApi.GEMINI_QUOTA_MESSAGE, e.message)
+        }
+        assertEquals(1, seq.attempts, "an exhausted quota must not be retried")
+    }
+
+    @Test
+    fun validateTranslation_retries_a_burst_rate_limit_then_succeeds() = runTest {
+        val seq = SequencedGemini(
+            statuses = listOf(HttpStatusCode.TooManyRequests, HttpStatusCode.OK),
+            bodies = listOf(
+                burstLimitBody(),
+                geminiTextResponse("""{"isWarning":false,"explanation":"fine","suggestions":[]}"""),
+            ),
+        )
+        val result = seq.api.validateTranslation("Hello", "Hola", "English", "Spanish")
+        assertFalse(result.isWarning)
+        assertEquals(2, seq.attempts, "expected one retry after the burst 429")
+    }
+
+    @Test
     fun translateGemini_response_part_missing_text_fails_loudly() = runTest {
         // Regression guard: the hand-written GeminiPartSerializer must enforce the
         // required 'text' field like the @Serializable plugin did — a part object

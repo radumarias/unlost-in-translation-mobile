@@ -13,10 +13,12 @@ import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.URLBuilder
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.delay
 
 /**
  * Ktor + kotlinx.serialization implementation of [TranslationApi] (Phase 1 task
@@ -36,8 +38,61 @@ class KtorTranslationApi(
     companion object {
         private const val GEMINI_MODEL = "gemini-3.5-flash"
         private const val GEMINI_PLACEHOLDER_KEY = "MY_GEMINI_API_KEY"
+
+        private const val GEMINI_URL =
+            "https://generativelanguage.googleapis.com/v1beta/models/$GEMINI_MODEL:generateContent"
+
+        /** Google's documented header alternative to the `?key=` query parameter. */
+        private const val GEMINI_API_KEY_HEADER = "x-goog-api-key"
         private const val GOOGLE_TIMEOUT_MS = 30_000L
         private const val GEMINI_TIMEOUT_MS = 60_000L
+
+        /** Total Gemini attempts (1 initial + 2 retries) before giving up. */
+        private const val GEMINI_MAX_ATTEMPTS = 3
+
+        /** Backoff before the first retry; doubles for each subsequent one. */
+        private const val GEMINI_RETRY_BASE_DELAY_MS = 500L
+
+        /**
+         * Marker Gemini puts in a 429 body when the *quota* is gone (the free
+         * tier's daily request allowance) rather than a short burst limit.
+         */
+        private const val GEMINI_QUOTA_EXHAUSTED_STATUS = "RESOURCE_EXHAUSTED"
+
+        /** Shown instead of a bare "429" when the daily allowance is spent. */
+        const val GEMINI_QUOTA_MESSAGE =
+            "Gemini's daily free quota is used up — translation still works, but AI validation resumes tomorrow."
+
+        /**
+         * Whether a failed Gemini call is worth another attempt.
+         *
+         * 5xx are transient server faults: retry. A 429 needs the body to tell
+         * the two cases apart — a burst limit clears in seconds and is worth
+         * retrying, but an exhausted daily quota (RESOURCE_EXHAUSTED) does not
+         * clear until the quota window rolls over, so retrying only burns more
+         * of an allowance that is already gone. Measured against the live API:
+         * retrying an exhausted free-tier quota tripled request volume (9 -> 54)
+         * and turned a partly-working session into an entirely failing one.
+         * Everything else — 400s, auth failures — fails identically on a retry.
+         */
+        private fun isRetryable(status: HttpStatusCode, body: String): Boolean = when {
+            status.value in 500..599 -> true
+            status == HttpStatusCode.TooManyRequests ->
+                !body.contains(GEMINI_QUOTA_EXHAUSTED_STATUS)
+            else -> false
+        }
+
+        /**
+         * The user-facing message for a failed Gemini response: an exhausted
+         * quota gets a plain-language explanation instead of a raw status code,
+         * which reads like a broken app.
+         */
+        private fun geminiErrorMessage(status: HttpStatusCode, body: String): String =
+            if (status == HttpStatusCode.TooManyRequests && body.contains(GEMINI_QUOTA_EXHAUSTED_STATUS)) {
+                GEMINI_QUOTA_MESSAGE
+            } else {
+                "Gemini server returned error: ${status.value} - $body"
+            }
     }
 
     override suspend fun translateGoogle(text: String, sourceLang: String, targetLang: String): String {
@@ -73,12 +128,11 @@ class KtorTranslationApi(
         )
 
         return apiCall {
-            val response = postGemini(request)
-            if (!response.status.isSuccess()) {
-                val errorStr = runCatching { response.bodyAsText() }.getOrNull() ?: "Unknown error"
-                throw Exception("Gemini server returned error: ${response.status.value} - $errorStr")
+            val result = postGemini(request)
+            if (!result.isSuccess) {
+                throw Exception(result.errorMessage())
             }
-            val parsed = response.body<GeminiResponse>()
+            val parsed = result.response.body<GeminiResponse>()
             parsed.candidates.first().content.parts.first().text.trim()
         }
     }
@@ -117,11 +171,11 @@ class KtorTranslationApi(
         )
 
         return apiCall {
-            val response = postGemini(request)
-            if (!response.status.isSuccess()) {
-                throw Exception("Gemini server returned error: ${response.status.value}")
+            val result = postGemini(request)
+            if (!result.isSuccess) {
+                throw Exception(result.errorMessage())
             }
-            val parsed = response.body<GeminiResponse>()
+            val parsed = result.response.body<GeminiResponse>()
             GeminiParser.parseValidation(parsed.candidates.first().content.parts.first().text)
         }
     }
@@ -146,12 +200,42 @@ class KtorTranslationApi(
             throw t as? Exception ?: Exception(t.message ?: "Network request failed", t)
         }
 
-    private suspend fun postGemini(request: GeminiRequest): HttpResponse {
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/$GEMINI_MODEL:generateContent?key=$apiKey"
-        return client.post(url) {
-            contentType(ContentType.Application.Json)
-            setBody(request)
-            timeout { requestTimeoutMillis = GEMINI_TIMEOUT_MS }
+    /** A Gemini response plus its already-read body (needed to classify 429s). */
+    private class GeminiHttpResult(val response: HttpResponse, val body: String) {
+        val isSuccess: Boolean get() = response.status.isSuccess()
+        fun errorMessage(): String = geminiErrorMessage(response.status, body)
+    }
+
+    /**
+     * POSTs to Gemini, retrying only failures another attempt can fix (5xx, and
+     * 429s that are burst limits rather than an exhausted quota — see
+     * [isRetryable]) with exponential backoff. The final result is returned
+     * whatever its status; callers decide how to fail. Retries honour the
+     * caller's cancellation: [delay] is cancellable, so an abandoned pipeline
+     * stops retrying instead of spending more of the allowance.
+     */
+    private suspend fun postGemini(request: GeminiRequest): GeminiHttpResult {
+        var attempt = 0
+        while (true) {
+            val response = client.post(GEMINI_URL) {
+                // The key goes in a header, never the query string: Ktor embeds the
+                // full request URL in its timeout exception messages, and those
+                // messages are shown on screen and written to logcat/console — a
+                // key in the URL leaks with every timeout. A header also keeps it
+                // out of referrers and any proxy's access log.
+                header(GEMINI_API_KEY_HEADER, apiKey)
+                contentType(ContentType.Application.Json)
+                setBody(request)
+                timeout { requestTimeoutMillis = GEMINI_TIMEOUT_MS }
+            }
+            attempt++
+            // Read the body once: it classifies the failure, and a response body
+            // can only be consumed a single time.
+            val body = if (response.status.isSuccess()) "" else runCatching { response.bodyAsText() }.getOrDefault("")
+            if (attempt >= GEMINI_MAX_ATTEMPTS || !isRetryable(response.status, body)) {
+                return GeminiHttpResult(response, body)
+            }
+            delay(GEMINI_RETRY_BASE_DELAY_MS shl (attempt - 1))
         }
     }
 

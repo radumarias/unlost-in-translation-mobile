@@ -1,6 +1,7 @@
 package com.example.ui.viewmodel
 
 import com.example.model.Language
+import com.example.network.ValidationResult
 import com.example.ui.viewmodel.fakes.FakeHistoryRepository
 import com.example.ui.viewmodel.fakes.FakeTranslationApi
 import com.example.ui.viewmodel.fakes.RecordingBroadcaster
@@ -16,6 +17,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -204,6 +206,34 @@ class TranslateViewModelTest {
         // The newer translation's round trip landed; the stale one was discarded
         // by the translatedText == translated guard.
         assertEquals("RT", state.roundTripText)
+    }
+
+    @Test
+    fun staleValidation_doesNotOverwriteANewerTranslationsValidation() = runTest {
+        // Symmetric to the round-trip guard above: the first translation's slow
+        // validation must not land on the second translation's card. Validation
+        // of the first ("one") parks on a gate; the second returns immediately.
+        val gate = CompletableDeferred<Unit>()
+        api.onValidate = { original, _ ->
+            if (original == "one") {
+                gate.await()
+                ValidationResult(isWarning = true, explanation = "stale one", suggestions = emptyList())
+            } else {
+                ValidationResult(isWarning = false, explanation = "fresh two", suggestions = emptyList())
+            }
+        }
+        val vm = viewModel()
+
+        vm.setSourceText("one")
+        vm.triggerTranslation() // its validation parks on the gate
+        vm.setSourceText("two")
+        vm.triggerTranslation() // validates immediately -> "fresh two"
+
+        gate.complete(Unit) // release the stale validation
+
+        val validation = assertIs<ValidationState.Success>(vm.validationState.value)
+        assertEquals("fresh two", validation.explanation)
+        assertFalse(validation.isWarning, "the stale validation must not have landed")
     }
 
     // --- Conversation drafts ---
