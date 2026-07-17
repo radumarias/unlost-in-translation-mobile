@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.TranslationHistoryRepository
 import com.example.model.Language
 import com.example.model.Translation
+import com.example.network.KtorTranslationApi
 import com.example.network.TranslationApi
 import com.example.platform.AppLog
 import com.example.wear.TranslationBroadcaster
@@ -229,7 +230,13 @@ class TranslateViewModel(
                 }
 
                 launch {
-                    _validationState.value = runValidation(text, translated, src.name, trg.name)
+                    val validation = runValidation(text, translated, src.name, trg.name)
+                    // Same staleness guard as the round trip above: a slow
+                    // validation must not land on a newer translation's card.
+                    val currentState = _translationState.value
+                    if (currentState is TranslationState.Success && currentState.translatedText == translated) {
+                        _validationState.value = validation
+                    }
                 }
 
             } catch (e: Exception) {
@@ -249,7 +256,9 @@ class TranslateViewModel(
     /**
      * Cultural validation shared by the translate and conversation-draft pipelines.
      * Returns [ValidationState.Success] or, on failure, [ValidationState.Error]
-     * with the same "Validation failed: …" message as before.
+     * with the same "Validation failed: …" message as before — except for the
+     * exhausted-quota case, whose message already reads as a plain sentence and
+     * would only be muddied by the prefix.
      */
     private suspend fun runValidation(
         originalText: String,
@@ -261,7 +270,12 @@ class TranslateViewModel(
         ValidationState.Success(result.isWarning, result.explanation, result.suggestions)
     } catch (e: Exception) {
         log.e(TAG, "Validation exception", e)
-        ValidationState.Error("Validation failed: ${e.message}")
+        val message = e.message
+        if (message == KtorTranslationApi.GEMINI_QUOTA_MESSAGE) {
+            ValidationState.Error(message)
+        } else {
+            ValidationState.Error("Validation failed: $message")
+        }
     }
 
     private suspend fun saveTranslationToDatabase(original: String, translated: String) {
