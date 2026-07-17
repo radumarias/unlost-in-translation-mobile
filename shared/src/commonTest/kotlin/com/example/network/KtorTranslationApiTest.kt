@@ -201,7 +201,9 @@ class KtorTranslationApiTest {
 
     /**
      * Gemini client backed by a scripted sequence of responses, one per attempt
-     * (the last entry repeats), counting how many attempts the API made.
+     * (the last entry repeats), counting how many attempts the API made and
+     * which URLs it hit — model-blind: the same script answers whichever model
+     * the API tries.
      */
     private class SequencedGemini(
         private val statuses: List<HttpStatusCode>,
@@ -209,15 +211,55 @@ class KtorTranslationApiTest {
     ) {
         var attempts = 0
             private set
+        val urls = mutableListOf<String>()
         val api: KtorTranslationApi
 
         init {
-            val engine = MockEngine { _ ->
+            val engine = MockEngine { request ->
                 val i = attempts
                 attempts++
+                urls.add(request.url.toString())
                 respond(
                     content = bodies[minOf(i, bodies.lastIndex)],
                     status = statuses[minOf(i, statuses.lastIndex)],
+                    headers = headersOf(HttpHeaders.ContentType, "application/json"),
+                )
+            }
+            val client = HttpClient(engine) {
+                expectSuccess = false
+                install(ContentNegotiation) { json(LenientJson) }
+                install(HttpTimeout)
+            }
+            api = KtorTranslationApi(apiKey = "test-key", client = client)
+        }
+    }
+
+    /**
+     * Gemini client whose scripted responses differ per model (issue #3
+     * fallback tests): one script for gemini-3.5-flash, one for the
+     * gemini-3-flash-preview fallback, each one entry per attempt with the
+     * last repeating. A null entry makes the engine throw like the wasm Js
+     * engine does when the network fails.
+     */
+    private class ModelRoutedGemini(
+        private val primary: List<Pair<HttpStatusCode, String>?>,
+        private val fallback: List<Pair<HttpStatusCode, String>?>,
+    ) {
+        var primaryAttempts = 0
+            private set
+        var fallbackAttempts = 0
+            private set
+        val api: KtorTranslationApi
+
+        init {
+            val engine = MockEngine { request ->
+                val isFallback = request.url.toString().contains("gemini-3-flash")
+                val script = if (isFallback) fallback else primary
+                val i = if (isFallback) fallbackAttempts++ else primaryAttempts++
+                val step = script[minOf(i, script.lastIndex)] ?: throw Error("Fail to fetch")
+                respond(
+                    content = step.second,
+                    status = step.first,
                     headers = headersOf(HttpHeaders.ContentType, "application/json"),
                 )
             }
@@ -253,10 +295,12 @@ class KtorTranslationApiTest {
     }
 
     @Test
-    fun gemini_does_not_retry_an_exhausted_quota() = runTest {
+    fun gemini_never_retries_an_exhausted_quota_on_either_model() = runTest {
         // Measured against the live API: retrying an exhausted free-tier quota
         // only spends more of an allowance that is already gone (it tripled the
-        // request volume and made every call fail). Fail once, immediately.
+        // request volume and made every call fail). The daily quota is counted
+        // per model, so the fallback model is still worth ONE try — exactly one
+        // request per model, no retries on either.
         val seq = SequencedGemini(
             statuses = listOf(HttpStatusCode.TooManyRequests),
             bodies = listOf(quotaExhaustedBody()),
@@ -267,7 +311,9 @@ class KtorTranslationApiTest {
         } catch (e: Exception) {
             assertEquals(KtorTranslationApi.GEMINI_QUOTA_MESSAGE, e.message)
         }
-        assertEquals(1, seq.attempts, "an exhausted quota must not be retried")
+        assertEquals(2, seq.attempts, "one attempt per model, never more")
+        assertTrue(seq.urls[0].contains("gemini-3.5-flash"), seq.urls[0])
+        assertTrue(seq.urls[1].contains("gemini-3-flash"), seq.urls[1])
     }
 
     @Test
@@ -281,7 +327,9 @@ class KtorTranslationApiTest {
     }
 
     @Test
-    fun gemini_gives_up_after_the_attempt_cap_and_preserves_the_error() = runTest {
+    fun gemini_gives_up_after_both_models_exhaust_their_attempt_caps() = runTest {
+        // A sustained 5xx on every model: 3 attempts on the primary, fall back,
+        // 3 on the fallback, then surface the last honest error.
         val seq = SequencedGemini(
             statuses = listOf(HttpStatusCode.ServiceUnavailable),
             bodies = listOf("upstream down"),
@@ -292,12 +340,13 @@ class KtorTranslationApiTest {
         } catch (e: Exception) {
             assertTrue(e.message!!.contains("503"), "message was: ${e.message}")
         }
-        assertEquals(3, seq.attempts, "expected the 3-attempt cap")
+        assertEquals(6, seq.attempts, "expected the 3-attempt cap on each of the two models")
     }
 
     @Test
-    fun gemini_does_not_retry_client_errors() = runTest {
-        // A 400 fails identically on a retry — surface it at once.
+    fun gemini_does_not_retry_or_fall_back_on_client_errors() = runTest {
+        // A 400 fails identically on a retry AND on the sibling model —
+        // surface it at once, spend nothing.
         val seq = SequencedGemini(
             statuses = listOf(HttpStatusCode.BadRequest),
             bodies = listOf("bad request"),
@@ -308,7 +357,8 @@ class KtorTranslationApiTest {
         } catch (e: Exception) {
             assertTrue(e.message!!.contains("400"), "message was: ${e.message}")
         }
-        assertEquals(1, seq.attempts, "client errors must not be retried")
+        assertEquals(1, seq.attempts, "client errors must not be retried or fall back")
+        assertTrue(seq.urls.single().contains("gemini-3.5-flash"), "must never reach the fallback model")
     }
 
     @Test
@@ -325,7 +375,7 @@ class KtorTranslationApiTest {
         } catch (e: Exception) {
             assertEquals(KtorTranslationApi.GEMINI_QUOTA_MESSAGE, e.message)
         }
-        assertEquals(1, seq.attempts, "an exhausted quota must not be retried")
+        assertEquals(2, seq.attempts, "one attempt per model, never more")
     }
 
     @Test
@@ -359,13 +409,109 @@ class KtorTranslationApiTest {
 
     @Test
     fun translateGemini_server_error_includes_status_and_body() = runTest {
+        // A body that isn't Google's error JSON falls back to the raw text.
         val api = apiReturning(HttpStatusCode.InternalServerError, "boom")
         try {
             api.translateGemini("Hello", "English", "Spanish")
             fail("expected exception")
         } catch (e: Exception) {
-            assertTrue(e.message!!.startsWith("Gemini server returned error: 500 - "))
-            assertTrue(e.message!!.contains("boom"))
+            assertEquals("Gemini error (500): boom", e.message)
+        }
+    }
+
+    // --- Issue #3: model fallback + honest error copy ---
+
+    /** The 503 body observed live on 2026-07-13 — the incident behind issue #3. */
+    private fun highDemand503Body(): String =
+        """{"error":{"code":503,"message":"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.","status":"UNAVAILABLE"}}"""
+
+    @Test
+    fun gemini_falls_back_when_the_primary_model_stays_unavailable() = runTest {
+        // The issue #3 incident: a sustained gemini-3.5-flash 503 spike with
+        // gemini-3-flash healthy must end in a normal result, not an error.
+        val routed = ModelRoutedGemini(
+            primary = listOf(HttpStatusCode.ServiceUnavailable to highDemand503Body()),
+            fallback = listOf(HttpStatusCode.OK to geminiTextResponse("Hola")),
+        )
+        assertEquals("Hola", routed.api.translateGemini("Hello", "English", "Spanish"))
+        assertEquals(3, routed.primaryAttempts, "primary gets its full attempt cap first")
+        assertEquals(1, routed.fallbackAttempts, "fallback succeeds on its first attempt")
+    }
+
+    @Test
+    fun validateTranslation_succeeds_via_the_fallback_model() = runTest {
+        val routed = ModelRoutedGemini(
+            primary = listOf(HttpStatusCode.ServiceUnavailable to highDemand503Body()),
+            fallback = listOf(
+                HttpStatusCode.OK to
+                    geminiTextResponse("""{"isWarning":false,"explanation":"fine","suggestions":[]}"""),
+            ),
+        )
+        val result = routed.api.validateTranslation("Hello", "Hola", "English", "Spanish")
+        assertFalse(result.isWarning)
+        assertEquals(1, routed.fallbackAttempts)
+    }
+
+    @Test
+    fun gemini_exhausted_quota_advances_straight_to_the_fallback_model() = runTest {
+        // The free tier's daily allowance is per model: when the primary's is
+        // spent, the fallback's is untouched — advance immediately, retry nothing.
+        val routed = ModelRoutedGemini(
+            primary = listOf(HttpStatusCode.TooManyRequests to quotaExhaustedBody()),
+            fallback = listOf(HttpStatusCode.OK to geminiTextResponse("Hola")),
+        )
+        assertEquals("Hola", routed.api.translateGemini("Hello", "English", "Spanish"))
+        assertEquals(1, routed.primaryAttempts, "an exhausted quota must not be retried")
+        assertEquals(1, routed.fallbackAttempts)
+    }
+
+    @Test
+    fun gemini_unknown_model_404_skips_retries_and_falls_back() = runTest {
+        // A 404 means the model id itself is unknown — retrying is pointless,
+        // but the sibling model may exist (issue #3).
+        val routed = ModelRoutedGemini(
+            primary = listOf(
+                HttpStatusCode.NotFound to
+                    """{"error":{"code":404,"message":"Model not found","status":"NOT_FOUND"}}""",
+            ),
+            fallback = listOf(HttpStatusCode.OK to geminiTextResponse("Hola")),
+        )
+        assertEquals("Hola", routed.api.translateGemini("Hello", "English", "Spanish"))
+        assertEquals(1, routed.primaryAttempts, "a 404 must not be retried")
+        assertEquals(1, routed.fallbackAttempts)
+    }
+
+    @Test
+    fun gemini_network_failures_retry_then_fall_back() = runTest {
+        // Engine-thrown failures (wasm's kotlin.Error, IOException, timeouts)
+        // are transient too: retry them, and if the primary never answers,
+        // still give the fallback its chance.
+        val routed = ModelRoutedGemini(
+            primary = listOf(null),
+            fallback = listOf(HttpStatusCode.OK to geminiTextResponse("Hola")),
+        )
+        assertEquals("Hola", routed.api.translateGemini("Hello", "English", "Spanish"))
+        assertEquals(3, routed.primaryAttempts, "network failures get the full attempt cap")
+        assertEquals(1, routed.fallbackAttempts)
+    }
+
+    @Test
+    fun gemini_error_copy_carries_googles_own_words() = runTest {
+        // Issue #3's third defect: the on-screen error was a bare status code.
+        // It must now carry Google's human-readable error.message.
+        val seq = SequencedGemini(
+            statuses = listOf(HttpStatusCode.ServiceUnavailable),
+            bodies = listOf(highDemand503Body()),
+        )
+        try {
+            seq.api.translateGemini("Hello", "English", "Spanish")
+            fail("expected exception")
+        } catch (e: Exception) {
+            assertEquals(
+                "Gemini unavailable (503): This model is currently experiencing high demand. " +
+                    "Spikes in demand are usually temporary. Please try again later.",
+                e.message,
+            )
         }
     }
 

@@ -25,6 +25,7 @@ class WebAppContainer : AppContainer {
     override val api: TranslationApi = KtorTranslationApi(
         apiKey = AppSecrets.geminiApiKey,
         client = translationHttpClient(Js.create()),
+        log = log,
     )
 
     override val historyRepository: TranslationHistoryRepository =

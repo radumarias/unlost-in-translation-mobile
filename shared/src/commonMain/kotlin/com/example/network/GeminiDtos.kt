@@ -303,6 +303,19 @@ object GoogleResponseParser {
 }
 
 /**
+ * Extracts Google's human-readable `error.message` from a Gemini error body
+ * (`{"error":{"code":…,"message":…,"status":…}}`), so surfaced failures read in
+ * Google's own words instead of a raw JSON dump (issue #3). Null when the body
+ * is not that shape — callers fall back to the raw body.
+ */
+object GeminiErrorParser {
+    fun errorMessage(body: String): String? = runCatching {
+        LenientJson.parseToJsonElement(body)
+            .jsonObject["error"]?.jsonObject?.get("message")?.jsonPrimitive?.contentOrNull
+    }.getOrNull()
+}
+
+/**
  * Parses Gemini's cultural-validation payload. Kept bug-for-bug with the old
  * org.json code: strips an optional Markdown ```json fence, then reads
  * `isWarning` (default false), `explanation` (default ""), and `suggestions`

@@ -7,6 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -52,6 +53,25 @@ class NetworkParsersTest {
         // the unofficial endpoint can change shape without notice; an empty body
         // must surface as SerializationException (error card), never IndexOutOfBounds
         assertFailsWith<SerializationException> { GoogleResponseParser.extract("[]") }
+    }
+
+    // --- Gemini error bodies (issue #3 honest errors) ---
+
+    @Test
+    fun error_parser_extracts_googles_message() {
+        assertEquals(
+            "This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.",
+            GeminiErrorParser.errorMessage(
+                """{"error":{"code":503,"message":"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.","status":"UNAVAILABLE"}}""",
+            ),
+        )
+    }
+
+    @Test
+    fun error_parser_returns_null_when_the_body_is_not_an_error_shape() {
+        assertNull(GeminiErrorParser.errorMessage("upstream down"))
+        assertNull(GeminiErrorParser.errorMessage("""{"something":"else"}"""))
+        assertNull(GeminiErrorParser.errorMessage("""{"error":{"code":500}}"""))
     }
 
     // --- Gemini fence stripping ---

@@ -27,9 +27,13 @@ class AndroidAppContainer(
 
     private val appContext = context.applicationContext
 
+    // Declared before `api`, which captures it at construction.
+    override val log: AppLog = AndroidAppLog()
+
     override val api: TranslationApi = KtorTranslationApi(
         apiKey = AppSecrets.geminiApiKey,
         client = translationHttpClient(OkHttp.create()),
+        log = log,
     )
 
     override val historyRepository: TranslationHistoryRepository =
@@ -40,8 +44,6 @@ class AndroidAppContainer(
     override val audioOutputCatalog: AudioOutputCatalog = AndroidAudioOutputCatalog(appContext)
 
     override val broadcaster: TranslationBroadcaster = WearTranslationBroadcaster(appContext)
-
-    override val log: AppLog = AndroidAppLog()
 
     override val platformActions: PlatformActions = AndroidPlatformActions(appContext)
 
