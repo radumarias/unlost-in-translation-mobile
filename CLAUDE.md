@@ -33,7 +33,7 @@ The Gradle wrapper (`gradlew`, pinned via `distributionSha256Sum`) is committed 
 
 ## Local Setup (from README)
 
-1. Create `.env` in the project root with `GEMINI_API_KEY=<your key>` (see `.env.example`). A codegen task in `shared/build.gradle.kts` reads `.env` (falling back to `.env.example`) and generates `com.example.AppSecrets`. Never commit `.env`. **The key is compiled into the web bundle and extractable from it — public web deployment requires owner sign-off (plan Phase 4 task 5).**
+1. Create `.env` in the project root with `GEMINI_API_KEY=<your key>` (see `.env.example`). A codegen task in `shared/build.gradle.kts` reads `.env` (falling back to `.env.example`) and generates the internal `com.example.Secrets` object; the hand-written `AppSecrets` wrapper (checked in, NOT generated) exposes it as `AppSecrets.geminiApiKey`. Never commit `.env`. **The key is compiled into the web bundle and extractable from it — public web deployment requires owner sign-off (plan Phase 4 task 5).**
 2. The debug build type references a `debug.keystore` that is **not in the repo** — remove `signingConfig = signingConfigs.getByName("debugConfig")` from `app/build.gradle.kts` to run locally (README step; don't commit that removal).
 3. Release signing comes from env vars: `KEYSTORE_PATH`, `STORE_PASSWORD`, `KEY_PASSWORD`.
 

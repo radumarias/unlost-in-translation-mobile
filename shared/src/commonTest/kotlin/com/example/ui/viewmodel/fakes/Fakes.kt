@@ -51,11 +51,17 @@ class FakeTranslationApi : TranslationApi {
     }
 }
 
-/** In-memory [TranslationHistoryRepository]: newest-first list, ids from 1. */
+/**
+ * In-memory [TranslationHistoryRepository] mirroring the real implementations'
+ * semantics: newest-first by timestamp, ids from 1, and the `timestamp == 0L`
+ * "now" sentinel materialized — with a deterministic fake clock instead of a
+ * real one, so ordering assertions can't flake.
+ */
 class FakeHistoryRepository : TranslationHistoryRepository {
 
     private val state = MutableStateFlow<List<Translation>>(emptyList())
     private var nextId = 1L
+    private var fakeNowMillis = 1_000L
 
     /** Current rows, newest first — for direct assertions. */
     val rows: List<Translation> get() = state.value
@@ -67,7 +73,15 @@ class FakeHistoryRepository : TranslationHistoryRepository {
 
     override suspend fun insert(translation: Translation): Long {
         val id = if (translation.id != 0L) translation.id else nextId++
-        state.value = listOf(translation.copy(id = id)) + state.value.filterNot { it.id == id }
+        val timestamp = if (translation.timestamp == 0L) {
+            fakeNowMillis += 1_000
+            fakeNowMillis
+        } else {
+            translation.timestamp
+        }
+        val row = translation.copy(id = id, timestamp = timestamp)
+        state.value = (listOf(row) + state.value.filterNot { it.id == id })
+            .sortedByDescending { it.timestamp }
         return id
     }
 

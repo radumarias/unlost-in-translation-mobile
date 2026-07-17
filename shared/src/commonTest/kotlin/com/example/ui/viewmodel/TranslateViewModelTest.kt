@@ -133,6 +133,39 @@ class TranslateViewModelTest {
     }
 
     @Test
+    fun settingTargetEqualToSource_swapsInsteadOfDuplicating() = runTest {
+        // Symmetric guard: the fixed defect existed verbatim in both setters.
+        val vm = viewModel() // en -> es
+        vm.setTargetLanguage(Language.getByCode("en"))
+
+        assertEquals("es", vm.sourceLanguage.value.code)
+        assertEquals("en", vm.targetLanguage.value.code)
+    }
+
+    @Test
+    fun settingUnrelatedLanguages_assignsWithoutSwapping() = runTest {
+        val vm = viewModel() // en -> es
+        vm.setSourceLanguage(Language.getByCode("fr"))
+        vm.setTargetLanguage(Language.getByCode("de"))
+
+        assertEquals("fr", vm.sourceLanguage.value.code)
+        assertEquals("de", vm.targetLanguage.value.code)
+    }
+
+    @Test
+    fun conflictSwapViaSetter_carriesSwapLanguagesTextSideEffect() = runTest {
+        // The conflict branch must go through swapLanguages(), which also
+        // promotes the previous translation to the new source text.
+        val vm = viewModel()
+        vm.setSourceText("hello")
+        vm.triggerTranslation() // Success(hello, T(hello))
+
+        vm.setSourceLanguage(Language.getByCode("es"))
+
+        assertEquals("T(hello)", vm.sourceText.value)
+    }
+
+    @Test
     fun swapAfterSuccess_reusesTranslationAsNewSourceText() = runTest {
         val vm = viewModel()
         vm.setSourceText("hello")
