@@ -286,7 +286,10 @@ val GEMINI_SAFETY_SETTINGS: List<GeminiSafetySetting> = listOf(
 object GoogleResponseParser {
     fun extract(responseBody: String): String {
         val outer = LenientJson.parseToJsonElement(responseBody).jsonArray
-        val firstGroup = outer[0].jsonArray
+        // Unofficial, unversioned endpoint — an empty array or shape change must
+        // surface as a parse error (error card via apiCall), not an index crash.
+        val firstGroup = outer.getOrNull(0)?.jsonArray
+            ?: throw SerializationException("unexpected Google response shape: empty outer array")
         val sb = StringBuilder()
         for (part in firstGroup) {
             val arr = part.jsonArray

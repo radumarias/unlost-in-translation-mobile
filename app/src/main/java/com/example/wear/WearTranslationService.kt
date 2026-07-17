@@ -41,7 +41,9 @@ class WearTranslationService : WearableListenerService() {
                     val sourceLang = json.optString("source_lang", "en")
                     val targetLang = json.optString("target_lang", "es")
 
-                    Log.d(TAG, "Wear OS translation request: '$text' ($sourceLang -> $targetLang)")
+                    // Log routing metadata only — translation text is user content and
+                    // must not land in logcat (it survives into bug reports and ADB).
+                    Log.d(TAG, "Wear OS translation request: ${text.length} chars ($sourceLang -> $targetLang)")
 
                     if (text.isNotBlank()) {
                         // Deliver translation
@@ -60,7 +62,7 @@ class WearTranslationService : WearableListenerService() {
                             "/translate_response",
                             responseJson.toString().toByteArray()
                         )
-                        Log.d(TAG, "Sent response back to Wear OS Node '${messageEvent.sourceNodeId}': $translated")
+                        Log.d(TAG, "Sent response back to Wear OS Node '${messageEvent.sourceNodeId}'")
                     }
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed processing Wear OS translation message request: ", e)

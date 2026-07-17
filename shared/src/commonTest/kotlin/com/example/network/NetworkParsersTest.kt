@@ -1,9 +1,11 @@
 package com.example.network
 
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -43,6 +45,13 @@ class NetworkParsersTest {
     fun google_skips_zero_length_parts() {
         // second group is an empty inner array and must be skipped, not crash
         assertEquals("A", GoogleResponseParser.extract("[[[\"A\",\"a\"],[]],null,\"en\"]"))
+    }
+
+    @Test
+    fun google_empty_outer_array_is_a_parse_error_not_an_index_crash() {
+        // the unofficial endpoint can change shape without notice; an empty body
+        // must surface as SerializationException (error card), never IndexOutOfBounds
+        assertFailsWith<SerializationException> { GoogleResponseParser.extract("[]") }
     }
 
     // --- Gemini fence stripping ---
