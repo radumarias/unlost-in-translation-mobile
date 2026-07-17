@@ -145,6 +145,60 @@ class KtorTranslationApiTest {
         assertEquals("Hola", api.translateGemini("Hello", "English", "Spanish"))
     }
 
+    @Test
+    fun gemini_sends_the_key_in_a_header_and_never_in_the_url() = runTest {
+        // Security regression guard. Ktor embeds the full request URL in its
+        // timeout exception message ("Request timeout has expired [url=...]"),
+        // and the view model renders that message on screen and writes it to
+        // logcat/console — so a key in the query string leaks on every timeout.
+        // Verified empirically before this fix: the key appeared verbatim in the
+        // exception message. Keep it in the header.
+        var capturedUrl = ""
+        var capturedHeader: String? = null
+        val engine = MockEngine { request ->
+            capturedUrl = request.url.toString()
+            capturedHeader = request.headers["x-goog-api-key"]
+            respond(
+                content = geminiTextResponse("Hola"),
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val client = HttpClient(engine) {
+            expectSuccess = false
+            install(ContentNegotiation) { json(LenientJson) }
+            install(HttpTimeout)
+        }
+        val api = KtorTranslationApi(apiKey = "SECRET-KEY-VALUE", client = client)
+
+        api.translateGemini("Hello", "English", "Spanish")
+
+        assertEquals("SECRET-KEY-VALUE", capturedHeader, "the key must travel in the header")
+        assertFalse(capturedUrl.contains("SECRET-KEY-VALUE"), "the key must never appear in the URL: $capturedUrl")
+        assertFalse(capturedUrl.contains("key="), "no key query parameter: $capturedUrl")
+    }
+
+    @Test
+    fun geminiTimeout_message_does_not_contain_the_key() = runTest {
+        // The end-to-end property the header change exists to guarantee.
+        val engine = MockEngine { request -> throw HttpRequestTimeoutException(request) }
+        val client = HttpClient(engine) {
+            expectSuccess = false
+            install(ContentNegotiation) { json(LenientJson) }
+            install(HttpTimeout)
+        }
+        val api = KtorTranslationApi(apiKey = "SECRET-KEY-VALUE", client = client)
+        try {
+            api.translateGemini("Hello", "English", "Spanish")
+            fail("expected a timeout exception")
+        } catch (e: Exception) {
+            assertFalse(
+                e.message!!.contains("SECRET-KEY-VALUE"),
+                "the timeout message must not carry the key: ${e.message}",
+            )
+        }
+    }
+
     /**
      * Gemini client backed by a scripted sequence of responses, one per attempt
      * (the last entry repeats), counting how many attempts the API made.

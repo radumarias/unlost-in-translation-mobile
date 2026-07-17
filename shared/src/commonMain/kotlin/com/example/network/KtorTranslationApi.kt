@@ -38,6 +38,12 @@ class KtorTranslationApi(
     companion object {
         private const val GEMINI_MODEL = "gemini-3.5-flash"
         private const val GEMINI_PLACEHOLDER_KEY = "MY_GEMINI_API_KEY"
+
+        private const val GEMINI_URL =
+            "https://generativelanguage.googleapis.com/v1beta/models/$GEMINI_MODEL:generateContent"
+
+        /** Google's documented header alternative to the `?key=` query parameter. */
+        private const val GEMINI_API_KEY_HEADER = "x-goog-api-key"
         private const val GOOGLE_TIMEOUT_MS = 30_000L
         private const val GEMINI_TIMEOUT_MS = 60_000L
 
@@ -209,10 +215,15 @@ class KtorTranslationApi(
      * stops retrying instead of spending more of the allowance.
      */
     private suspend fun postGemini(request: GeminiRequest): GeminiHttpResult {
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/$GEMINI_MODEL:generateContent?key=$apiKey"
         var attempt = 0
         while (true) {
-            val response = client.post(url) {
+            val response = client.post(GEMINI_URL) {
+                // The key goes in a header, never the query string: Ktor embeds the
+                // full request URL in its timeout exception messages, and those
+                // messages are shown on screen and written to logcat/console — a
+                // key in the URL leaks with every timeout. A header also keeps it
+                // out of referrers and any proxy's access log.
+                header(GEMINI_API_KEY_HEADER, apiKey)
                 contentType(ContentType.Application.Json)
                 setBody(request)
                 timeout { requestTimeoutMillis = GEMINI_TIMEOUT_MS }
