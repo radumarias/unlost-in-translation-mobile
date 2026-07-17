@@ -3,6 +3,7 @@ package com.example.network
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.http.HttpHeaders
@@ -103,6 +104,27 @@ class KtorTranslationApiTest {
             fail("expected an Exception")
         } catch (e: Exception) {
             assertTrue(e.message!!.contains("Fail to fetch"), "message was: ${e.message}")
+        }
+    }
+
+    @Test
+    fun requestTimeout_surfaces_as_an_ordinary_exception() = runTest {
+        // Backlog from the Phase 4 review: pin that Ktor's
+        // HttpRequestTimeoutException (an IOException, not a
+        // CancellationException) crosses apiCall unchanged and reaches the
+        // view model's catch(Exception) as a normal, displayable error.
+        val engine = MockEngine { request -> throw HttpRequestTimeoutException(request) }
+        val client = HttpClient(engine) {
+            expectSuccess = false
+            install(ContentNegotiation) { json(LenientJson) }
+            install(HttpTimeout)
+        }
+        val api = KtorTranslationApi(apiKey = "k", client = client)
+        try {
+            api.translateGoogle("Hello", "en", "es")
+            fail("expected a timeout exception")
+        } catch (e: Exception) {
+            assertTrue(e.message!!.contains("timeout", ignoreCase = true), "message was: ${e.message}")
         }
     }
 

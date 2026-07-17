@@ -1,7 +1,7 @@
 package com.example.data
 
 import com.example.model.Translation
-import com.example.platform.AppLog
+import com.example.ui.viewmodel.fakes.RecordingLog
 import kotlinx.browser.localStorage
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -16,14 +16,6 @@ import kotlin.test.assertTrue
  * real `localStorage` is exercised, not a fake.
  */
 class LocalStorageHistoryRepositoryTest {
-
-    private class RecordingLog : AppLog {
-        val errors = mutableListOf<String>()
-        override fun d(tag: String, message: String) {}
-        override fun e(tag: String, message: String, throwable: Throwable?) {
-            errors += "$tag: $message"
-        }
-    }
 
     private val storageKey = "translation_history_v1"
 

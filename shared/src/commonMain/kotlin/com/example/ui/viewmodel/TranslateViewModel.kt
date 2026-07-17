@@ -140,21 +140,26 @@ class TranslateViewModel(
 
     fun setSourceLanguage(language: Language) {
         if (_sourceLanguage.value.code == language.code) return
-        _sourceLanguage.value = language
-        // If it matches target language, swap them
+        // Picking the current target as the new source is a swap request. Swap
+        // BEFORE assigning: the original code assigned first and then swapped
+        // two equal values, collapsing both pickers to the same language —
+        // a defect present since the initial import, caught by the design §10
+        // swap-on-conflict test (Phase 5) and fixed to match the design.
         if (_targetLanguage.value.code == language.code) {
             swapLanguages()
         } else {
+            _sourceLanguage.value = language
             triggerTranslation()
         }
     }
 
     fun setTargetLanguage(language: Language) {
         if (_targetLanguage.value.code == language.code) return
-        _targetLanguage.value = language
+        // Same swap-before-assign rule as setSourceLanguage.
         if (_sourceLanguage.value.code == language.code) {
             swapLanguages()
         } else {
+            _targetLanguage.value = language
             triggerTranslation()
         }
     }
