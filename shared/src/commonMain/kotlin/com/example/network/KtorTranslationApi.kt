@@ -167,7 +167,7 @@ class KtorTranslationApi(
                 throw Exception(result.errorMessage())
             }
             val parsed = result.response.body<GeminiResponse>()
-            parsed.candidates.first().content.parts.first().text.trim()
+            extractGeminiText(parsed).trim()
         }
     }
 
@@ -210,8 +210,25 @@ class KtorTranslationApi(
                 throw Exception(result.errorMessage())
             }
             val parsed = result.response.body<GeminiResponse>()
-            GeminiParser.parseValidation(parsed.candidates.first().content.parts.first().text)
+            GeminiParser.parseValidation(extractGeminiText(parsed))
         }
+    }
+
+    /**
+     * Pulls the first candidate's first text part out of a Gemini response,
+     * failing with a clear message when either is absent. A 200 can still carry
+     * no usable text — the whole response blocked by a safety filter
+     * (`candidates` empty), or a candidate cut off before any content
+     * (`finishReason` SAFETY/MAX_TOKENS with an empty `parts`). Without this the
+     * bare `.first()` threw `NoSuchElementException` ("Collection is empty"),
+     * which apiCall surfaced verbatim on the card; this turns it into an
+     * explanation the user can act on.
+     */
+    private fun extractGeminiText(response: GeminiResponse): String {
+        val candidate = response.candidates.firstOrNull()
+            ?: throw Exception("Gemini returned no result (the request may have been blocked by a content filter).")
+        return candidate.content.parts.firstOrNull()?.text
+            ?: throw Exception("Gemini returned an empty result (the response may have been cut off).")
     }
 
     /**
