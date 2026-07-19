@@ -393,6 +393,44 @@ class KtorTranslationApiTest {
     }
 
     @Test
+    fun translateGemini_empty_candidates_gives_a_clear_message() = runTest {
+        // A 200 with candidates=[] (whole response blocked by a safety filter)
+        // must read as an explanation, not "Collection is empty".
+        val api = apiReturning(HttpStatusCode.OK, """{"candidates":[]}""")
+        try {
+            api.translateGemini("Hello", "English", "Spanish")
+            fail("expected exception")
+        } catch (e: Exception) {
+            assertTrue(e.message!!.contains("no result", ignoreCase = true), "message was: ${e.message}")
+            assertFalse(e.message!!.contains("Collection is empty"), "leaked the raw error: ${e.message}")
+        }
+    }
+
+    @Test
+    fun translateGemini_empty_parts_gives_a_clear_message() = runTest {
+        // A candidate cut off with an empty parts array (finishReason
+        // SAFETY/MAX_TOKENS) must also read as an explanation.
+        val api = apiReturning(HttpStatusCode.OK, """{"candidates":[{"content":{"parts":[]}}]}""")
+        try {
+            api.translateGemini("Hello", "English", "Spanish")
+            fail("expected exception")
+        } catch (e: Exception) {
+            assertTrue(e.message!!.contains("empty result", ignoreCase = true), "message was: ${e.message}")
+        }
+    }
+
+    @Test
+    fun validateTranslation_empty_candidates_gives_a_clear_message() = runTest {
+        val api = apiReturning(HttpStatusCode.OK, """{"candidates":[]}""")
+        try {
+            api.validateTranslation("Hello", "Hola", "English", "Spanish")
+            fail("expected exception")
+        } catch (e: Exception) {
+            assertTrue(e.message!!.contains("no result", ignoreCase = true), "message was: ${e.message}")
+        }
+    }
+
+    @Test
     fun translateGemini_response_part_missing_text_fails_loudly() = runTest {
         // Regression guard: the hand-written GeminiPartSerializer must enforce the
         // required 'text' field like the @Serializable plugin did — a part object
