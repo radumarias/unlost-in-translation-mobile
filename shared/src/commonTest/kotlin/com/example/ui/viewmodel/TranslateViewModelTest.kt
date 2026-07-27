@@ -1,5 +1,6 @@
 package com.example.ui.viewmodel
 
+import com.example.model.ContextTurn
 import com.example.model.Language
 import com.example.model.Situation
 import com.example.model.Tone
@@ -328,6 +329,60 @@ class TranslateViewModelTest {
         assertEquals("hi", item.text)
         assertEquals("T(hi)", item.translated)
         assertTrue(item.speakA)
+    }
+
+    // --- Conversation context fed into the prompt ---
+
+    @Test
+    fun conversationTurns_areSentAsPromptContext_labelledByTheirSpeakersLanguage() = runTest {
+        api.onGoogle = { text, _, _ -> "T($text)" }
+        val vm = viewModel() // en -> es
+        vm.setAiEnhanced(true)
+
+        vm.prepareConversationPart("we would like the fish", isLanguageA = true)
+        vm.confirmConversationDraft { _, _ -> }
+        vm.prepareConversationPart("para cuantas personas?", isLanguageA = false)
+        vm.confirmConversationDraft { _, _ -> }
+        vm.prepareConversationPart("four", isLanguageA = true)
+
+        // The third turn carries the first two, each tagged with the language
+        // its speaker actually spoke.
+        val history = api.geminiContexts.last().history
+        assertEquals(2, history.size)
+        assertEquals(ContextTurn("English", "we would like the fish"), history[0])
+        assertEquals(ContextTurn("Spanish", "para cuantas personas?"), history[1])
+    }
+
+    @Test
+    fun conversationContext_isCappedAtTheMostRecentTurns() = runTest {
+        val vm = viewModel()
+        vm.setAiEnhanced(true)
+        repeat(TranslateViewModel.CONVERSATION_CONTEXT_TURNS + 1) { i ->
+            vm.prepareConversationPart("turn $i", isLanguageA = true)
+            vm.confirmConversationDraft { _, _ -> }
+        }
+
+        vm.prepareConversationPart("latest", isLanguageA = true)
+
+        val history = api.geminiContexts.last().history
+        assertEquals(TranslateViewModel.CONVERSATION_CONTEXT_TURNS, history.size)
+        // The oldest turn has fallen out of the window; the newest is kept.
+        assertEquals("turn 1", history.first().text)
+        assertEquals("turn ${TranslateViewModel.CONVERSATION_CONTEXT_TURNS}", history.last().text)
+    }
+
+    @Test
+    fun translateTab_sendsNoConversationHistory() = runTest {
+        val vm = viewModel()
+        vm.setAiEnhanced(true)
+        vm.prepareConversationPart("hi", isLanguageA = true)
+        vm.confirmConversationDraft { _, _ -> }
+
+        vm.setSourceText("unrelated")
+        vm.triggerTranslation()
+
+        // The tab has no session — the persisted log must not leak into the prompt.
+        assertTrue(api.geminiContexts.last().history.isEmpty())
     }
 
     @Test

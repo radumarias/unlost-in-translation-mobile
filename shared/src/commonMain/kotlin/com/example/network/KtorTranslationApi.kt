@@ -132,8 +132,9 @@ class KtorTranslationApi(
             GeminiErrorParser.errorMessage(body) ?: body.take(200).ifBlank { "no response body" }
 
         /**
-         * Renders a [TranslationContext] as the prompt constraints the web build
-         * uses (`api/translate/route.ts`), verbatim — they are product behavior
+         * Renders a [TranslationContext] as the prompt block the web build uses
+         * (`api/translate/route.ts`) — prior turns first, then the tone and
+         * situation constraints, all verbatim because they are product behavior
          * (design §5). Defaults emit nothing, so an unconfigured translation
          * sends exactly the prompt it sent before this existed.
          *
@@ -147,6 +148,14 @@ class KtorTranslationApi(
          */
         internal fun contextBlock(context: TranslationContext): String {
             val lines = mutableListOf<String>()
+            if (context.history.isNotEmpty()) {
+                // The web build always interpolates this section and falls back
+                // to "No prior history."; here an empty history emits nothing at
+                // all, so an unconstrained prompt stays exactly as it was.
+                lines += "Here is the conversation history so far:"
+                context.history.mapTo(lines) { "${it.speakerLangName} Speaker: ${it.text}" }
+                lines += "Use the conversation history for context if needed."
+            }
             if (context.tone != Tone.AUTO) {
                 lines += "IMPORTANT: The requested conversation tone is \"${context.tone}\". " +
                     "The translation MUST reflect this tone accurately."
