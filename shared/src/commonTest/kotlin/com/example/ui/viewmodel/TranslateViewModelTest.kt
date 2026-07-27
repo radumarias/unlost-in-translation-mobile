@@ -87,6 +87,27 @@ class TranslateViewModelTest {
         assertEquals("Looks fine.", validation.explanation)
     }
 
+    @Test
+    fun sanityCheckAndIdiom_reachTheValidationState() = runTest {
+        api.onValidate = { _, _ ->
+            ValidationResult(
+                isWarning = true,
+                explanation = "Too blunt.",
+                suggestions = emptyList(),
+                sanityCheck = "They will hear an order, not a request.",
+                idiomExplanation = "\"Break a leg\" means good luck.",
+            )
+        }
+        val vm = viewModel()
+        vm.setSourceText("break a leg")
+
+        vm.triggerTranslation()
+
+        val validation = assertIs<ValidationState.Success>(vm.validationState.value)
+        assertEquals("They will hear an order, not a request.", validation.sanityCheck)
+        assertEquals("\"Break a leg\" means good luck.", validation.idiomExplanation)
+    }
+
     // --- Tone / situation presets (ported from the web build) ---
 
     @Test

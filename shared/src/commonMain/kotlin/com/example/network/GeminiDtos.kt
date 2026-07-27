@@ -321,7 +321,8 @@ object GeminiErrorParser {
  * `isWarning` (default false), `explanation` (default ""), and `suggestions`
  * where each element is either an object (`{"tone","text"}`, tone default
  * "Alternative") or a plain string (tone "Alternative"); blank-text entries are
- * dropped (design §3).
+ * dropped (design §3). `sanityCheck` and `idiomExplanation` were added with the
+ * web-feature port and are read just as leniently.
  */
 object GeminiParser {
 
@@ -349,6 +350,13 @@ object GeminiParser {
     fun parseValidationObject(root: JsonObject): ValidationResult {
         val isWarning = (root["isWarning"] as? JsonPrimitive)?.booleanOrNull ?: false
         val explanation = (root["explanation"] as? JsonPrimitive)?.contentOrNull ?: ""
+        // Both are absent from a model that ignored the added schema keys, and
+        // idiomExplanation is explicitly null whenever there is no idiom — read
+        // them as leniently as everything else here. JSON null decodes to
+        // JsonNull, whose contentOrNull is null, so the blank filter covers it.
+        val sanityCheck = (root["sanityCheck"] as? JsonPrimitive)?.contentOrNull ?: ""
+        val idiomExplanation = (root["idiomExplanation"] as? JsonPrimitive)?.contentOrNull
+            ?.takeIf { it.isNotBlank() }
         val suggestions = mutableListOf<Suggestion>()
         (root["suggestions"] as? JsonArray)?.forEach { element ->
             when (element) {
@@ -364,6 +372,6 @@ object GeminiParser {
                 else -> { /* nested arrays etc. are ignored, as optJSONObject/optString did */ }
             }
         }
-        return ValidationResult(isWarning, explanation, suggestions)
+        return ValidationResult(isWarning, explanation, suggestions, sanityCheck, idiomExplanation)
     }
 }

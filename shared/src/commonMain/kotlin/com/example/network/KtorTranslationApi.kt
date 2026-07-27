@@ -248,6 +248,8 @@ class KtorTranslationApi(
             {
               "isWarning": boolean,
               "explanation": "Required. Always provide context on the meaning, cultural nuance, and literal translation. If perfectly fine (isWarning: false), explain the meaning positively.",
+              "sanityCheck": "Required. A roundtrip back-translation explaining exactly how the $targetLangName speaker will perceive the translation, written in $sourceLangName.",
+              "idiomExplanation": "If the Original Text contains an idiom, slang, or a culturally specific concept: explain its meaning, and suggest how a native $targetLangName speaker would naturally express that same idea (the local equivalent idiom or phrase). Do this even if the meaning translated successfully. If no idiom or slang is present, null.",
               "suggestions": [
                  { "tone": "Polite", "text": "Alternative phrase in the Source Language ($sourceLangName)" },
                  { "tone": "Casual", "text": "Alternative phrase in the Source Language ($sourceLangName)" },

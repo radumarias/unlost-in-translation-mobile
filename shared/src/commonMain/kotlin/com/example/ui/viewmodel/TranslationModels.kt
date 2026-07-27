@@ -22,7 +22,11 @@ sealed interface ValidationState {
     data class Success(
         val isWarning: Boolean,
         val explanation: String,
-        val suggestions: List<Suggestion>
+        val suggestions: List<Suggestion>,
+        /** How the target speaker will perceive it, in the source language. */
+        val sanityCheck: String = "",
+        /** The idiom in the original explained, with its native equivalent. */
+        val idiomExplanation: String? = null,
     ) : ValidationState
     data class Error(val message: String) : ValidationState
 }

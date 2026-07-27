@@ -134,6 +134,47 @@ class NetworkParsersTest {
         assertTrue(result.suggestions.isEmpty())
     }
 
+    // --- sanityCheck / idiomExplanation (web-feature port) ---
+
+    @Test
+    fun validation_reads_sanity_check_and_idiom_explanation() {
+        val result = validationObject(
+            """
+            {
+              "isWarning": false,
+              "explanation": "Fine.",
+              "sanityCheck": "They will hear a polite request for the bill.",
+              "idiomExplanation": "\"Break a leg\" means good luck; a Spanish speaker would say \"mucha mierda\"."
+            }
+            """.trimIndent(),
+        )
+        assertEquals("They will hear a polite request for the bill.", result.sanityCheck)
+        assertTrue(result.idiomExplanation!!.contains("mucha mierda"))
+    }
+
+    @Test
+    fun validation_absent_sanity_check_and_idiom_fall_back_to_absent() {
+        // A model that ignores the added schema keys must still parse — this is
+        // the pre-port response shape.
+        val result = validationObject("{\"isWarning\":false,\"explanation\":\"Fine.\"}")
+        assertEquals("", result.sanityCheck)
+        assertNull(result.idiomExplanation)
+    }
+
+    @Test
+    fun validation_explicit_null_idiom_means_no_idiom() {
+        // The schema tells the model to send null when there is no idiom; that
+        // must not surface as the literal string "null" in the UI.
+        val result = validationObject("{\"explanation\":\"x\",\"idiomExplanation\":null}")
+        assertNull(result.idiomExplanation)
+    }
+
+    @Test
+    fun validation_blank_idiom_is_treated_as_absent() {
+        val result = validationObject("{\"explanation\":\"x\",\"idiomExplanation\":\"   \"}")
+        assertNull(result.idiomExplanation)
+    }
+
     @Test
     fun validation_missing_suggestions_array_yields_empty_list() {
         val result = GeminiParser.parseValidationObject(

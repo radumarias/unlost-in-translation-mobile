@@ -264,6 +264,14 @@ fun ConversationDraftDialog(
                                 )
                                 Spacer(modifier = Modifier.height(32.dp))
                             }
+
+                            // Ported with the validation call: how the other
+                            // party will actually read this, and any idiom in
+                            // the original. Both cost no extra request.
+                            if (vs.sanityCheck.isNotBlank()) {
+                                DraftDetailSection("How they will read it", vs.sanityCheck)
+                            }
+                            vs.idiomExplanation?.let { DraftDetailSection("Idiom or local expression", it) }
                         }
 
                         if (vs.suggestions.isNotEmpty()) {
@@ -313,4 +321,23 @@ fun ConversationDraftDialog(
             }
         }
     }
+}
+
+/** A titled paragraph in the draft's validation-details dialog. */
+@Composable
+private fun DraftDetailSection(title: String, body: String) {
+    Text(
+        text = title,
+        fontSize = 18.sp,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(modifier = Modifier.height(8.dp))
+    Text(
+        text = body,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        color = MaterialTheme.colorScheme.onSurface,
+    )
+    Spacer(modifier = Modifier.height(32.dp))
 }
