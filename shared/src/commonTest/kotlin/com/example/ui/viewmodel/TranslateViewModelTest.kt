@@ -5,6 +5,7 @@ import com.example.model.Language
 import com.example.model.Situation
 import com.example.model.Tone
 import com.example.network.DetectedTranslation
+import com.example.network.ImageTranslationResult
 import com.example.network.ValidationResult
 import com.example.ui.viewmodel.fakes.FakeHistoryRepository
 import com.example.ui.viewmodel.fakes.FakeTranslationApi
@@ -107,6 +108,76 @@ class TranslateViewModelTest {
         val validation = assertIs<ValidationState.Success>(vm.validationState.value)
         assertEquals("They will hear an order, not a request.", validation.sanityCheck)
         assertEquals("\"Break a leg\" means good luck.", validation.idiomExplanation)
+    }
+
+    // --- Image OCR translation ---
+
+    @Test
+    fun imageTranslation_fillsTheInput_andRunsTheOrdinaryPipeline() = runTest {
+        val vm = viewModel() // en -> es
+
+        vm.onImageInputResult("QkFTRTY0", "image/jpeg")
+
+        // A foreign menu comes back to the user's own language, so French was
+        // read and English is the target.
+        assertEquals("Plat du jour", vm.sourceText.value)
+        val state = assertIs<TranslationState.Success>(vm.translationState.value)
+        assertEquals("Dish of the day", state.translatedText)
+        // Same round trip, history row, broadcast and validation a typed
+        // translation gets.
+        assertEquals(Triple("Dish of the day", "en", "fr"), api.googleCalls.single())
+        assertEquals("fr", repository.rows.single().sourceLangCode)
+        assertEquals(1, broadcaster.broadcasts.size)
+        assertIs<ValidationState.Success>(vm.validationState.value)
+        assertFalse(vm.isReadingImage.value)
+    }
+
+    @Test
+    fun imageInTheUsersOwnLanguage_goesOutToTheOtherParty() = runTest {
+        api.onImage = { _ -> ImageTranslationResult("en", "No entry", "Prohibido el paso") }
+        val vm = viewModel() // en -> es
+
+        vm.onImageInputResult("QkFTRTY0", "image/jpeg")
+
+        // Read English, so the target is the other pill, not back to English.
+        assertEquals(Triple("Prohibido el paso", "es", "en"), api.googleCalls.single())
+    }
+
+    @Test
+    fun imageTranslation_withAnAutoSource_reportsWhatItRead() = runTest {
+        val vm = viewModel()
+        vm.setSourceLanguage(Language.autoDetect)
+
+        vm.onImageInputResult("QkFTRTY0", "image/jpeg")
+
+        assertEquals("true", api.imageCalls.single()[3])
+        assertEquals("fr", vm.detectedSourceLanguage.value?.code)
+    }
+
+    @Test
+    fun anUnreadableImage_surfacesAnError_ratherThanAnEmptyCard() = runTest {
+        api.onImage = { _ -> throw Exception("Gemini found no text to translate in the image.") }
+        val vm = viewModel()
+
+        vm.onImageInputResult("QkFTRTY0", "image/jpeg")
+
+        assertEquals(
+            TranslationState.Error("Gemini found no text to translate in the image."),
+            vm.translationState.value,
+        )
+        assertEquals(ValidationState.Idle, vm.validationState.value)
+        assertFalse(vm.isReadingImage.value)
+        assertTrue(repository.rows.isEmpty())
+    }
+
+    @Test
+    fun aCancelledPick_doesNothing() = runTest {
+        val vm = viewModel()
+
+        vm.onImageInputResult(null, "")
+
+        assertTrue(api.imageCalls.isEmpty())
+        assertEquals(TranslationState.Idle, vm.translationState.value)
     }
 
     // --- Auto-detect source language ---

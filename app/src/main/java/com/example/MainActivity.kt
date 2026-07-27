@@ -2,6 +2,7 @@ package com.example
 
 import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.speech.RecognizerIntent
 import android.util.Log
@@ -9,6 +10,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -19,7 +21,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import com.example.model.Language
 import com.example.platform.AndroidAppContainer
+import com.example.platform.AndroidImageLoading
 import com.example.platform.AppContainer
+import com.example.platform.CameraCapture
+import com.example.platform.ImageSource
 import com.example.platform.UnavailableVoiceInput
 import com.example.speech.TTSHelper
 import com.example.ui.App
@@ -104,5 +109,57 @@ private fun AndroidApp() {
         }
     }
 
-    App(container = container, launchVoiceInput = ::launchVoiceInput)
+    // Image OCR translation (web-feature port). Two Activity-scoped launchers,
+    // same reason voice input needs one. No CAMERA permission: TakePicture
+    // hands off to the camera app, and PickVisualMedia is the permissionless
+    // photo picker (backported below Android 13 by the Play services module).
+    fun readPickedImage(uri: Uri?) {
+        if (uri == null) return // the user backed out
+        val base64 = AndroidImageLoading.toBase64Jpeg(context, uri)
+        if (base64 == null) {
+            viewModel.showMessage("That image could not be read.")
+            return
+        }
+        viewModel.onImageInputResult(base64, AndroidImageLoading.MIME_TYPE)
+    }
+
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri -> readPickedImage(uri) }
+
+    // TakePicture writes into a file we own and reports success, not a Uri, so
+    // the destination has to be held across the launch.
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { saved ->
+        readPickedImage(pendingCameraUri.takeIf { saved })
+        pendingCameraUri = null
+    }
+
+    fun launchImageInput(source: ImageSource) {
+        try {
+            when (source) {
+                ImageSource.GALLERY -> galleryLauncher.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                )
+                ImageSource.CAMERA -> {
+                    val uri = CameraCapture.newImageUri(context)
+                    pendingCameraUri = uri
+                    cameraLauncher.launch(uri)
+                }
+            }
+        } catch (e: Exception) {
+            Log.e("MainActivity", "Image input failed to launch", e)
+            pendingCameraUri = null
+            viewModel.showMessage("No app is available to provide a photo.")
+        }
+    }
+
+    App(
+        container = container,
+        launchVoiceInput = ::launchVoiceInput,
+        launchImageInput = ::launchImageInput,
+    )
 }

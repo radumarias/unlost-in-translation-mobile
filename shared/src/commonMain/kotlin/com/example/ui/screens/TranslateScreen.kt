@@ -97,6 +97,7 @@ fun TranslateScreen(
     starred: List<Translation>,
     tone: String,
     situation: String,
+    isReadingImage: Boolean,
     speechSynthesizer: SpeechSynthesizer,
     platformActions: PlatformActions,
     showVoiceInput: Boolean,
@@ -234,7 +235,9 @@ fun TranslateScreen(
 
         // B. Output Card Block (Animated, bg-#D3E3FD, corner 28dp, navy style)
         AnimatedVisibility(
-            visible = sourceText.isNotBlank(),
+            // Also while a photo is being read: the transcription that fills
+            // the input box only arrives with the answer.
+            visible = sourceText.isNotBlank() || isReadingImage,
             enter = fadeIn() + expandVertically(),
             exit = fadeOut() + shrinkVertically()
         ) {
@@ -260,7 +263,9 @@ fun TranslateScreen(
                                 CircularProgressIndicator(color = MaterialTheme.colorScheme.onPrimaryContainer)
                                 Spacer(modifier = Modifier.height(10.dp))
                                 Text(
-                                    "Translating...",
+                                    // "Translating..." under a photo that has
+                                    // not been read yet would be a lie.
+                                    if (isReadingImage) "Reading image..." else "Translating...",
                                     style = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
                                 )
                             }

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The only path shared with other apps: the cache directory the camera app
+  writes a capture into (see CameraCapture). Nothing else is exposed.
+-->
+<paths>
+    <cache-path name="camera" path="camera/" />
+</paths>

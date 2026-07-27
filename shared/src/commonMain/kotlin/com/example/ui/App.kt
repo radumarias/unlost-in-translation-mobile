@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.model.Language
 import com.example.platform.AppContainer
+import com.example.platform.ImageSource
 import com.example.ui.components.AppTopBar
 import com.example.ui.components.BottomNavBar
 import com.example.ui.components.LanguageBar
@@ -79,6 +80,7 @@ fun rememberTranslateViewModel(container: AppContainer): TranslateViewModel = vi
 fun App(
     container: AppContainer,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
+    launchImageInput: (source: ImageSource) -> Unit = {},
 ) {
     MyApplicationTheme {
         val keyboardController = LocalSoftwareKeyboardController.current
@@ -107,6 +109,7 @@ fun App(
         val history by viewModel.history.collectAsState()
         val starred by viewModel.starred.collectAsState()
         val isConversationMode by viewModel.isConversationMode.collectAsState()
+        val isReadingImage by viewModel.isReadingImage.collectAsState()
 
         // Navigation and Dialog state
         var activeBottomTab by remember { mutableStateOf("translate") } // "translate", "history", "saved"
@@ -202,6 +205,7 @@ fun App(
                                         starred = starred,
                                         tone = tone,
                                         situation = situation,
+                                        isReadingImage = isReadingImage,
                                         speechSynthesizer = container.speechSynthesizer,
                                         platformActions = container.platformActions,
                                         showVoiceInput = container.capabilities.voiceInput,
@@ -253,6 +257,8 @@ fun App(
                                         launchVoiceInput(null, speechSourceLang)
                                     }
                                 },
+                                showImageInput = container.capabilities.imageInput,
+                                onPickImage = launchImageInput,
                                 sourceTextBlank = sourceText.isBlank(),
                                 onQuickEdit = {
                                     if (sourceText.isNotBlank()) {

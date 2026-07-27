@@ -218,6 +218,34 @@ class NetworkParsersTest {
         }
     }
 
+    // --- Image OCR payloads (web-feature port) ---
+
+    @Test
+    fun vision_reads_the_code_transcription_and_translation() {
+        val result = GeminiVisionParser.parseImageTranslation(
+            """{"detectedLanguage":"fr","originalText":"Plat du jour","translation":"Dish of the day"}""",
+        )
+        assertEquals("fr", result.detectedLangCode)
+        assertEquals("Plat du jour", result.originalText)
+        assertEquals("Dish of the day", result.translation)
+    }
+
+    @Test
+    fun vision_without_a_translation_is_a_parse_error() {
+        // The user pointed a camera at something; an empty card tells them
+        // nothing about why.
+        assertFailsWith<SerializationException> {
+            GeminiVisionParser.parseImageTranslation("""{"detectedLanguage":"fr","originalText":"..."}""")
+        }
+    }
+
+    @Test
+    fun vision_tolerates_a_missing_transcription() {
+        val result = GeminiVisionParser.parseImageTranslation("""{"translation":"Dish of the day"}""")
+        assertEquals("", result.originalText)
+        assertEquals("", result.detectedLangCode)
+    }
+
     // --- Rewrite payloads (web-feature port) ---
 
     @Test

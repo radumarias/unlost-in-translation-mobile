@@ -19,6 +19,7 @@ import io.ktor.client.engine.js.Js
 class WebAppContainer : AppContainer {
 
     private val voiceInputAvailable = speechRecognitionAvailable()
+    private val imageInputAvailable = imageInputAvailable()
 
     override val log: AppLog = WebAppLog()
 
@@ -36,6 +37,9 @@ class WebAppContainer : AppContainer {
     override val voiceInput: VoiceInput =
         if (voiceInputAvailable) WebVoiceInput(log) else UnavailableVoiceInput
 
+    override val imagePicker: ImagePicker =
+        if (imageInputAvailable) WebImagePicker(log) else UnavailableImagePicker
+
     override val audioOutputCatalog: AudioOutputCatalog = WebAudioOutputCatalog
 
     override val broadcaster: TranslationBroadcaster = WebTranslationBroadcaster
@@ -46,6 +50,7 @@ class WebAppContainer : AppContainer {
         voiceInput = voiceInputAvailable,
         dualHeadset = false,
         wearSync = false,
+        imageInput = imageInputAvailable,
         // The wasm canvas ships no emoji font — flags/dingbats draw as boxes.
         extendedGlyphs = false,
     )

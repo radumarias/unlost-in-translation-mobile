@@ -5,6 +5,7 @@ import com.example.model.Language
 import com.example.model.Translation
 import com.example.model.TranslationContext
 import com.example.network.DetectedTranslation
+import com.example.network.ImageTranslationResult
 import com.example.network.RewriteResult
 import com.example.network.TranslationApi
 import com.example.network.ValidationResult
@@ -88,6 +89,23 @@ class FakeTranslationApi : TranslationApi {
         validateLangNames += sourceLangName to targetLangName
         validateContexts += context
         return onValidate(originalText, translatedText)
+    }
+
+    /** Each image call as (base64, userLangName, otherLangName, isSourceAutoDetect). */
+    val imageCalls = mutableListOf<List<String>>()
+
+    var onImage: suspend (base64: String) -> ImageTranslationResult =
+        { _ -> ImageTranslationResult("fr", "Plat du jour", "Dish of the day") }
+
+    override suspend fun translateImage(
+        imageBase64: String,
+        mimeType: String,
+        userLangName: String,
+        otherLangName: String,
+        isSourceAutoDetect: Boolean,
+    ): ImageTranslationResult {
+        imageCalls += listOf(imageBase64, userLangName, otherLangName, isSourceAutoDetect.toString())
+        return onImage(imageBase64)
     }
 
     /** Each rewrite call as (originalText, warning, direction). */

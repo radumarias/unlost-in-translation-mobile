@@ -20,16 +20,24 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Hearing
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.example.platform.ImageSource
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -53,7 +61,10 @@ fun BottomNavBar(
     onMic: () -> Unit,
     sourceTextBlank: Boolean,
     onQuickEdit: () -> Unit,
+    showImageInput: Boolean = false,
+    onPickImage: (ImageSource) -> Unit = {},
 ) {
+    var choosingImageSource by remember { mutableStateOf(false) }
     Surface(
         tonalElevation = 6.dp,
         color = MaterialTheme.colorScheme.surface,
@@ -109,6 +120,47 @@ fun BottomNavBar(
                                 tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(26.dp)
                             )
+                        }
+                    }
+
+                    // Camera / gallery OCR translation (web-feature port),
+                    // gated on capabilities.imageInput like the mic is on
+                    // capabilities.voiceInput.
+                    if (showImageInput) {
+                        Box {
+                            IconButton(
+                                onClick = { choosingImageSource = true },
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .background(MaterialTheme.colorScheme.surfaceVariant, shape = CircleShape)
+                                    .testTag("image_input_button")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PhotoCamera,
+                                    contentDescription = "Translate a photo",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = choosingImageSource,
+                                onDismissRequest = { choosingImageSource = false },
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Take a photo") },
+                                    onClick = {
+                                        choosingImageSource = false
+                                        onPickImage(ImageSource.CAMERA)
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Choose from gallery") },
+                                    onClick = {
+                                        choosingImageSource = false
+                                        onPickImage(ImageSource.GALLERY)
+                                    },
+                                )
+                            }
                         }
                     }
 
