@@ -180,6 +180,59 @@ class KtorTranslationApiTest {
         assertNull(result.idiomExplanation)
     }
 
+    // --- Image OCR (web-feature port) ---
+
+    @Test
+    fun translateImage_sends_the_image_as_an_inlineData_part() = runTest {
+        val bodies = mutableListOf<String>()
+        val api = apiCapturingBody(
+            bodies,
+            text = """{"detectedLanguage":"fr","originalText":"Plat du jour","translation":"Dish of the day"}""",
+        )
+
+        val result = api.translateImage("QkFTRTY0", "image/jpeg", "English", "Spanish")
+
+        val body = bodies.single()
+        assertTrue(body.contains("\"inlineData\""), body)
+        assertTrue(body.contains("\"mimeType\":\"image/jpeg\""), body)
+        assertTrue(body.contains("\"data\":\"QkFTRTY0\""), body)
+        assertEquals("fr", result.detectedLangCode)
+        assertEquals("Plat du jour", result.originalText)
+        assertEquals("Dish of the day", result.translation)
+    }
+
+    @Test
+    fun translateImage_uses_the_bidirectional_prompt_by_default() = runTest {
+        val bodies = mutableListOf<String>()
+        val api = apiCapturingBody(bodies, text = """{"translation":"x"}""")
+
+        api.translateImage("QkFTRTY0", "image/jpeg", "English", "Spanish")
+
+        val body = bodies.single()
+        assertTrue(body.contains("If the text in the image is in English, translate it to Spanish."), body)
+    }
+
+    @Test
+    fun translateImage_with_an_auto_source_sends_everything_one_way() = runTest {
+        val bodies = mutableListOf<String>()
+        val api = apiCapturingBody(bodies, text = """{"translation":"x"}""")
+
+        api.translateImage("QkFTRTY0", "image/jpeg", "Auto-detect", "Spanish", isSourceAutoDetect = true)
+
+        val body = bodies.single()
+        assertTrue(body.contains("Translate the text to Spanish."), body)
+        assertFalse(body.contains("If the text in the image is in"), body)
+    }
+
+    @Test
+    fun a_text_only_request_still_carries_no_inlineData_key() = runTest {
+        // The GeminiPart change must not alter the shape of every other call.
+        val bodies = mutableListOf<String>()
+        apiCapturingBody(bodies).translateGemini("Hello", "English", "Spanish")
+
+        assertFalse(bodies.single().contains("inlineData"), bodies.single())
+    }
+
     // --- Rewrite (web-feature port) ---
 
     @Test

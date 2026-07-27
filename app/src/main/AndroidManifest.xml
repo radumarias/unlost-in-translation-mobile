@@ -26,6 +26,21 @@
             </intent-filter>
         </activity>
 
+        <!--
+            Hands the camera app a writable Uri for a capture (see
+            CameraCapture). Not exported: only apps we grant per-Uri permission
+            to via the capture Intent can touch it.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
         <!-- Background Listener Service for Paired Smartwatch Apps -->
         <service
             android:name="com.example.wear.WearTranslationService"

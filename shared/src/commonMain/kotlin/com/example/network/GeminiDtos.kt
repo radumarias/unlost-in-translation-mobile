@@ -53,7 +53,15 @@ data class GeminiRequest(
 
 data class GeminiContent(val parts: List<GeminiPart>)
 
-data class GeminiPart(val text: String)
+/**
+ * One piece of a request or response: either text or, since the image-OCR port,
+ * an inline image. Exactly one field is set; the serializer emits only that one,
+ * so a text-only request is byte-identical to what it was before images existed.
+ */
+data class GeminiPart(val text: String? = null, val inlineData: GeminiInlineData? = null)
+
+/** A base64 image sent inline. [data] carries no `data:` URI prefix. */
+data class GeminiInlineData(val mimeType: String, val data: String)
 
 data class GeminiSafetySetting(val category: String, val threshold: String)
 
@@ -69,26 +77,69 @@ data class GeminiCandidate(val content: GeminiContent)
 
 // --- Hand-written serializers (see LenientJson kdoc for why not @Serializable) ---
 
+object GeminiInlineDataSerializer : KSerializer<GeminiInlineData> {
+    override val descriptor: SerialDescriptor =
+        buildClassSerialDescriptor("GeminiInlineData") {
+            element<String>("mimeType")
+            element<String>("data")
+        }
+
+    override fun serialize(encoder: Encoder, value: GeminiInlineData) {
+        encoder.encodeStructure(descriptor) {
+            encodeStringElement(descriptor, 0, value.mimeType)
+            encodeStringElement(descriptor, 1, value.data)
+        }
+    }
+
+    override fun deserialize(decoder: Decoder): GeminiInlineData = decoder.decodeStructure(descriptor) {
+        var mimeType: String? = null
+        var data: String? = null
+        while (true) {
+            when (val index = decodeElementIndex(descriptor)) {
+                0 -> mimeType = decodeStringElement(descriptor, 0)
+                1 -> data = decodeStringElement(descriptor, 1)
+                CompositeDecoder.DECODE_DONE -> break
+                else -> throw SerializationException("Unexpected index $index")
+            }
+        }
+        GeminiInlineData(
+            mimeType ?: throw SerializationException("Missing required field 'mimeType' in GeminiInlineData JSON"),
+            data ?: throw SerializationException("Missing required field 'data' in GeminiInlineData JSON"),
+        )
+    }
+}
+
 object GeminiPartSerializer : KSerializer<GeminiPart> {
     override val descriptor: SerialDescriptor =
-        buildClassSerialDescriptor("GeminiPart") { element<String>("text") }
+        buildClassSerialDescriptor("GeminiPart") {
+            element<String>("text", isOptional = true)
+            element("inlineData", GeminiInlineDataSerializer.descriptor, isOptional = true)
+        }
 
     override fun serialize(encoder: Encoder, value: GeminiPart) {
         encoder.encodeStructure(descriptor) {
-            encodeStringElement(descriptor, 0, value.text)
+            // Only the field that is set: Gemini rejects a part carrying both,
+            // and a null "text" alongside inlineData is not the same as absent.
+            value.text?.let { encodeStringElement(descriptor, 0, it) }
+            value.inlineData?.let { encodeSerializableElement(descriptor, 1, GeminiInlineDataSerializer, it) }
         }
     }
 
     override fun deserialize(decoder: Decoder): GeminiPart = decoder.decodeStructure(descriptor) {
         var text: String? = null
+        var inlineData: GeminiInlineData? = null
         while (true) {
             when (val index = decodeElementIndex(descriptor)) {
                 0 -> text = decodeStringElement(descriptor, 0)
+                1 -> inlineData = decodeSerializableElement(descriptor, 1, GeminiInlineDataSerializer)
                 CompositeDecoder.DECODE_DONE -> break
                 else -> throw SerializationException("Unexpected index $index")
             }
         }
-        GeminiPart(text ?: throw SerializationException("Missing required field 'text' in GeminiPart JSON"))
+        if (text == null && inlineData == null) {
+            throw SerializationException("GeminiPart JSON carries neither 'text' nor 'inlineData'")
+        }
+        GeminiPart(text, inlineData)
     }
 }
 
@@ -406,6 +457,28 @@ object GeminiDetectionParser {
         }
         val detected = (root["detectedSourceLanguage"] as? JsonPrimitive)?.contentOrNull.orEmpty()
         return DetectedTranslation(text.trim(), detected.trim())
+    }
+}
+
+/**
+ * Parses the image-OCR payload (web-feature port of `api/vision`). Like
+ * [GeminiDetectionParser] this asks for an ISO code rather than the web build's
+ * language name. A blank translation is rejected: the user pointed a camera at
+ * something and an empty card tells them nothing.
+ */
+object GeminiVisionParser {
+
+    fun parseImageTranslation(rawText: String): ImageTranslationResult {
+        val root = LenientJson.parseToJsonElement(GeminiParser.stripJsonFences(rawText)).jsonObject
+        val translation = (root["translation"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty()
+        if (translation.isBlank()) {
+            throw SerializationException("Gemini found no text to translate in the image.")
+        }
+        return ImageTranslationResult(
+            detectedLangCode = (root["detectedLanguage"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty(),
+            originalText = (root["originalText"] as? JsonPrimitive)?.contentOrNull?.trim().orEmpty(),
+            translation = translation,
+        )
     }
 }
 

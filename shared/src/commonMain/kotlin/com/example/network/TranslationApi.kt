@@ -61,6 +61,27 @@ interface TranslationApi {
      * Unlike validation this is not part of the pipeline — it costs a request,
      * so it only ever runs when the user asks for it.
      */
+    /**
+     * Reads the text in a photo and translates it, explaining the item when it
+     * is a dish, a sign or something else culturally specific. Ported from the
+     * web build's `api/vision`.
+     *
+     * Direction follows the web build: text in [userLangName] goes to
+     * [otherLangName], anything else comes back to [userLangName] — which is
+     * what pointing a camera at a foreign menu should do. With
+     * [isSourceAutoDetect] the user has not claimed a language of their own, so
+     * everything goes to [otherLangName].
+     *
+     * One request per photo, and the only way to spend one is to take a photo.
+     */
+    suspend fun translateImage(
+        imageBase64: String,
+        mimeType: String,
+        userLangName: String,
+        otherLangName: String,
+        isSourceAutoDetect: Boolean = false,
+    ): ImageTranslationResult
+
     suspend fun rewriteMessage(
         originalText: String,
         sourceLangName: String,
@@ -77,6 +98,17 @@ interface TranslationApi {
  * cope rather than guessing a language.
  */
 data class DetectedTranslation(val text: String, val detectedLangCode: String)
+
+/**
+ * What Gemini read out of a photo. [originalText] is a short transcription of
+ * the text in the image; [translation] carries the translation plus, where the
+ * subject warrants it, a sentence of cultural explanation.
+ */
+data class ImageTranslationResult(
+    val detectedLangCode: String,
+    val originalText: String,
+    val translation: String,
+)
 
 /**
  * A suggested rewrite of the speaker's original message, in their own language.

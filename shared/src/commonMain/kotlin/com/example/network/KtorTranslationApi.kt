@@ -330,6 +330,74 @@ class KtorTranslationApi(
     }
 
     /**
+     * Image OCR + translation (web-feature port of `api/vision`). The three
+     * system prompts are the web build's, minus its target-auto-detect variant
+     * — a target language is always chosen here. The supported-language list
+     * the model must pick its answer from is this app's sixteen rather than the
+     * web's thirteen, and it asks for an ISO code (see [GeminiVisionParser]).
+     */
+    override suspend fun translateImage(
+        imageBase64: String,
+        mimeType: String,
+        userLangName: String,
+        otherLangName: String,
+        isSourceAutoDetect: Boolean,
+    ): ImageTranslationResult {
+        if (imageBase64.isBlank()) throw Exception("The image could not be read.")
+        requireApiKey()
+
+        val supported = Language.supportedLanguages.joinToString(", ") { it.name }
+        val systemPrompt = if (isSourceAutoDetect) {
+            """
+            You are a helpful translation assistant.
+            You must analyze the image, detect the language of any prominent text, and transcribe it.
+            Translate the text to $otherLangName. The detected language can be any language.
+
+            CRITICAL: You must provide a brief explanation if the image is a specific food, sign, or cultural item. The translation AND this explanation MUST be written entirely in $otherLangName.
+            """.trimIndent()
+        } else {
+            """
+            You are a helpful translation assistant in a conversation between a $userLangName speaker and a $otherLangName speaker.
+            You must analyze the image, detect the language of any prominent text, and transcribe it.
+            - If the text in the image is in $userLangName, translate it to $otherLangName.
+            - If the text is in $otherLangName or any other language, translate it to $userLangName.
+
+            CRITICAL: You must provide a brief explanation if the image is a specific food, sign, or cultural item. The translation AND this explanation MUST be written entirely in the target language you are translating to.
+            """.trimIndent()
+        }
+
+        val schema = """
+            Return ONLY a valid JSON object matching this schema, with no markdown wrappers or extra text:
+            {
+              "detectedLanguage": "The ISO 639-1 code of the language of the text in the image (e.g. \"es\"). Prefer one of: $supported.",
+              "originalText": "A short transcription of the text found in the image, in its original language.",
+              "translation": "The translation and brief explanation, in the appropriate target language per your instructions."
+            }
+        """.trimIndent()
+
+        val request = GeminiRequest(
+            contents = listOf(
+                GeminiContent(
+                    parts = listOf(
+                        GeminiPart(text = "$systemPrompt\n\n$schema\n\nPlease translate and explain this image."),
+                        GeminiPart(inlineData = GeminiInlineData(mimeType = mimeType, data = imageBase64)),
+                    ),
+                ),
+            ),
+            safetySettings = GEMINI_SAFETY_SETTINGS,
+            generationConfig = GeminiGenerationConfig(responseMimeType = "application/json"),
+        )
+
+        return apiCall {
+            val result = postGemini(request)
+            if (!result.isSuccess) {
+                throw Exception(result.errorMessage())
+            }
+            GeminiVisionParser.parseImageTranslation(extractGeminiText(result.response.body<GeminiResponse>()))
+        }
+    }
+
+    /**
      * Rewrite of the speaker's own message that resolves a cultural warning
      * (issue: web-feature port). The prompt is the web build's `api/rewrite`
      * copied verbatim; the only adaptation is that the conversation history and

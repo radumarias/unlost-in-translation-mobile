@@ -13,6 +13,7 @@ import com.example.network.KtorTranslationApi
 import com.example.network.TranslationApi
 import com.example.platform.AppLog
 import com.example.wear.TranslationBroadcaster
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -309,50 +310,66 @@ class TranslateViewModel(
 
                 // 1. Initial translation (Fast)
                 val primary = translatePrimary(text, src, trg, context)
-                val translated = primary.text
-                // The language actually translated from: what was selected, or
-                // what auto-detect found.
-                val effectiveSource = primary.source
 
-                _translationState.value = TranslationState.Success(text, translated)
-                saveTranslationToDatabase(text, translated, effectiveSource)
-                // Platform side-effect (Wear sync + notification) — moved out of the
-                // UI's LaunchedEffect into the VM so the UI owns no platform I/O.
-                broadcaster.broadcast(text, translated, effectiveSource, trg)
-
-                // 2. Parallel tasks: Round Trip & Validation
-                if (effectiveSource.code != Language.AUTO_CODE) {
-                    // Nothing to translate back *to* when detection came up
-                    // empty; the round trip is skipped rather than guessed.
-                    launch {
-                        try {
-                            val roundTrip = api.translateGoogle(
-                                text = translated,
-                                sourceLang = trg.code,
-                                targetLang = effectiveSource.code
-                            )
-                            val currentState = _translationState.value
-                            if (currentState is TranslationState.Success && currentState.translatedText == translated) {
-                                _translationState.value = currentState.copy(roundTripText = roundTrip)
-                            }
-                        } catch (e: Exception) {
-                            log.e(TAG, "Round trip exception", e)
-                        }
-                    }
-                }
-
-                launch {
-                    val validation = runValidation(text, translated, primary.sourceNameForPrompt, trg.name, context)
-                    // Same staleness guard as the round trip above: a slow
-                    // validation must not land on a newer translation's card.
-                    val currentState = _translationState.value
-                    if (currentState is TranslationState.Success && currentState.translatedText == translated) {
-                        _validationState.value = validation
-                    }
-                }
+                // 2. Publish + parallel tasks: Round Trip & Validation
+                publishTranslation(text, primary, trg, context)
 
             } catch (e: Exception) {
                 _translationState.value = TranslationState.Error(e.message ?: "Failed to perform translation")
+            }
+        }
+    }
+
+    /**
+     * The tail of the translate pipeline, shared by the text and image entry
+     * points: publish the card, persist, broadcast to the watch, then run the
+     * round trip and the cultural validation in parallel.
+     *
+     * Both children carry the same staleness guard — a slow answer must not
+     * land on a newer translation's card.
+     */
+    private suspend fun CoroutineScope.publishTranslation(
+        originalText: String,
+        primary: PrimaryTranslation,
+        target: Language,
+        context: TranslationContext,
+    ) {
+        val translated = primary.text
+        // The language actually translated from: what was selected, or what
+        // auto-detect found.
+        val effectiveSource = primary.source
+
+        _translationState.value = TranslationState.Success(originalText, translated)
+        saveTranslationToDatabase(originalText, translated, effectiveSource)
+        // Platform side-effect (Wear sync + notification) — moved out of the
+        // UI's LaunchedEffect into the VM so the UI owns no platform I/O.
+        broadcaster.broadcast(originalText, translated, effectiveSource, target)
+
+        if (effectiveSource.code != Language.AUTO_CODE) {
+            // Nothing to translate back *to* when detection came up empty; the
+            // round trip is skipped rather than guessed.
+            launch {
+                try {
+                    val roundTrip = api.translateGoogle(
+                        text = translated,
+                        sourceLang = target.code,
+                        targetLang = effectiveSource.code
+                    )
+                    val currentState = _translationState.value
+                    if (currentState is TranslationState.Success && currentState.translatedText == translated) {
+                        _translationState.value = currentState.copy(roundTripText = roundTrip)
+                    }
+                } catch (e: Exception) {
+                    log.e(TAG, "Round trip exception", e)
+                }
+            }
+        }
+
+        launch {
+            val validation = runValidation(originalText, translated, primary.sourceNameForPrompt, target.name, context)
+            val currentState = _translationState.value
+            if (currentState is TranslationState.Success && currentState.translatedText == translated) {
+                _validationState.value = validation
             }
         }
     }
@@ -443,6 +460,83 @@ class TranslateViewModel(
             ValidationState.Error(message)
         } else {
             ValidationState.Error("Validation failed: $message")
+        }
+    }
+
+    // --- Image OCR translation ---
+
+    /**
+     * True while a photo is being read. The card shows a loading state either
+     * way; this only changes what it says, because "Translating..." under a
+     * photo that has not been read yet is a lie.
+     */
+    private val _isReadingImage = MutableStateFlow(false)
+    val isReadingImage = _isReadingImage.asStateFlow()
+
+    /**
+     * Routes a picked image identically on every platform, mirroring
+     * [onVoiceInputResult]: read the text, then hand the result to the ordinary
+     * pipeline so it gets the same round trip, validation, history row and
+     * watch broadcast a typed translation gets.
+     *
+     * The image itself is not persisted — the history schema is unchanged, and
+     * a photo per row is a lot of storage for something nobody reads twice.
+     */
+    fun onImageInputResult(base64: String?, mimeType: String) {
+        if (base64.isNullOrBlank()) return
+
+        _isReadingImage.value = true
+        _translationState.value = TranslationState.Loading
+        _validationState.value = ValidationState.Loading
+        _rewriteState.value = RewriteState.Idle
+
+        viewModelScope.launch {
+            val src = _sourceLanguage.value
+            val trg = _targetLanguage.value
+            try {
+                val result = api.translateImage(
+                    imageBase64 = base64,
+                    mimeType = mimeType,
+                    userLangName = src.name,
+                    otherLangName = trg.name,
+                    isSourceAutoDetect = src.code == Language.AUTO_CODE,
+                )
+                _isReadingImage.value = false
+
+                // The transcription becomes the input, so it can be edited and
+                // re-translated like anything else the user typed. Assigned
+                // directly rather than through setSourceText, whose blank-text
+                // branch would reset the card we are about to publish.
+                val originalText = result.originalText.ifBlank { result.translation }
+                _sourceText.value = originalText
+
+                val isAutoSource = src.code == Language.AUTO_CODE
+                val detected = Language.findByCode(result.detectedLangCode)
+                    ?.takeIf { it.code != Language.AUTO_CODE }
+                if (isAutoSource) {
+                    _detectedSourceLanguage.value = detected
+                }
+
+                // Which way the prompt sent it: with an auto source everything
+                // goes to the other party's language; otherwise text in the
+                // user's own language goes out and anything else comes back.
+                val target = if (isAutoSource || detected?.code == src.code) trg else src
+                val primary = PrimaryTranslation(
+                    text = result.translation,
+                    // Unresolved detection keeps the auto sentinel, which is
+                    // what tells publishTranslation to skip the round trip.
+                    source = detected ?: Language.autoDetect,
+                    sourceNameForPrompt = detected?.name
+                        ?: result.detectedLangCode.ifBlank { Language.autoDetect.name },
+                )
+
+                publishTranslation(originalText, primary, target, translationContext())
+            } catch (e: Exception) {
+                log.e(TAG, "Image translation failed", e)
+                _isReadingImage.value = false
+                _translationState.value = TranslationState.Error(e.message ?: "Failed to read the image")
+                _validationState.value = ValidationState.Idle
+            }
         }
     }
 

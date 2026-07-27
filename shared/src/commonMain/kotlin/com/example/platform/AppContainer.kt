@@ -15,6 +15,7 @@ interface AppContainer {
     val historyRepository: TranslationHistoryRepository
     val speechSynthesizer: SpeechSynthesizer
     val voiceInput: VoiceInput
+    val imagePicker: ImagePicker
     val audioOutputCatalog: AudioOutputCatalog
     val broadcaster: TranslationBroadcaster
     val log: AppLog

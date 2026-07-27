@@ -27,6 +27,33 @@ object UnavailableVoiceInput : VoiceInput {
     override suspend fun recognize(languageTag: String, prompt: String): String? = null
 }
 
+/** Where an image for OCR translation comes from. */
+enum class ImageSource { CAMERA, GALLERY }
+
+/**
+ * An image the user supplied, ready to send to Gemini. [base64] is the raw
+ * payload with no `data:` URI prefix; [mimeType] is what the API needs to
+ * decode it (e.g. `image/jpeg`).
+ */
+class PickedImage(val base64: String, val mimeType: String)
+
+/**
+ * Picks an image to translate. Returns null when the user backs out.
+ *
+ * Mirrors [VoiceInput]: the web has a self-contained implementation, while on
+ * Android the live path is an Activity-scoped result launcher in the entry
+ * point (the shared `App` takes it as a callback), so the container there binds
+ * [UnavailableImagePicker].
+ */
+interface ImagePicker {
+    suspend fun pick(source: ImageSource): PickedImage?
+}
+
+/** [ImagePicker] that always reports "no image"; see [UnavailableVoiceInput]. */
+object UnavailableImagePicker : ImagePicker {
+    override suspend fun pick(source: ImageSource): PickedImage? = null
+}
+
 /** An addressable audio output (headset/earbud) for dual-headset routing. */
 data class AudioOutputDevice(val id: Int, val label: String, val isBluetooth: Boolean)
 
@@ -56,6 +83,11 @@ data class PlatformCapabilities(
     val voiceInput: Boolean,
     val dualHeadset: Boolean,
     val wearSync: Boolean,
+    /**
+     * True when the platform can hand back an image to translate — the Android
+     * photo picker / camera, or a file input in the browser.
+     */
+    val imageInput: Boolean = false,
     /**
      * True when the platform's text stack renders extended glyphs — emoji
      * flags, dingbats like "➔". Android does (system emoji font); the web

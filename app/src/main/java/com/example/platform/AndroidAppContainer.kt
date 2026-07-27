@@ -41,6 +41,10 @@ class AndroidAppContainer(
 
     override val speechSynthesizer: SpeechSynthesizer = AndroidSpeechSynthesizer(ttsHelper)
 
+    // Like voiceInput, the live path is MainActivity's activity-result
+    // launchers — a picker needs an Activity, not an application context.
+    override val imagePicker: ImagePicker = UnavailableImagePicker
+
     override val audioOutputCatalog: AudioOutputCatalog = AndroidAudioOutputCatalog(appContext)
 
     override val broadcaster: TranslationBroadcaster = WearTranslationBroadcaster(appContext)
@@ -51,6 +55,7 @@ class AndroidAppContainer(
         voiceInput = true,
         dualHeadset = true,
         wearSync = true,
+        imageInput = true,
         extendedGlyphs = true,
     )
 }

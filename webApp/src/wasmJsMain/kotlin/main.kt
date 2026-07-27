@@ -31,6 +31,7 @@ fun main() {
     // Lives outside the composition: plain state for the entry-point lambda,
     // not something the UI observes.
     var activeVoiceJob: Job? = null
+    var activeImageJob: Job? = null
 
     ComposeViewport(document.body!!) {
         // remember: the container (Ktor client, localStorage repository) must be
@@ -59,6 +60,15 @@ fun main() {
                         null
                     }
                     viewModel.onVoiceInputResult(spokenText, isConversationA)
+                }
+            },
+            launchImageInput = { source ->
+                // Same one-at-a-time rule as voice: a second pick supersedes an
+                // abandoned file dialog, which the browser never reports.
+                activeImageJob?.cancel()
+                activeImageJob = scope.launch {
+                    val picked = container.imagePicker.pick(source)
+                    viewModel.onImageInputResult(picked?.base64, picked?.mimeType ?: "")
                 }
             },
         )
