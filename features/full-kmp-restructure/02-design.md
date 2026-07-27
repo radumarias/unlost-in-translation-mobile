@@ -114,6 +114,17 @@ data class ValidationResult(val isWarning: Boolean, val explanation: String, val
 
 Key change vs today: `validateTranslation` returns a **parsed** `ValidationResult`, not a `JSONObject`. The lenient parsing rules move from the ViewModel into `GeminiDtos.kt` and are kept bug-for-bug: `optBoolean/optString` defaults, object-or-plain-string suggestion entries, blank-text filtering, markdown ```-fence stripping. This deletes the duplicated parsing blocks in `triggerTranslation` and `prepareConversationPart`.
 
+> **Deviation (web-feature port, recorded):** `TranslationApi` grew past the
+> three methods above — `detectAndTranslateGoogle`, `detectAndTranslateGemini`,
+> `translateImage` and `rewriteMessage` — and the two Gemini methods take a
+> defaulted `context: TranslationContext` (tone, situation, prior turns).
+> `ValidationResult` gained defaulted `sanityCheck` and `idiomExplanation`.
+> `translateGoogle`'s signature is unchanged on purpose: the §10 MockEngine
+> suite pins it, and detection needs a different return type. `GeminiPart`
+> became text-or-`inlineData` for the image call, with the serializer emitting
+> only the field that is set so text-only requests stay byte-identical. See
+> `features/web-feature-port/`.
+
 ```kotlin
 interface TranslationHistoryRepository {
     // Actual method names (deviation, recorded): allTranslations() / starredTranslations()
@@ -188,6 +199,14 @@ interface AppContainer {
 }
 ```
 
+> **Deviation (web-feature port, recorded):** `AppContainer` gained
+> `imagePicker: ImagePicker` and `PlatformCapabilities` gained
+> `imageInput: Boolean` (defaulted false) for camera/gallery OCR translation.
+> The seam is shaped exactly like voice input, including the part where Android
+> binds `UnavailableImagePicker` because the live path has to be
+> Activity-scoped result launchers — so `App()` also gained a
+> `launchImageInput: (ImageSource) -> Unit` callback, defaulted to a no-op.
+
 ## 4. ViewModel Refactor
 
 `TranslateViewModel` becomes a plain multiplatform `ViewModel` with constructor injection:
@@ -211,6 +230,7 @@ class TranslateViewModel(
 - **Wear side-effect moves here** from `MainActivity`'s `LaunchedEffect(translationState)`: after a successful primary translation, the VM calls `broadcaster.broadcast(...)`. UI no longer owns platform side-effects (SRP); web build injects a no-op.
 - **Pipeline consolidation (DRY)**: one private helper implements translate → persist? → parallel(round-trip, validation) with callbacks for state delivery; `triggerTranslation` (persists, updates main-screen flows) and `prepareConversationPart` (no persist, updates draft flow) both call it. Behavior preserved, including the round-trip staleness guard (`currentState.translatedText == translated`).
   - *Deviation (recorded Phase 5)*: consolidation happened only partially — `translatePrimary` and `runValidation` are shared helpers, but the parallel-launch orchestration is still written out in both `triggerTranslation` and `prepareConversationPart`, and the two copies differ deliberately (only the main path persists/broadcasts and guards round-trip staleness; the draft path targets the draft flow). Full consolidation remains a behavior-preserving refactor to commission separately; the §10 view-model tests now pin both pipelines' behavior for whoever does it.
+  - *Narrowed (web-feature port)*: the main path's tail — publish, persist, broadcast, then parallel round-trip and validation — is now the shared `publishTranslation`, which the image entry point (`onImageInputResult`) reuses instead of adding a third copy. `prepareConversationPart` still has its own orchestration, so the deviation above stands.
 - Construction in shared UI: `viewModel { TranslateViewModel(container.api, container.historyRepository, container.broadcaster, container.log) }` (CMP lifecycle factory lambda — works on both targets).
 - Defect fixed (Phase 5, recorded): the §10 "language swap-on-conflict" test exposed that `setSourceLanguage`/`setTargetLanguage` assigned the new language *before* swapping, so picking the current target as the new source swapped two equal values and collapsed both pickers to the same language. Present verbatim since the initial AI-Studio import (all phases ported it faithfully); fixed to swap before assigning, matching this design's intended semantics.
 - `System.currentTimeMillis()` (entity timestamp, `ConversationItem`) → `kotlin.time.Clock.System.now().toEpochMilliseconds()` or `TimeSource` equivalent available in common.
