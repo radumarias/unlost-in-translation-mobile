@@ -180,6 +180,49 @@ class KtorTranslationApiTest {
         assertNull(result.idiomExplanation)
     }
 
+    // --- Rewrite (web-feature port) ---
+
+    @Test
+    fun rewriteMessage_initial_asks_for_alternative_directions() = runTest {
+        val bodies = mutableListOf<String>()
+        val api = apiCapturingBody(
+            bodies,
+            text = """{"rewriteDirection":"More polite","rewrittenSource":"Could we have the bill?","alternativeDirections":["More formal","Warmer"]}""",
+        )
+
+        val result = api.rewriteMessage("Bill. Now.", "English", "Spanish", "Reads as a demand.")
+
+        val body = bodies.single()
+        assertTrue(body.contains("This message triggered the following cultural warning"), body)
+        assertTrue(body.contains("Reads as a demand."), body)
+        assertTrue(body.contains("suggest 2 other alternative directions"), body)
+        assertEquals("Could we have the bill?", result.rewrittenSource)
+        assertEquals(listOf("More formal", "Warmer"), result.alternativeDirections)
+    }
+
+    @Test
+    fun rewriteMessage_directed_asks_only_for_the_rewritten_text() = runTest {
+        val bodies = mutableListOf<String>()
+        val api = apiCapturingBody(bodies, text = """{"rewrittenSource":"Might we settle up?"}""")
+
+        api.rewriteMessage("Bill. Now.", "English", "Spanish", "Reads as a demand.", direction = "More formal")
+
+        val body = bodies.single()
+        assertTrue(body.contains("using the following direction/style"), body)
+        assertTrue(body.contains("More formal"), body)
+        assertFalse(body.contains("alternativeDirections"), body)
+    }
+
+    @Test
+    fun rewriteMessage_without_a_warning_still_has_a_placeholder() = runTest {
+        val bodies = mutableListOf<String>()
+        val api = apiCapturingBody(bodies, text = """{"rewrittenSource":"x"}""")
+
+        api.rewriteMessage("hi", "English", "Spanish", warning = "")
+
+        assertTrue(bodies.single().contains("cultural warning: \\\"N/A\\\""), bodies.single())
+    }
+
     @Test
     fun translateGoogle_parses_body() = runTest {
         val api = apiReturning(HttpStatusCode.OK, "[[[\"Hola\",\"Hello\",null,null,10]],null,\"en\"]")

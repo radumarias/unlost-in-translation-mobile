@@ -32,8 +32,10 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -51,6 +53,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.viewmodel.RewriteState
 import com.example.ui.viewmodel.ValidationState
 
 /**
@@ -62,8 +65,11 @@ import com.example.ui.viewmodel.ValidationState
 @Composable
 fun ValidationDetailsSheet(
     current: ValidationState.Success?,
+    rewriteState: RewriteState,
     onDismiss: () -> Unit,
     onSelectSuggestion: (String) -> Unit,
+    onRequestRewrite: (direction: String?) -> Unit,
+    onApplyRewrite: (String) -> Unit,
 ) {
     var lastShown by remember { mutableStateOf<ValidationState.Success?>(null) }
     LaunchedEffect(current) {
@@ -169,6 +175,19 @@ fun ValidationDetailsSheet(
                             }
                         }
 
+                        // Rewriting only makes sense when there is something to
+                        // fix, and it costs a request — so it is a button.
+                        if (vs.isWarning || vs.idiomExplanation != null) {
+                            item {
+                                RewritePanel(
+                                    state = rewriteState,
+                                    onRequestRewrite = onRequestRewrite,
+                                    onApplyRewrite = onApplyRewrite,
+                                )
+                                Spacer(modifier = Modifier.height(32.dp))
+                            }
+                        }
+
                         if (vs.suggestions.isNotEmpty()) {
                             item {
                                 Text(
@@ -224,6 +243,126 @@ fun ValidationDetailsSheet(
                                 Spacer(modifier = Modifier.height(12.dp))
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The rewrite panel: a button until the user asks, then the suggested rewrite
+ * of their *own* message plus the other angles the model offered, each of which
+ * re-runs the rewrite that way. Only the tapped pill spins, because
+ * [RewriteState.Loading] carries which direction is in flight.
+ */
+@Composable
+private fun RewritePanel(
+    state: RewriteState,
+    onRequestRewrite: (direction: String?) -> Unit,
+    onApplyRewrite: (String) -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            Icons.Default.AutoFixHigh,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "Rewrite what you said",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    Spacer(modifier = Modifier.height(8.dp))
+
+    val success = state as? RewriteState.Success
+    if (success == null && state != RewriteState.Loading) {
+        Text(
+            text = "Ask for a version of your message that keeps the intent but avoids the problem above.",
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(onClick = { onRequestRewrite(null) }) {
+            Text("Suggest a rewrite")
+        }
+    }
+
+    if (state is RewriteState.Error) {
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(text = state.message, fontSize = 14.sp, color = MaterialTheme.colorScheme.error)
+    }
+
+    // The opening request replaces the panel with a spinner; a directed one
+    // stays inside Success and spins only its own pill (handled below).
+    if (state == RewriteState.Loading) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Rewriting...", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+
+    if (success != null) {
+        if (success.direction.isNotBlank()) {
+            Card(
+                shape = RoundedCornerShape(4.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+            ) {
+                Text(
+                    text = success.direction.uppercase(),
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        Text(
+            text = success.rewrittenSource,
+            fontSize = 16.sp,
+            lineHeight = 24.sp,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(onClick = { onApplyRewrite(success.rewrittenSource) }) {
+            Text("Use this version")
+        }
+
+        if (success.alternativeDirections.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = "Or try another angle:",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            success.alternativeDirections.forEach { alternative ->
+                val inFlight = success.reloadingDirection == alternative
+                Card(
+                    onClick = { onRequestRewrite(alternative) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (inFlight) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Text(text = alternative, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

@@ -375,3 +375,33 @@ object GeminiParser {
         return ValidationResult(isWarning, explanation, suggestions, sanityCheck, idiomExplanation)
     }
 }
+
+/**
+ * Parses the rewrite payload (web-feature port of `api/rewrite`). Same
+ * fence-stripping and lenient reads as [GeminiParser]: a directed rewrite
+ * legitimately answers with `rewrittenSource` alone, so the other two fields
+ * default to empty rather than failing.
+ *
+ * A blank `rewrittenSource` is the one thing worth rejecting — there is nothing
+ * to offer the user, and a silent empty card reads as a broken app.
+ */
+object GeminiRewriteParser {
+
+    fun parseRewrite(rawText: String): RewriteResult {
+        val inner = GeminiParser.stripJsonFences(rawText)
+        val root = LenientJson.parseToJsonElement(inner).jsonObject
+        return parseRewriteObject(root)
+    }
+
+    fun parseRewriteObject(root: JsonObject): RewriteResult {
+        val rewritten = (root["rewrittenSource"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        if (rewritten.isBlank()) {
+            throw SerializationException("Gemini returned no rewritten text.")
+        }
+        val direction = (root["rewriteDirection"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        val alternatives = (root["alternativeDirections"] as? JsonArray)
+            ?.mapNotNull { (it as? JsonPrimitive)?.contentOrNull?.takeIf { alt -> alt.isNotBlank() } }
+            .orEmpty()
+        return RewriteResult(direction, rewritten, alternatives)
+    }
+}
