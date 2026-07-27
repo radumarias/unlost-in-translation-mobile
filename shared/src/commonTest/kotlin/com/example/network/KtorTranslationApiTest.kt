@@ -18,6 +18,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
@@ -160,6 +161,23 @@ class KtorTranslationApiTest {
                 body.indexOf("IMPORTANT:") < body.indexOf("Return ONLY a valid JSON object"),
             body,
         )
+    }
+
+    @Test
+    fun validateTranslation_asks_for_the_sanity_check_and_idiom_keys() = runTest {
+        val bodies = mutableListOf<String>()
+        val api = apiCapturingBody(
+            bodies,
+            text = """{"isWarning":false,"explanation":"ok","sanityCheck":"They hear a polite request.","idiomExplanation":null}""",
+        )
+
+        val result = api.validateTranslation("Hello", "Hola", "English", "Spanish")
+
+        val body = bodies.single()
+        assertTrue(body.contains("sanityCheck"), body)
+        assertTrue(body.contains("idiomExplanation"), body)
+        assertEquals("They hear a polite request.", result.sanityCheck)
+        assertNull(result.idiomExplanation)
     }
 
     @Test

@@ -346,7 +346,13 @@ class TranslateViewModel(
         context: TranslationContext,
     ): ValidationState = try {
         val result = api.validateTranslation(originalText, translatedText, sourceLangName, targetLangName, context)
-        ValidationState.Success(result.isWarning, result.explanation, result.suggestions)
+        ValidationState.Success(
+            isWarning = result.isWarning,
+            explanation = result.explanation,
+            suggestions = result.suggestions,
+            sanityCheck = result.sanityCheck,
+            idiomExplanation = result.idiomExplanation,
+        )
     } catch (e: Exception) {
         log.e(TAG, "Validation exception", e)
         val message = e.message

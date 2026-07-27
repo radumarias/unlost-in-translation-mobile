@@ -29,6 +29,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoFixHigh
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Translate
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -45,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -144,6 +147,28 @@ fun ValidationDetailsSheet(
                             Spacer(modifier = Modifier.height(32.dp))
                         }
 
+                        // How the other party will read it — the literal round
+                        // trip lives on the result card; this is the intent.
+                        if (vs.sanityCheck.isNotBlank()) {
+                            item {
+                                DetailSection(
+                                    icon = Icons.Default.Visibility,
+                                    title = "How they will read it",
+                                    body = vs.sanityCheck,
+                                )
+                            }
+                        }
+
+                        vs.idiomExplanation?.let { idiom ->
+                            item {
+                                DetailSection(
+                                    icon = Icons.Default.Translate,
+                                    title = "Idiom or local expression",
+                                    body = idiom,
+                                )
+                            }
+                        }
+
                         if (vs.suggestions.isNotEmpty()) {
                             item {
                                 Text(
@@ -204,4 +229,36 @@ fun ValidationDetailsSheet(
             }
         }
     }
+}
+
+/**
+ * One titled block inside the details sheet, styled like the "Explanation"
+ * section above it but with a leading icon so the added sections are
+ * distinguishable at a glance while scrolling.
+ */
+@Composable
+private fun DetailSection(icon: ImageVector, title: String, body: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(
+            icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(20.dp),
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = title,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    Spacer(modifier = Modifier.height(8.dp))
+    Text(
+        text = body,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        color = MaterialTheme.colorScheme.onSurface,
+    )
+    Spacer(modifier = Modifier.height(32.dp))
 }

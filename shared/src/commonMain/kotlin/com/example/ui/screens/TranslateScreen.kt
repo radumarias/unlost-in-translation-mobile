@@ -39,6 +39,7 @@ import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -329,6 +330,34 @@ fun TranslateScreen(
                                             }
                                             Spacer(modifier = Modifier.height(6.dp))
                                             Text(text = roundTripText, fontSize = 14.sp)
+                                        }
+                                    }
+                                }
+
+                                // The round trip above shows the words coming
+                                // back; this shows the intent landing. It rides
+                                // on the validation call, so it costs nothing.
+                                val sanityCheck = (validationState as? ValidationState.Success)?.sanityCheck
+                                if (!sanityCheck.isNullOrBlank()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Card(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)),
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Column(modifier = Modifier.padding(12.dp)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(Icons.Default.Visibility, contentDescription = "Perceived meaning", modifier = Modifier.size(16.dp))
+                                                Spacer(modifier = Modifier.width(6.dp))
+                                                Text(text = "They will read it as:", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                            Spacer(modifier = Modifier.height(6.dp))
+                                            Text(
+                                                text = sanityCheck,
+                                                fontSize = 14.sp,
+                                                maxLines = 3,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
                                         }
                                     }
                                 }
