@@ -67,6 +67,7 @@ import com.example.model.Language
 import com.example.model.Translation
 import com.example.platform.PlatformActions
 import com.example.platform.SpeechSynthesizer
+import com.example.ui.components.ToneSituationBar
 import com.example.ui.viewmodel.TranslateViewModel
 import com.example.ui.viewmodel.TranslationState
 import com.example.ui.viewmodel.ValidationState
@@ -93,9 +94,12 @@ fun TranslateScreen(
     validationState: ValidationState,
     history: List<Translation>,
     starred: List<Translation>,
+    tone: String,
+    situation: String,
     speechSynthesizer: SpeechSynthesizer,
     platformActions: PlatformActions,
     showVoiceInput: Boolean,
+    extendedGlyphs: Boolean,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
     onShowValidationDetails: (ValidationState.Success) -> Unit,
 ) {
@@ -108,6 +112,15 @@ fun TranslateScreen(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // A0. Tone / situation constraints (ported from the web build)
+        ToneSituationBar(
+            tone = tone,
+            situation = situation,
+            extendedGlyphs = extendedGlyphs,
+            onSelectTone = { viewModel.setTone(it) },
+            onSelectSituation = { viewModel.setSituation(it) },
+        )
+
         // A. Input Box Card (White, border-slate-100, corner 28dp, shadow-sm)
         Card(
             modifier = Modifier.fillMaxWidth(),

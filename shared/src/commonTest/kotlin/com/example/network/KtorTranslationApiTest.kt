@@ -3,6 +3,7 @@ package com.example.network
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
+import io.ktor.client.engine.mock.toByteArray
 import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -10,6 +11,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
+import com.example.model.TranslationContext
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonPrimitive
 import kotlin.test.Test
@@ -44,6 +46,86 @@ class KtorTranslationApiTest {
     private fun geminiTextResponse(text: String): String {
         val escaped = LenientJson.encodeToString(JsonPrimitive.serializer(), JsonPrimitive(text))
         return """{"candidates":[{"content":{"parts":[{"text":$escaped}]}}]}"""
+    }
+
+    /** A Gemini-returning engine that also records each request's body. */
+    private fun apiCapturingBody(bodies: MutableList<String>, text: String = "ok"): KtorTranslationApi {
+        val engine = MockEngine { request ->
+            bodies += request.body.toByteArray().decodeToString()
+            respond(
+                content = geminiTextResponse(text),
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val client = HttpClient(engine) {
+            expectSuccess = false
+            install(ContentNegotiation) { json(LenientJson) }
+            install(HttpTimeout)
+        }
+        return KtorTranslationApi(apiKey = "test-key", client = client)
+    }
+
+    // --- Tone / situation prompt constraints (ported from the web build) ---
+
+    @Test
+    fun translateGemini_default_context_sends_the_original_prompt() = runTest {
+        val bodies = mutableListOf<String>()
+        apiCapturingBody(bodies).translateGemini("Hello", "English", "Spanish")
+
+        val body = bodies.single()
+        assertFalse(body.contains("IMPORTANT:"), body)
+        // The unconstrained prompt is byte-identical to what it was before
+        // tone/situation existed — same single line, same single space.
+        assertTrue(body.contains("extra words. Text to translate:"), body)
+    }
+
+    @Test
+    fun translateGemini_sends_tone_and_situation_constraints() = runTest {
+        val bodies = mutableListOf<String>()
+        apiCapturingBody(bodies).translateGemini(
+            "Hello", "English", "Spanish",
+            TranslationContext(tone = "Formal", situation = "Medical"),
+        )
+
+        val body = bodies.single()
+        assertTrue(body.contains("The requested conversation tone is \\\"Formal\\\""), body)
+        assertTrue(body.contains("The requested situation/context is \\\"Medical\\\""), body)
+        assertTrue(body.contains("STRICTLY prioritize vocabulary and politeness"), body)
+    }
+
+    @Test
+    fun translateGemini_omits_the_tone_line_when_only_a_situation_is_set() = runTest {
+        val bodies = mutableListOf<String>()
+        apiCapturingBody(bodies).translateGemini(
+            "Hello", "English", "Spanish",
+            TranslationContext(situation = "Emergency"),
+        )
+
+        val body = bodies.single()
+        assertFalse(body.contains("conversation tone"), body)
+        assertTrue(body.contains("The requested situation/context is \\\"Emergency\\\""), body)
+    }
+
+    @Test
+    fun validateTranslation_carries_the_same_constraints() = runTest {
+        val bodies = mutableListOf<String>()
+        val api = apiCapturingBody(bodies, text = """{"isWarning":false,"explanation":"fine"}""")
+
+        api.validateTranslation(
+            "Hello", "Hola", "English", "Spanish",
+            TranslationContext(tone = "Playful", situation = "Dating"),
+        )
+
+        val body = bodies.single()
+        assertTrue(body.contains("The requested conversation tone is \\\"Playful\\\""), body)
+        assertTrue(body.contains("The requested situation/context is \\\"Dating\\\""), body)
+        // The constraints sit between the analysis header and the JSON schema.
+        assertTrue(
+            body.indexOf("Translated Text") < body.indexOf("IMPORTANT:") &&
+                body.indexOf("IMPORTANT:") < body.indexOf("Return ONLY a valid JSON object"),
+            body,
+        )
     }
 
     @Test

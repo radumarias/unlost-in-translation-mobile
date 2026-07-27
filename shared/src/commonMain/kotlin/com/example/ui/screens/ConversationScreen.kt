@@ -50,6 +50,7 @@ import com.example.model.flagLabel
 import com.example.platform.AudioOutputCatalog
 import com.example.platform.SpeechSynthesizer
 import com.example.ui.components.ConversationDraftDialog
+import com.example.ui.components.ToneSituationBar
 import com.example.ui.viewmodel.TranslateViewModel
 
 /**
@@ -73,6 +74,8 @@ fun ConversationScreen(
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
 ) {
     val conversationHistory by viewModel.conversationHistory.collectAsState()
+    val tone by viewModel.tone.collectAsState()
+    val situation by viewModel.situation.collectAsState()
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -101,6 +104,16 @@ fun ConversationScreen(
                 show = showDualHeadset
             )
         }
+
+        // Tone / situation constraints — they shape every turn of the conversation
+        ToneSituationBar(
+            tone = tone,
+            situation = situation,
+            extendedGlyphs = extendedGlyphs,
+            onSelectTone = { viewModel.setTone(it) },
+            onSelectSituation = { viewModel.setSituation(it) },
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
 
         // Conversational History Message Flow
         LazyColumn(

@@ -1,6 +1,8 @@
 package com.example.ui.viewmodel
 
 import com.example.model.Language
+import com.example.model.Situation
+import com.example.model.Tone
 import com.example.network.ValidationResult
 import com.example.ui.viewmodel.fakes.FakeHistoryRepository
 import com.example.ui.viewmodel.fakes.FakeTranslationApi
@@ -82,6 +84,74 @@ class TranslateViewModelTest {
 
         val validation = assertIs<ValidationState.Success>(vm.validationState.value)
         assertEquals("Looks fine.", validation.explanation)
+    }
+
+    // --- Tone / situation presets (ported from the web build) ---
+
+    @Test
+    fun defaultContext_keepsTheGooglePath_andSendsNoConstraints() = runTest {
+        val vm = viewModel()
+        vm.setSourceText("hello")
+
+        vm.triggerTranslation()
+
+        assertTrue(api.geminiCalls.isEmpty(), "default context must not force the Gemini path")
+        assertEquals(Tone.AUTO, api.validateContexts.single().tone)
+        assertEquals(Situation.GENERAL, api.validateContexts.single().situation)
+    }
+
+    @Test
+    fun settingATone_turnsOnAiEnhanced_andRetranslatesThroughGemini() = runTest {
+        val vm = viewModel()
+        vm.setSourceText("hello")
+        vm.triggerTranslation()
+        assertFalse(vm.isAiEnhanced.value)
+
+        vm.setTone("Formal")
+
+        // Google cannot express a tone, so the toggle is flipped rather than
+        // the selection being silently ignored.
+        assertTrue(vm.isAiEnhanced.value)
+        assertEquals("Formal", vm.tone.value)
+        assertEquals("G(hello)", assertIs<TranslationState.Success>(vm.translationState.value).translatedText)
+        assertEquals("Formal", api.geminiContexts.last().tone)
+    }
+
+    @Test
+    fun situationReachesBothTheTranslationAndTheValidationCall() = runTest {
+        val vm = viewModel()
+        vm.setSourceText("hello")
+
+        vm.setSituation("Medical")
+
+        assertEquals("Medical", api.geminiContexts.last().situation)
+        assertEquals("Medical", api.validateContexts.last().situation)
+    }
+
+    @Test
+    fun reselectingTheSameToneIsANoOp() = runTest {
+        val vm = viewModel()
+        vm.setSourceText("hello")
+        vm.triggerTranslation()
+        val callsBefore = api.googleCalls.size
+
+        vm.setTone(Tone.AUTO)
+
+        assertFalse(vm.isAiEnhanced.value)
+        assertEquals(callsBefore, api.googleCalls.size)
+    }
+
+    @Test
+    fun aToneSelectedWhileAiEnhancedIsOffStillForcesGemini() = runTest {
+        val vm = viewModel()
+        vm.setTone("Playful")
+        // The user turns the toggle back off; the tone constraint must still win.
+        vm.setAiEnhanced(false)
+        vm.setSourceText("hello")
+
+        vm.triggerTranslation()
+
+        assertEquals("G(hello)", assertIs<TranslationState.Success>(vm.translationState.value).translatedText)
     }
 
     @Test

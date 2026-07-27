@@ -92,6 +92,8 @@ fun App(
         val sourceLang by viewModel.sourceLanguage.collectAsState()
         val targetLang by viewModel.targetLanguage.collectAsState()
         val isAiEnhanced by viewModel.isAiEnhanced.collectAsState()
+        val tone by viewModel.tone.collectAsState()
+        val situation by viewModel.situation.collectAsState()
         val history by viewModel.history.collectAsState()
         val starred by viewModel.starred.collectAsState()
         val isConversationMode by viewModel.isConversationMode.collectAsState()
@@ -187,9 +189,12 @@ fun App(
                                         validationState = validationState,
                                         history = history,
                                         starred = starred,
+                                        tone = tone,
+                                        situation = situation,
                                         speechSynthesizer = container.speechSynthesizer,
                                         platformActions = container.platformActions,
                                         showVoiceInput = container.capabilities.voiceInput,
+                                        extendedGlyphs = container.capabilities.extendedGlyphs,
                                         launchVoiceInput = launchVoiceInput,
                                         onShowValidationDetails = { showValidationDetails = it },
                                     )
