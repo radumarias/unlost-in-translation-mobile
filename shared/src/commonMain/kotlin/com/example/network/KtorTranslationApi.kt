@@ -278,6 +278,81 @@ class KtorTranslationApi(
     }
 
     /**
+     * Rewrite of the speaker's own message that resolves a cultural warning
+     * (issue: web-feature port). The prompt is the web build's `api/rewrite`
+     * copied verbatim; the only adaptation is that the conversation history and
+     * the tone/situation lines arrive together through [contextBlock], so they
+     * sit after the task line instead of the history sitting further up.
+     */
+    override suspend fun rewriteMessage(
+        originalText: String,
+        sourceLangName: String,
+        targetLangName: String,
+        warning: String,
+        direction: String?,
+        context: TranslationContext,
+    ): RewriteResult {
+        if (originalText.isBlank()) throw Exception("There is nothing to rewrite.")
+        requireApiKey()
+
+        val task = if (direction == null) {
+            "Your task is to provide an initial suggested rewrite to fix the warning, and suggest 2 other alternative directions for rewriting."
+        } else {
+            "The user has requested you to rewrite their message using the following direction/style: \"$direction\"\n" +
+                "Your task is to rewrite the user's message in $sourceLangName according to the requested direction."
+        }
+
+        val schema = if (direction == null) {
+            """
+            Return ONLY a valid JSON object matching this schema, with no markdown wrappers or extra text:
+            {
+              "rewriteDirection": "A brief description of how you rewrote it (e.g. \"More polite\", \"Avoid offensive slang\").",
+              "rewrittenSource": "The rewritten message in $sourceLangName.",
+              "alternativeDirections": ["2 alternative ways to rewrite the message (e.g. \"More formal\", \"Adapt to local culture\")."]
+            }
+            """.trimIndent()
+        } else {
+            """
+            Return ONLY a valid JSON object matching this schema, with no markdown wrappers or extra text:
+            {
+              "rewrittenSource": "The rewritten message in $sourceLangName."
+            }
+            """.trimIndent()
+        }
+
+        val header = """
+            You are a highly skilled cultural interpreter.
+            You are facilitating a conversation between two people. One speaks $sourceLangName and the other speaks $targetLangName.
+
+            The active speaker ($sourceLangName Speaker) wants to say: "$originalText"
+
+            This message triggered the following cultural warning: "${warning.ifBlank { "N/A" }}"
+
+            CRITICAL INSTRUCTION: You MUST take this warning into account. Your suggested rewrite MUST completely resolve the issue described in the warning, while preserving the core intent of the message. The rewrite must be culturally safe and natural for a $targetLangName speaker.
+
+            $task
+        """.trimIndent()
+
+        val constraints = contextBlock(context)
+        val prompt = header + (if (constraints.isEmpty()) "" else "\n\n$constraints") + "\n\n" + schema
+
+        val request = GeminiRequest(
+            contents = listOf(GeminiContent(parts = listOf(GeminiPart(prompt)))),
+            safetySettings = GEMINI_SAFETY_SETTINGS,
+            generationConfig = GeminiGenerationConfig(responseMimeType = "application/json"),
+        )
+
+        return apiCall {
+            val result = postGemini(request)
+            if (!result.isSuccess) {
+                throw Exception(result.errorMessage())
+            }
+            val parsed = result.response.body<GeminiResponse>()
+            GeminiRewriteParser.parseRewrite(extractGeminiText(parsed))
+        }
+    }
+
+    /**
      * Pulls the first candidate's first text part out of a Gemini response,
      * failing with a clear message when either is absent. A 200 can still carry
      * no usable text — the whole response blocked by a safety filter

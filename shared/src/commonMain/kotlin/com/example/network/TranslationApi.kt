@@ -31,7 +31,40 @@ interface TranslationApi {
         targetLangName: String,
         context: TranslationContext = TranslationContext(),
     ): ValidationResult
+
+    /**
+     * Rewrites the speaker's own message so it stops triggering [warning],
+     * keeping the intent. Ported from the web build's `api/rewrite`.
+     *
+     * With no [direction] this is the opening move: one rewrite plus a couple of
+     * other angles the speaker might prefer. Passing one of those angles back as
+     * [direction] re-runs the rewrite that way and returns only the new text.
+     *
+     * Unlike validation this is not part of the pipeline — it costs a request,
+     * so it only ever runs when the user asks for it.
+     */
+    suspend fun rewriteMessage(
+        originalText: String,
+        sourceLangName: String,
+        targetLangName: String,
+        warning: String,
+        direction: String? = null,
+        context: TranslationContext = TranslationContext(),
+    ): RewriteResult
 }
+
+/**
+ * A suggested rewrite of the speaker's original message, in their own language.
+ *
+ * [rewriteDirection] and [alternativeDirections] are only returned for the
+ * opening request; a directed rewrite answers with [rewrittenSource] alone, and
+ * the caller keeps showing the alternatives it already has.
+ */
+data class RewriteResult(
+    val rewriteDirection: String,
+    val rewrittenSource: String,
+    val alternativeDirections: List<String>,
+)
 
 /**
  * Parsed result of a Gemini cultural-validation call. Replaces the raw

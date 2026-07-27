@@ -108,6 +108,129 @@ class TranslateViewModelTest {
         assertEquals("\"Break a leg\" means good luck.", validation.idiomExplanation)
     }
 
+    // --- Rewrite (on demand) ---
+
+    private fun warningValidation() {
+        api.onValidate = { _, _ ->
+            ValidationResult(
+                isWarning = true,
+                explanation = "Reads as a demand.",
+                suggestions = emptyList(),
+                idiomExplanation = "\"Break a leg\" means good luck.",
+            )
+        }
+    }
+
+    @Test
+    fun rewrite_isNeverAutomatic() = runTest {
+        warningValidation()
+        val vm = viewModel()
+        vm.setSourceText("break a leg")
+
+        vm.triggerTranslation()
+
+        // The web build fires this on every warning; on the free tier that is
+        // most of a day's allowance spent unasked.
+        assertTrue(api.rewriteCalls.isEmpty())
+        assertEquals(RewriteState.Idle, vm.rewriteState.value)
+    }
+
+    @Test
+    fun requestRewrite_sendsTheWarningAndTheIdiom_andOffersAlternatives() = runTest {
+        warningValidation()
+        val vm = viewModel()
+        vm.setSourceText("break a leg")
+        vm.triggerTranslation()
+
+        vm.requestRewrite()
+
+        val (text, warning, direction) = api.rewriteCalls.single()
+        assertEquals("break a leg", text)
+        assertTrue(warning.contains("Reads as a demand."), warning)
+        assertTrue(warning.contains("good luck"), warning)
+        assertNull(direction)
+
+        val rewrite = assertIs<RewriteState.Success>(vm.rewriteState.value)
+        assertEquals("R(break a leg)", rewrite.rewrittenSource)
+        assertEquals(listOf("More formal", "Adapt to local culture"), rewrite.alternativeDirections)
+    }
+
+    @Test
+    fun directedRewrite_keepsTheAlternativesItWasChosenFrom() = runTest {
+        warningValidation()
+        val vm = viewModel()
+        vm.setSourceText("break a leg")
+        vm.triggerTranslation()
+        vm.requestRewrite()
+
+        vm.requestRewrite("More formal")
+
+        // The directed call answers with the text alone; the alternatives on
+        // screen must survive so another can be tried.
+        val rewrite = assertIs<RewriteState.Success>(vm.rewriteState.value)
+        assertEquals("More formal", rewrite.direction)
+        assertEquals(listOf("More formal", "Adapt to local culture"), rewrite.alternativeDirections)
+        assertNull(rewrite.reloadingDirection)
+        assertEquals("More formal", api.rewriteCalls.last().third)
+    }
+
+    @Test
+    fun applyRewrite_putsItInTheInputAndTranslates() = runTest {
+        warningValidation()
+        val vm = viewModel()
+        vm.setSourceText("break a leg")
+        vm.triggerTranslation()
+        vm.requestRewrite()
+
+        vm.applyRewrite("good luck out there")
+
+        assertEquals("good luck out there", vm.sourceText.value)
+        assertEquals(
+            "T(good luck out there)",
+            assertIs<TranslationState.Success>(vm.translationState.value).translatedText,
+        )
+        // The rewrite belonged to the previous message.
+        assertEquals(RewriteState.Idle, vm.rewriteState.value)
+    }
+
+    @Test
+    fun aNewTranslation_dropsTheRewriteFromThePreviousMessage() = runTest {
+        warningValidation()
+        val vm = viewModel()
+        vm.setSourceText("break a leg")
+        vm.triggerTranslation()
+        vm.requestRewrite()
+        assertIs<RewriteState.Success>(vm.rewriteState.value)
+
+        vm.setSourceText("something else")
+        vm.triggerTranslation()
+
+        assertEquals(RewriteState.Idle, vm.rewriteState.value)
+    }
+
+    @Test
+    fun requestRewrite_withoutAValidatedTranslation_doesNothing() = runTest {
+        val vm = viewModel()
+
+        vm.requestRewrite()
+
+        assertTrue(api.rewriteCalls.isEmpty())
+        assertEquals(RewriteState.Idle, vm.rewriteState.value)
+    }
+
+    @Test
+    fun rewriteFailure_surfacesAnErrorState() = runTest {
+        warningValidation()
+        api.onRewrite = { _, _, _ -> throw Exception("quota gone") }
+        val vm = viewModel()
+        vm.setSourceText("break a leg")
+        vm.triggerTranslation()
+
+        vm.requestRewrite()
+
+        assertEquals(RewriteState.Error("quota gone"), vm.rewriteState.value)
+    }
+
     // --- Tone / situation presets (ported from the web build) ---
 
     @Test

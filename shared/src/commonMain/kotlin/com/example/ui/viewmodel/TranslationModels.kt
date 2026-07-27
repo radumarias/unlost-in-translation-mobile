@@ -31,6 +31,29 @@ sealed interface ValidationState {
     data class Error(val message: String) : ValidationState
 }
 
+/**
+ * The on-demand rewrite of the speaker's own message (web-feature port).
+ *
+ * Unlike validation this is never part of the pipeline — it costs a request, so
+ * it starts [Idle] and only leaves that state when the user asks.
+ *
+ * Re-running the rewrite in one of the offered directions stays inside
+ * [Success] with [Success.reloadingDirection] set, rather than dropping back to
+ * [Loading]: the rewrite already on screen keeps its place and only the pill
+ * that was tapped spins.
+ */
+sealed interface RewriteState {
+    object Idle : RewriteState
+    object Loading : RewriteState
+    data class Success(
+        val direction: String,
+        val rewrittenSource: String,
+        val alternativeDirections: List<String>,
+        val reloadingDirection: String? = null,
+    ) : RewriteState
+    data class Error(val message: String) : RewriteState
+}
+
 data class ConversationDraft(
     val isLanguageA: Boolean,
     val sourceText: String,

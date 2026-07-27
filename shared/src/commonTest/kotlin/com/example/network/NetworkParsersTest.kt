@@ -185,6 +185,53 @@ class NetworkParsersTest {
         assertTrue(result.suggestions.isEmpty())
     }
 
+    // --- Rewrite payloads (web-feature port) ---
+
+    @Test
+    fun rewrite_initial_response_carries_direction_and_alternatives() {
+        val result = GeminiRewriteParser.parseRewrite(
+            """
+            {
+              "rewriteDirection": "More polite",
+              "rewrittenSource": "Could we have the bill, please?",
+              "alternativeDirections": ["More formal", "Adapt to local culture"]
+            }
+            """.trimIndent(),
+        )
+        assertEquals("More polite", result.rewriteDirection)
+        assertEquals("Could we have the bill, please?", result.rewrittenSource)
+        assertEquals(listOf("More formal", "Adapt to local culture"), result.alternativeDirections)
+    }
+
+    @Test
+    fun rewrite_directed_response_may_carry_only_the_text() {
+        val result = GeminiRewriteParser.parseRewrite("""{"rewrittenSource":"The bill, please."}""")
+        assertEquals("", result.rewriteDirection)
+        assertTrue(result.alternativeDirections.isEmpty())
+    }
+
+    @Test
+    fun rewrite_strips_markdown_fences_like_validation_does() {
+        val result = GeminiRewriteParser.parseRewrite("```json\n{\"rewrittenSource\":\"Hi.\"}\n```")
+        assertEquals("Hi.", result.rewrittenSource)
+    }
+
+    @Test
+    fun rewrite_drops_blank_alternative_directions() {
+        val result = GeminiRewriteParser.parseRewrite(
+            """{"rewrittenSource":"Hi.","alternativeDirections":["Warmer","","   "]}""",
+        )
+        assertEquals(listOf("Warmer"), result.alternativeDirections)
+    }
+
+    @Test
+    fun rewrite_without_text_is_a_parse_error() {
+        // Nothing to offer the user; an empty card reads as a broken app.
+        assertFailsWith<SerializationException> {
+            GeminiRewriteParser.parseRewrite("""{"rewriteDirection":"More polite"}""")
+        }
+    }
+
     private companion object {
         const val GOOGLE_SINGLE_SENTENCE =
             "[[[\"Hola\",\"Hello\",null,null,10]],null,\"en\",null,null,null,null,[]]"

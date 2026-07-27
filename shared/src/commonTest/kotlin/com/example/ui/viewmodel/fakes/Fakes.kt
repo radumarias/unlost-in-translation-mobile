@@ -4,6 +4,7 @@ import com.example.data.TranslationHistoryRepository
 import com.example.model.Language
 import com.example.model.Translation
 import com.example.model.TranslationContext
+import com.example.network.RewriteResult
 import com.example.network.TranslationApi
 import com.example.network.ValidationResult
 import com.example.platform.AppLog
@@ -61,6 +62,30 @@ class FakeTranslationApi : TranslationApi {
         validateCalls += originalText to translatedText
         validateContexts += context
         return onValidate(originalText, translatedText)
+    }
+
+    /** Each rewrite call as (originalText, warning, direction). */
+    val rewriteCalls = mutableListOf<Triple<String, String, String?>>()
+
+    var onRewrite: suspend (originalText: String, warning: String, direction: String?) -> RewriteResult =
+        { text, _, direction ->
+            RewriteResult(
+                rewriteDirection = direction ?: "More polite",
+                rewrittenSource = "R($text)",
+                alternativeDirections = if (direction == null) listOf("More formal", "Adapt to local culture") else emptyList(),
+            )
+        }
+
+    override suspend fun rewriteMessage(
+        originalText: String,
+        sourceLangName: String,
+        targetLangName: String,
+        warning: String,
+        direction: String?,
+        context: TranslationContext,
+    ): RewriteResult {
+        rewriteCalls += Triple(originalText, warning, direction)
+        return onRewrite(originalText, warning, direction)
     }
 }
 

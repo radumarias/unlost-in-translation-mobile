@@ -89,6 +89,7 @@ fun App(
         val sourceText by viewModel.sourceText.collectAsState()
         val translationState by viewModel.translationState.collectAsState()
         val validationState by viewModel.validationState.collectAsState()
+        val rewriteState by viewModel.rewriteState.collectAsState()
         val sourceLang by viewModel.sourceLanguage.collectAsState()
         val targetLang by viewModel.targetLanguage.collectAsState()
         val isAiEnhanced by viewModel.isAiEnhanced.collectAsState()
@@ -281,12 +282,19 @@ fun App(
                     // --- Overlay Panel: Validation Details ---
                     ValidationDetailsSheet(
                         current = showValidationDetails,
+                        rewriteState = rewriteState,
                         onDismiss = { showValidationDetails = null },
                         onSelectSuggestion = { text ->
                             showValidationDetails = null
                             viewModel.setSourceText(text)
                             keyboardController?.hide()
                             viewModel.triggerTranslation()
+                        },
+                        onRequestRewrite = { direction -> viewModel.requestRewrite(direction) },
+                        onApplyRewrite = { text ->
+                            showValidationDetails = null
+                            keyboardController?.hide()
+                            viewModel.applyRewrite(text)
                         },
                     )
                 }

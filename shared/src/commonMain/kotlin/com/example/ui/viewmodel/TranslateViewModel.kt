@@ -82,6 +82,9 @@ class TranslateViewModel(
     private val _validationState = MutableStateFlow<ValidationState>(ValidationState.Idle)
     val validationState = _validationState.asStateFlow()
 
+    private val _rewriteState = MutableStateFlow<RewriteState>(RewriteState.Idle)
+    val rewriteState = _rewriteState.asStateFlow()
+
     // Configured selected languages
     private val _sourceLanguage = MutableStateFlow(Language.getByCode("en"))
     val sourceLanguage = _sourceLanguage.asStateFlow()
@@ -263,6 +266,9 @@ class TranslateViewModel(
 
         _translationState.value = TranslationState.Loading
         _validationState.value = ValidationState.Loading
+        // A rewrite belongs to the message that triggered it; a new translation
+        // must not inherit the previous one's suggestion.
+        _rewriteState.value = RewriteState.Idle
 
         viewModelScope.launch {
             try {
@@ -361,6 +367,74 @@ class TranslateViewModel(
         } else {
             ValidationState.Error("Validation failed: $message")
         }
+    }
+
+    // --- Rewrite (on demand; the only user-triggered Gemini call) ---
+
+    /**
+     * Asks Gemini to rewrite the *source* message so it stops tripping the
+     * cultural warning. With no [direction] this is the opening request and the
+     * answer carries a couple of other angles to try; passing one of those back
+     * re-runs it that way.
+     *
+     * The web build fires the opening rewrite automatically on every warning.
+     * Here it is a button: on the free tier an automatic third request per
+     * message is most of the daily allowance spent on suggestions nobody asked
+     * for.
+     */
+    fun requestRewrite(direction: String? = null) {
+        val translation = _translationState.value as? TranslationState.Success ?: return
+        val validation = _validationState.value as? ValidationState.Success ?: return
+
+        // What the model has to resolve: the warning if there is one, plus any
+        // idiom it flagged. Falls back to the plain explanation so a rewrite
+        // asked for on a clean translation still has something to work with.
+        val warning = listOfNotNull(
+            validation.explanation.takeIf { validation.isWarning && it.isNotBlank() },
+            validation.idiomExplanation,
+        ).joinToString("\n").ifBlank { validation.explanation }
+
+        val previous = _rewriteState.value as? RewriteState.Success
+        _rewriteState.value = if (previous != null && direction != null) {
+            previous.copy(reloadingDirection = direction)
+        } else {
+            RewriteState.Loading
+        }
+
+        viewModelScope.launch {
+            try {
+                val result = api.rewriteMessage(
+                    originalText = translation.originalText,
+                    sourceLangName = _sourceLanguage.value.name,
+                    targetLangName = _targetLanguage.value.name,
+                    warning = warning,
+                    direction = direction,
+                    context = translationContext(),
+                )
+                // A directed rewrite answers with the new text alone; keep the
+                // alternatives already on screen so the user can try another.
+                _rewriteState.value = RewriteState.Success(
+                    direction = result.rewriteDirection.ifBlank { direction.orEmpty() },
+                    rewrittenSource = result.rewrittenSource,
+                    alternativeDirections = result.alternativeDirections
+                        .ifEmpty { previous?.alternativeDirections.orEmpty() },
+                )
+            } catch (e: Exception) {
+                log.e(TAG, "Rewrite failed", e)
+                _rewriteState.value = RewriteState.Error(e.message ?: "Failed to rewrite the message")
+            }
+        }
+    }
+
+    /** Puts a rewrite in the input box and translates it. */
+    fun applyRewrite(text: String) {
+        _rewriteState.value = RewriteState.Idle
+        setSourceText(text)
+        triggerTranslation()
+    }
+
+    fun dismissRewrite() {
+        _rewriteState.value = RewriteState.Idle
     }
 
     private suspend fun saveTranslationToDatabase(original: String, translated: String) {
