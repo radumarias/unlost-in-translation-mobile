@@ -18,6 +18,9 @@ import io.ktor.http.URLBuilder
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import com.example.model.Situation
+import com.example.model.Tone
+import com.example.model.TranslationContext
 import com.example.platform.AppLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -127,6 +130,34 @@ class KtorTranslationApi(
 
         private fun errorDetail(body: String): String =
             GeminiErrorParser.errorMessage(body) ?: body.take(200).ifBlank { "no response body" }
+
+        /**
+         * Renders a [TranslationContext] as the prompt constraints the web build
+         * uses (`api/translate/route.ts`), verbatim — they are product behavior
+         * (design §5). Defaults emit nothing, so an unconfigured translation
+         * sends exactly the prompt it sent before this existed.
+         *
+         * A situation deliberately outranks a tone: "absolute precision for
+         * Medical" has to beat "Casual", which is why its line carries the
+         * STRICTLY-prioritize wording and the tone's does not.
+         *
+         * Returns the bare lines with no surrounding whitespace; callers decide
+         * the separators, so a default context leaves their prompt byte-identical
+         * to what it was before this existed.
+         */
+        internal fun contextBlock(context: TranslationContext): String {
+            val lines = mutableListOf<String>()
+            if (context.tone != Tone.AUTO) {
+                lines += "IMPORTANT: The requested conversation tone is \"${context.tone}\". " +
+                    "The translation MUST reflect this tone accurately."
+            }
+            if (context.situation != Situation.GENERAL) {
+                lines += "IMPORTANT: The requested situation/context is \"${context.situation}\". " +
+                    "STRICTLY prioritize vocabulary and politeness suited for this situation " +
+                    "(e.g. absolute precision for Medical, rapid concise translation for Emergency)."
+            }
+            return lines.joinToString("\n")
+        }
     }
 
     override suspend fun translateGoogle(text: String, sourceLang: String, targetLang: String): String {
@@ -151,11 +182,23 @@ class KtorTranslationApi(
         }
     }
 
-    override suspend fun translateGemini(text: String, sourceLangName: String, targetLangName: String): String {
+    override suspend fun translateGemini(
+        text: String,
+        sourceLangName: String,
+        targetLangName: String,
+        context: TranslationContext,
+    ): String {
         if (text.isBlank()) return ""
         requireApiKey()
 
-        val prompt = "Translate the following text from $sourceLangName to $targetLangName. Please deliver only the translated text, with no preamble, explanations, decorative markers, or extra words. Text to translate:\n$text"
+        val instruction = "Translate the following text from $sourceLangName to $targetLangName. Please deliver only the translated text, with no preamble, explanations, decorative markers, or extra words."
+        val constraints = contextBlock(context)
+        // With no constraints this is the original one-line prompt, unchanged.
+        val prompt = if (constraints.isEmpty()) {
+            "$instruction Text to translate:\n$text"
+        } else {
+            "$instruction\n\n$constraints\n\nText to translate:\n$text"
+        }
         val request = GeminiRequest(
             contents = listOf(GeminiContent(parts = listOf(GeminiPart(prompt)))),
             safetySettings = GEMINI_SAFETY_SETTINGS,
@@ -176,16 +219,22 @@ class KtorTranslationApi(
         translatedText: String,
         sourceLangName: String,
         targetLangName: String,
+        context: TranslationContext,
     ): ValidationResult {
         requireApiKey()
 
-        val prompt = """
+        // Built in two trimIndent() halves so the (unindented) constraint block
+        // can sit between them: a single raw string would make trimIndent see a
+        // zero-indent line and stop trimming the rest of the prompt.
+        val header = """
             Analyze the following translation for cultural appropriateness, literal mistranslation of idioms, and tone.
             Source Language: $sourceLangName
             Original Text: "$originalText"
             Target Language: $targetLangName
             Translated Text: "$translatedText"
+        """.trimIndent()
 
+        val schema = """
             Return ONLY a valid JSON object matching this schema, with no markdown wrappers or extra text:
             {
               "isWarning": boolean,
@@ -197,6 +246,9 @@ class KtorTranslationApi(
               ] // Provide alternative translations in different tones if context helps. PLEASE NOTE: the text field MUST be in the Source Language ($sourceLangName).
             }
         """.trimIndent()
+
+        val constraints = contextBlock(context)
+        val prompt = header + (if (constraints.isEmpty()) "" else "\n\n$constraints") + "\n\n" + schema
 
         val request = GeminiRequest(
             contents = listOf(GeminiContent(parts = listOf(GeminiPart(prompt)))),

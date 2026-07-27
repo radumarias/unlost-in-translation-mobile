@@ -3,8 +3,12 @@ package com.example.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.TranslationHistoryRepository
+import com.example.model.ContextTurn
 import com.example.model.Language
+import com.example.model.Situation
+import com.example.model.Tone
 import com.example.model.Translation
+import com.example.model.TranslationContext
 import com.example.network.KtorTranslationApi
 import com.example.network.TranslationApi
 import com.example.platform.AppLog
@@ -85,6 +89,47 @@ class TranslateViewModel(
     // Toggle for AI Enhanced (Gemini translation) vs standard Google Translate
     private val _isAiEnhanced = MutableStateFlow(false)
     val isAiEnhanced = _isAiEnhanced.asStateFlow()
+
+    // Tone and situation presets (ported from the web build). Prompt-only: they
+    // cost no extra requests, but they need a model that can read a prompt, so
+    // selecting either forces the Gemini path (see [translationContext]).
+    private val _tone = MutableStateFlow(Tone.AUTO)
+    val tone = _tone.asStateFlow()
+
+    private val _situation = MutableStateFlow(Situation.GENERAL)
+    val situation = _situation.asStateFlow()
+
+    fun setTone(tone: String) {
+        if (_tone.value == tone) return
+        _tone.value = tone
+        onContextPresetChanged(enabledAi = tone != Tone.AUTO)
+    }
+
+    fun setSituation(situation: String) {
+        if (_situation.value == situation) return
+        _situation.value = situation
+        onContextPresetChanged(enabledAi = situation != Situation.GENERAL)
+    }
+
+    /**
+     * Google's free endpoint takes a bare string, so a tone or situation can
+     * only be honoured by Gemini. Rather than silently ignoring the selection,
+     * turn AI Enhanced on and say so — the toggle then shows the truth about
+     * which backend is running.
+     */
+    private fun onContextPresetChanged(enabledAi: Boolean) {
+        if (enabledAi && !_isAiEnhanced.value) {
+            _isAiEnhanced.value = true
+            showMessage("AI Enhanced turned on — tone and situation need it.")
+        }
+        if (_sourceText.value.isNotBlank()) {
+            triggerTranslation()
+        }
+    }
+
+    /** The current prompt context; [ContextTurn]s are added by conversation mode. */
+    private fun translationContext(history: List<ContextTurn> = emptyList()) =
+        TranslationContext(tone = _tone.value, situation = _situation.value, history = history)
 
     // Database entries
     val history: StateFlow<List<Translation>> = repository.allTranslations()
@@ -202,9 +247,12 @@ class TranslateViewModel(
             try {
                 val src = _sourceLanguage.value
                 val trg = _targetLanguage.value
+                // The Translate tab has no session, so no conversation turns are
+                // sent — only the tone/situation presets (see the port notes).
+                val context = translationContext()
 
                 // 1. Initial translation (Fast)
-                val translated = translatePrimary(text, src, trg)
+                val translated = translatePrimary(text, src, trg, context)
 
                 _translationState.value = TranslationState.Success(text, translated)
                 saveTranslationToDatabase(text, translated)
@@ -230,7 +278,7 @@ class TranslateViewModel(
                 }
 
                 launch {
-                    val validation = runValidation(text, translated, src.name, trg.name)
+                    val validation = runValidation(text, translated, src.name, trg.name, context)
                     // Same staleness guard as the round trip above: a slow
                     // validation must not land on a newer translation's card.
                     val currentState = _translationState.value
@@ -245,10 +293,19 @@ class TranslateViewModel(
         }
     }
 
-    /** Primary translation call, honouring the AI-Enhanced (Gemini vs Google) toggle. */
-    private suspend fun translatePrimary(text: String, source: Language, target: Language): String =
-        if (_isAiEnhanced.value) {
-            api.translateGemini(text, source.name, target.name)
+    /**
+     * Primary translation call, honouring the AI-Enhanced (Gemini vs Google)
+     * toggle — and overriding it when the [context] carries a tone or situation
+     * Google's endpoint cannot express.
+     */
+    private suspend fun translatePrimary(
+        text: String,
+        source: Language,
+        target: Language,
+        context: TranslationContext,
+    ): String =
+        if (_isAiEnhanced.value || context.needsAiModel) {
+            api.translateGemini(text, source.name, target.name, context)
         } else {
             api.translateGoogle(text, source.code, target.code)
         }
@@ -265,8 +322,9 @@ class TranslateViewModel(
         translatedText: String,
         sourceLangName: String,
         targetLangName: String,
+        context: TranslationContext,
     ): ValidationState = try {
-        val result = api.validateTranslation(originalText, translatedText, sourceLangName, targetLangName)
+        val result = api.validateTranslation(originalText, translatedText, sourceLangName, targetLangName, context)
         ValidationState.Success(result.isWarning, result.explanation, result.suggestions)
     } catch (e: Exception) {
         log.e(TAG, "Validation exception", e)
@@ -343,9 +401,10 @@ class TranslateViewModel(
                 val targetLangName = if (isLanguageA) _targetLanguage.value.name else _sourceLanguage.value.name
                 val sourceLangCode = if (isLanguageA) _sourceLanguage.value.code else _targetLanguage.value.code
                 val targetLangCode = if (isLanguageA) _targetLanguage.value.code else _sourceLanguage.value.code
+                val context = translationContext()
 
-                val translation = if (_isAiEnhanced.value) {
-                    api.translateGemini(text, sourceLangName, targetLangName)
+                val translation = if (_isAiEnhanced.value || context.needsAiModel) {
+                    api.translateGemini(text, sourceLangName, targetLangName, context)
                 } else {
                     api.translateGoogle(text, sourceLangCode, targetLangCode)
                 }
@@ -366,7 +425,7 @@ class TranslateViewModel(
                 }
 
                 launch {
-                    val validation = runValidation(text, translation, sourceLangName, targetLangName)
+                    val validation = runValidation(text, translation, sourceLangName, targetLangName, context)
                     _conversationDraft.value = _conversationDraft.value?.copy(validationState = validation)
                 }
 

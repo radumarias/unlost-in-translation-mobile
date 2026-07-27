@@ -3,6 +3,7 @@ package com.example.ui.viewmodel.fakes
 import com.example.data.TranslationHistoryRepository
 import com.example.model.Language
 import com.example.model.Translation
+import com.example.model.TranslationContext
 import com.example.network.TranslationApi
 import com.example.network.ValidationResult
 import com.example.platform.AppLog
@@ -23,6 +24,10 @@ class FakeTranslationApi : TranslationApi {
     val geminiCalls = mutableListOf<Triple<String, String, String>>()
     val validateCalls = mutableListOf<Pair<String, String>>()
 
+    /** The [TranslationContext] of each Gemini translate / validate call, in order. */
+    val geminiContexts = mutableListOf<TranslationContext>()
+    val validateContexts = mutableListOf<TranslationContext>()
+
     var onGoogle: suspend (text: String, sourceLang: String, targetLang: String) -> String =
         { text, _, _ -> "T($text)" }
     var onGemini: suspend (text: String, sourceLangName: String, targetLangName: String) -> String =
@@ -35,8 +40,14 @@ class FakeTranslationApi : TranslationApi {
         return onGoogle(text, sourceLang, targetLang)
     }
 
-    override suspend fun translateGemini(text: String, sourceLangName: String, targetLangName: String): String {
+    override suspend fun translateGemini(
+        text: String,
+        sourceLangName: String,
+        targetLangName: String,
+        context: TranslationContext,
+    ): String {
         geminiCalls += Triple(text, sourceLangName, targetLangName)
+        geminiContexts += context
         return onGemini(text, sourceLangName, targetLangName)
     }
 
@@ -45,8 +56,10 @@ class FakeTranslationApi : TranslationApi {
         translatedText: String,
         sourceLangName: String,
         targetLangName: String,
+        context: TranslationContext,
     ): ValidationResult {
         validateCalls += originalText to translatedText
+        validateContexts += context
         return onValidate(originalText, translatedText)
     }
 }

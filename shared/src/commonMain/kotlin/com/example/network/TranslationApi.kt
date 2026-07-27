@@ -1,5 +1,6 @@
 package com.example.network
 
+import com.example.model.TranslationContext
 import com.example.ui.viewmodel.Suggestion
 
 /**
@@ -7,15 +8,28 @@ import com.example.ui.viewmodel.Suggestion
  * view model depends on an interface rather than the concrete OkHttp/org.json
  * object; [KtorTranslationApi] is the Ktor + kotlinx.serialization implementation.
  * Moves to commonMain when `:shared` is created (design §3).
+ *
+ * The Gemini-backed calls take a [TranslationContext] (tone, situation, prior
+ * turns) ported from the web build. It only ever becomes prompt text, so it
+ * costs no extra requests; [translateGoogle] has no equivalent because the free
+ * endpoint takes nothing but the string.
  */
 interface TranslationApi {
     suspend fun translateGoogle(text: String, sourceLang: String, targetLang: String): String
-    suspend fun translateGemini(text: String, sourceLangName: String, targetLangName: String): String
+
+    suspend fun translateGemini(
+        text: String,
+        sourceLangName: String,
+        targetLangName: String,
+        context: TranslationContext = TranslationContext(),
+    ): String
+
     suspend fun validateTranslation(
         originalText: String,
         translatedText: String,
         sourceLangName: String,
         targetLangName: String,
+        context: TranslationContext = TranslationContext(),
     ): ValidationResult
 }
 
