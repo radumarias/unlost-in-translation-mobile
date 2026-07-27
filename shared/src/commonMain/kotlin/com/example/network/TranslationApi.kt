@@ -17,6 +17,24 @@ import com.example.ui.viewmodel.Suggestion
 interface TranslationApi {
     suspend fun translateGoogle(text: String, sourceLang: String, targetLang: String): String
 
+    /**
+     * Translates without being told the source language, reporting what it
+     * turned out to be (web-feature port of `isSourceAutoDetect`).
+     *
+     * A separate method rather than `translateGoogle(text, "auto", …)` because
+     * the caller needs the detected code back and [translateGoogle]'s signature
+     * is pinned by a large body of tests. Detection is free here: the same
+     * unofficial endpoint accepts `sl=auto` and returns the code it settled on.
+     */
+    suspend fun detectAndTranslateGoogle(text: String, targetLang: String): DetectedTranslation
+
+    /** [translateGemini] for an unknown source language; see [detectAndTranslateGoogle]. */
+    suspend fun detectAndTranslateGemini(
+        text: String,
+        targetLangName: String,
+        context: TranslationContext = TranslationContext(),
+    ): DetectedTranslation
+
     suspend fun translateGemini(
         text: String,
         sourceLangName: String,
@@ -52,6 +70,13 @@ interface TranslationApi {
         context: TranslationContext = TranslationContext(),
     ): RewriteResult
 }
+
+/**
+ * A translation plus the source language the backend detected, as an ISO 639-1
+ * code. [detectedLangCode] is blank when the backend did not say — callers must
+ * cope rather than guessing a language.
+ */
+data class DetectedTranslation(val text: String, val detectedLangCode: String)
 
 /**
  * A suggested rewrite of the speaker's original message, in their own language.

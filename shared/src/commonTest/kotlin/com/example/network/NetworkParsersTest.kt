@@ -185,6 +185,39 @@ class NetworkParsersTest {
         assertTrue(result.suggestions.isEmpty())
     }
 
+    // --- Auto-detect (web-feature port) ---
+
+    @Test
+    fun google_reports_the_detected_source_language() {
+        val result = GoogleResponseParser.extractWithDetection(GOOGLE_SINGLE_SENTENCE)
+        assertEquals("Hola", result.text)
+        assertEquals("en", result.detectedLangCode)
+    }
+
+    @Test
+    fun google_detection_is_blank_when_the_endpoint_does_not_say() {
+        // Shorter body shapes turn up; silence must not be read as a language.
+        val result = GoogleResponseParser.extractWithDetection("[[[\"Hola\",\"Hello\"]]]")
+        assertEquals("Hola", result.text)
+        assertEquals("", result.detectedLangCode)
+    }
+
+    @Test
+    fun gemini_detection_reads_the_code_and_the_translation() {
+        val result = GeminiDetectionParser.parseDetection(
+            """{"detectedSourceLanguage":"fr","translation":"Hola"}""",
+        )
+        assertEquals("fr", result.detectedLangCode)
+        assertEquals("Hola", result.text)
+    }
+
+    @Test
+    fun gemini_detection_without_a_translation_is_a_parse_error() {
+        assertFailsWith<SerializationException> {
+            GeminiDetectionParser.parseDetection("""{"detectedSourceLanguage":"fr"}""")
+        }
+    }
+
     // --- Rewrite payloads (web-feature port) ---
 
     @Test

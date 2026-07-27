@@ -44,7 +44,14 @@ fun LanguageBar(
     onSwap: () -> Unit,
     onChooseSource: () -> Unit,
     onChooseTarget: () -> Unit,
+    /** What auto-detect found, shown on the source pill; null before it has. */
+    detectedSourceLanguage: Language? = null,
 ) {
+    // The selection stays "Auto-detect"; the pill reports what it resolved to
+    // so the user can see the app understood them. ASCII separator: the wasm
+    // canvas has no glyph for the middle dot.
+    val resolvedSource = detectedSourceLanguage.takeIf { sourceLang.code == Language.AUTO_CODE }
+    val sourceLabel = resolvedSource?.let { "Auto - ${it.name}" } ?: sourceLang.name
     // Dual horizontal language selector pills with swap icon
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -66,9 +73,12 @@ fun LanguageBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.Center
             ) {
-                Text(text = sourceLang.flagLabel(extendedGlyphs) + " ", fontSize = 16.sp)
                 Text(
-                    text = sourceLang.name,
+                    text = (resolvedSource ?: sourceLang).flagLabel(extendedGlyphs) + " ",
+                    fontSize = 16.sp,
+                )
+                Text(
+                    text = sourceLabel,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 13.sp,

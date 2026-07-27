@@ -18,6 +18,7 @@ import io.ktor.http.URLBuilder
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import com.example.model.Language
 import com.example.model.Situation
 import com.example.model.Tone
 import com.example.model.TranslationContext
@@ -171,6 +172,21 @@ class KtorTranslationApi(
 
     override suspend fun translateGoogle(text: String, sourceLang: String, targetLang: String): String {
         if (text.isBlank()) return ""
+        return apiCall { GoogleResponseParser.extract(googleBody(text, sourceLang, targetLang)) }
+    }
+
+    override suspend fun detectAndTranslateGoogle(text: String, targetLang: String): DetectedTranslation {
+        if (text.isBlank()) return DetectedTranslation("", "")
+        // `sl=auto` is the same free endpoint asking it to work the source out;
+        // the detected code comes back in the response, so auto-detect costs no
+        // Gemini request at all.
+        return apiCall {
+            GoogleResponseParser.extractWithDetection(googleBody(text, Language.AUTO_CODE, targetLang))
+        }
+    }
+
+    /** One Google request, returning the raw body. Callers pick the parser. */
+    private suspend fun googleBody(text: String, sourceLang: String, targetLang: String): String {
         val url = URLBuilder("https://translate.googleapis.com/translate_a/single").apply {
             parameters.append("client", "gtx")
             parameters.append("sl", sourceLang)
@@ -179,16 +195,14 @@ class KtorTranslationApi(
             parameters.append("q", text)
         }.buildString()
 
-        return apiCall {
-            val response = client.get(url) {
-                header("User-Agent", "Mozilla/5.0")
-                timeout { requestTimeoutMillis = GOOGLE_TIMEOUT_MS }
-            }
-            if (!response.status.isSuccess()) {
-                throw Exception("HTTP error code: ${response.status.value}")
-            }
-            GoogleResponseParser.extract(response.bodyAsText())
+        val response = client.get(url) {
+            header("User-Agent", "Mozilla/5.0")
+            timeout { requestTimeoutMillis = GOOGLE_TIMEOUT_MS }
         }
+        if (!response.status.isSuccess()) {
+            throw Exception("HTTP error code: ${response.status.value}")
+        }
+        return response.bodyAsText()
     }
 
     override suspend fun translateGemini(
@@ -220,6 +234,44 @@ class KtorTranslationApi(
             }
             val parsed = result.response.body<GeminiResponse>()
             extractGeminiText(parsed).trim()
+        }
+    }
+
+    override suspend fun detectAndTranslateGemini(
+        text: String,
+        targetLangName: String,
+        context: TranslationContext,
+    ): DetectedTranslation {
+        if (text.isBlank()) return DetectedTranslation("", "")
+        requireApiKey()
+
+        val instruction = "Detect the language of the following text and translate it to $targetLangName."
+        val schema = """
+            Return ONLY a valid JSON object matching this schema, with no markdown wrappers or extra text:
+            {
+              "detectedSourceLanguage": "The ISO 639-1 code of the language the text is written in (e.g. \"es\").",
+              "translation": "The $targetLangName translation, with no preamble, explanations, decorative markers, or extra words."
+            }
+        """.trimIndent()
+
+        val constraints = contextBlock(context)
+        val prompt = instruction +
+            (if (constraints.isEmpty()) "" else "\n\n$constraints") +
+            "\n\n" + schema +
+            "\n\nText to translate:\n$text"
+
+        val request = GeminiRequest(
+            contents = listOf(GeminiContent(parts = listOf(GeminiPart(prompt)))),
+            safetySettings = GEMINI_SAFETY_SETTINGS,
+            generationConfig = GeminiGenerationConfig(responseMimeType = "application/json"),
+        )
+
+        return apiCall {
+            val result = postGemini(request)
+            if (!result.isSuccess) {
+                throw Exception(result.errorMessage())
+            }
+            GeminiDetectionParser.parseDetection(extractGeminiText(result.response.body<GeminiResponse>()))
         }
     }
 

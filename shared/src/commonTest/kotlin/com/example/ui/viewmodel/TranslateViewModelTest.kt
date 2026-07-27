@@ -4,6 +4,7 @@ import com.example.model.ContextTurn
 import com.example.model.Language
 import com.example.model.Situation
 import com.example.model.Tone
+import com.example.network.DetectedTranslation
 import com.example.network.ValidationResult
 import com.example.ui.viewmodel.fakes.FakeHistoryRepository
 import com.example.ui.viewmodel.fakes.FakeTranslationApi
@@ -106,6 +107,116 @@ class TranslateViewModelTest {
         val validation = assertIs<ValidationState.Success>(vm.validationState.value)
         assertEquals("They will hear an order, not a request.", validation.sanityCheck)
         assertEquals("\"Break a leg\" means good luck.", validation.idiomExplanation)
+    }
+
+    // --- Auto-detect source language ---
+
+    @Test
+    fun autoDetect_usesTheFreeGoogleEndpoint_andReportsWhatItFound() = runTest {
+        val vm = viewModel()
+        vm.setSourceLanguage(Language.autoDetect)
+        vm.setSourceText("bonjour")
+
+        vm.triggerTranslation()
+
+        // Detection rides on sl=auto, so it costs no Gemini request.
+        assertEquals(Triple("bonjour", "es", false), api.detectCalls.single())
+        assertTrue(api.geminiCalls.isEmpty())
+        assertEquals("fr", vm.detectedSourceLanguage.value?.code)
+        // The selection stays on Auto-detect rather than being overwritten.
+        assertEquals(Language.AUTO_CODE, vm.sourceLanguage.value.code)
+    }
+
+    @Test
+    fun autoDetect_roundTripsAndPersistsAgainstTheDetectedLanguage() = runTest {
+        val vm = viewModel()
+        vm.setSourceLanguage(Language.autoDetect)
+        vm.setSourceText("bonjour")
+
+        vm.triggerTranslation()
+
+        // Round trip goes back to French, not to the "auto" sentinel.
+        assertEquals(Triple("D(bonjour)", "es", "fr"), api.googleCalls.single())
+        assertEquals("fr", repository.rows.single().sourceLangCode)
+        assertEquals("French", repository.rows.single().sourceLangName)
+        assertEquals("fr", broadcaster.broadcasts.single().sourceLang.code)
+    }
+
+    @Test
+    fun anUnsupportedDetectedLanguage_skipsTheRoundTrip_ratherThanGuessing() = runTest {
+        api.onDetect = { text, _ -> DetectedTranslation("D($text)", "sv") } // not one of the 16
+        val vm = viewModel()
+        vm.setSourceLanguage(Language.autoDetect)
+        vm.setSourceText("hej")
+
+        vm.triggerTranslation()
+
+        assertNull(vm.detectedSourceLanguage.value)
+        assertTrue(api.googleCalls.isEmpty(), "no language to translate back to")
+        assertEquals(Language.AUTO_CODE, repository.rows.single().sourceLangCode)
+        // The validation prompt still gets the detected code rather than the
+        // useless "Auto-detect".
+        assertEquals("sv", api.validateLangNames.single().first)
+    }
+
+    @Test
+    fun autoDetect_withAiEnhanced_routesToTheDetectingGeminiCall() = runTest {
+        val vm = viewModel()
+        vm.setAiEnhanced(true)
+        vm.setSourceLanguage(Language.autoDetect)
+        vm.setSourceText("bonjour")
+
+        vm.triggerTranslation()
+
+        assertEquals(Triple("bonjour", "Spanish", true), api.detectCalls.single())
+    }
+
+    @Test
+    fun swappingAnUndetectedAutoSource_refusesInsteadOfMakingAutoTheTarget() = runTest {
+        val vm = viewModel()
+        vm.setSourceLanguage(Language.autoDetect)
+
+        vm.swapLanguages()
+
+        assertEquals(Language.AUTO_CODE, vm.sourceLanguage.value.code)
+        assertEquals("es", vm.targetLanguage.value.code)
+    }
+
+    @Test
+    fun swappingAfterDetection_resolvesAutoToWhatWasFound() = runTest {
+        val vm = viewModel()
+        vm.setSourceLanguage(Language.autoDetect)
+        vm.setSourceText("bonjour")
+        vm.triggerTranslation()
+
+        vm.swapLanguages()
+
+        assertEquals("es", vm.sourceLanguage.value.code)
+        assertEquals("fr", vm.targetLanguage.value.code)
+        assertNull(vm.detectedSourceLanguage.value)
+    }
+
+    @Test
+    fun conversationMode_needsARealSourceLanguage() = runTest {
+        val vm = viewModel()
+        vm.setSourceLanguage(Language.autoDetect)
+
+        vm.setConversationMode(true)
+
+        assertFalse(vm.isConversationMode.value)
+    }
+
+    @Test
+    fun changingTheSourceLanguage_clearsAStaleDetection() = runTest {
+        val vm = viewModel()
+        vm.setSourceLanguage(Language.autoDetect)
+        vm.setSourceText("bonjour")
+        vm.triggerTranslation()
+        assertEquals("fr", vm.detectedSourceLanguage.value?.code)
+
+        vm.setSourceLanguage(Language.getByCode("de"))
+
+        assertNull(vm.detectedSourceLanguage.value)
     }
 
     // --- Rewrite (on demand) ---

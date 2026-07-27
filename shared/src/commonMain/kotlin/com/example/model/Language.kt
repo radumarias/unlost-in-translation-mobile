@@ -33,8 +33,28 @@ data class Language(
             Language("th", "Thai", "🇹🇭", "th-TH")
         )
 
+        /** Sentinel code for "let the backend work out what this is". */
+        const val AUTO_CODE = "auto"
+
+        /**
+         * The auto-detect source option (web-feature port). Deliberately kept
+         * out of [supportedLanguages]: it is a request, not a language, and it
+         * has no BCP-47 tag, so it must never reach TTS or the target picker.
+         */
+        val autoDetect = Language(AUTO_CODE, "Auto-detect", "🌐", "")
+
+        /** The picker's list; only the *source* picker offers auto-detect. */
+        fun pickerLanguages(includeAuto: Boolean): List<Language> =
+            if (includeAuto) listOf(autoDetect) + supportedLanguages else supportedLanguages
+
+        /** The language for [code], or null when it is not one we support. */
+        fun findByCode(code: String): Language? = when {
+            code.equals(AUTO_CODE, ignoreCase = true) -> autoDetect
+            else -> supportedLanguages.firstOrNull { it.code.equals(code, ignoreCase = true) }
+        }
+
         fun getByCode(code: String): Language {
-            return supportedLanguages.firstOrNull { it.code == code } ?: supportedLanguages[0]
+            return findByCode(code) ?: supportedLanguages[0]
         }
     }
 }

@@ -49,14 +49,17 @@ fun LanguagePickerDialog(
     currentlySelected: Language,
     extendedGlyphs: Boolean,
     onDismiss: () -> Unit,
-    onSelect: (Language) -> Unit
+    onSelect: (Language) -> Unit,
+    /** Only the source picker offers it — a target must be a real language. */
+    includeAuto: Boolean = false,
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    val filteredLanguages = remember(searchQuery) {
+    val filteredLanguages = remember(searchQuery, includeAuto) {
+        val all = Language.pickerLanguages(includeAuto)
         if (searchQuery.isBlank()) {
-            Language.supportedLanguages
+            all
         } else {
-            Language.supportedLanguages.filter {
+            all.filter {
                 it.name.contains(searchQuery, ignoreCase = true) ||
                 it.code.contains(searchQuery, ignoreCase = true)
             }
