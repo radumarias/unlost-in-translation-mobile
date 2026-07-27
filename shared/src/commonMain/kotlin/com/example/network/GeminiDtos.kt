@@ -300,6 +300,20 @@ object GoogleResponseParser {
         }
         return sb.toString()
     }
+
+    /**
+     * [extract] plus element 2 of the outer array, which is the source language
+     * the endpoint detected (`[[...parts...], null, "en", …]`). Blank when it is
+     * absent or not a string — the caller must not guess a language from
+     * silence.
+     */
+    fun extractWithDetection(responseBody: String): DetectedTranslation {
+        val text = extract(responseBody)
+        val detected = LenientJson.parseToJsonElement(responseBody).jsonArray
+            .getOrNull(2)?.let { (it as? JsonPrimitive)?.contentOrNull }
+            .orEmpty()
+        return DetectedTranslation(text, detected)
+    }
 }
 
 /**
@@ -373,6 +387,25 @@ object GeminiParser {
             }
         }
         return ValidationResult(isWarning, explanation, suggestions, sanityCheck, idiomExplanation)
+    }
+}
+
+/**
+ * Parses the detect-and-translate payload (web-feature port of
+ * `isSourceAutoDetect`). The web build asks for a language *name* off a fixed
+ * list; this asks for the ISO 639-1 code instead, because everything on this
+ * side is keyed by code and a name would need mapping back.
+ */
+object GeminiDetectionParser {
+
+    fun parseDetection(rawText: String): DetectedTranslation {
+        val root = LenientJson.parseToJsonElement(GeminiParser.stripJsonFences(rawText)).jsonObject
+        val text = (root["translation"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        if (text.isBlank()) {
+            throw SerializationException("Gemini returned no translation.")
+        }
+        val detected = (root["detectedSourceLanguage"] as? JsonPrimitive)?.contentOrNull.orEmpty()
+        return DetectedTranslation(text.trim(), detected.trim())
     }
 }
 

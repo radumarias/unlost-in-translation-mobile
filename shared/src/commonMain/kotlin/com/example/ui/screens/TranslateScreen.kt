@@ -188,7 +188,8 @@ fun TranslateScreen(
                         // Voice input only (design §8 capability gating); hidden on web.
                         if (showVoiceInput) {
                             IconButton(
-                                onClick = { launchVoiceInput(null, sourceLang) }
+                                onClick = { launchVoiceInput(null, sourceLang) },
+                                enabled = sourceLang.languageTag.isNotBlank(),
                             ) {
                                 Icon(
                                     Icons.Default.Mic,
@@ -204,12 +205,14 @@ fun TranslateScreen(
                                 val targetDevice = if (dualState.isDualHeadsetModeEnabled) dualState.deviceA else null
                                 speechSynthesizer.speak(sourceText, sourceLang.languageTag, targetDevice)
                             },
-                            enabled = sourceText.isNotBlank()
+                            // An unresolved Auto-detect source has no BCP-47
+                            // tag; there is no voice to read it in.
+                            enabled = sourceText.isNotBlank() && sourceLang.languageTag.isNotBlank()
                         ) {
                             Icon(
                                 Icons.Default.VolumeUp,
                                 contentDescription = "Hear input",
-                                tint = if (sourceText.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                                tint = if (sourceText.isNotBlank() && sourceLang.languageTag.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                             )
                         }
                     }

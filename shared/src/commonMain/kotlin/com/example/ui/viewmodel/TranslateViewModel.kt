@@ -92,6 +92,19 @@ class TranslateViewModel(
     private val _targetLanguage = MutableStateFlow(Language.getByCode("es"))
     val targetLanguage = _targetLanguage.asStateFlow()
 
+    /**
+     * What auto-detect found, once a translation has run. Null while nothing
+     * has been detected yet, or when the detected language is not one of the
+     * sixteen this app lists.
+     *
+     * The selection itself stays on Auto-detect. The web build overwrites its
+     * picker with the detected language; keeping it sticky is better for the
+     * case auto-detect exists for — several messages in a row from someone
+     * whose language you do not know.
+     */
+    private val _detectedSourceLanguage = MutableStateFlow<Language?>(null)
+    val detectedSourceLanguage = _detectedSourceLanguage.asStateFlow()
+
     // Toggle for AI Enhanced (Gemini translation) vs standard Google Translate
     private val _isAiEnhanced = MutableStateFlow(false)
     val isAiEnhanced = _isAiEnhanced.asStateFlow()
@@ -219,6 +232,9 @@ class TranslateViewModel(
             swapLanguages()
         } else {
             _sourceLanguage.value = language
+            // Any change of source invalidates a previous detection, including
+            // switching back to Auto-detect for a fresh message.
+            _detectedSourceLanguage.value = null
             triggerTranslation()
         }
     }
@@ -235,6 +251,19 @@ class TranslateViewModel(
     }
 
     fun swapLanguages() {
+        // "Auto-detect" is a request, not a language — it cannot become the
+        // target. Swapping resolves it to whatever was detected, and refuses
+        // while nothing has been.
+        if (_sourceLanguage.value.code == Language.AUTO_CODE) {
+            val detected = _detectedSourceLanguage.value
+            if (detected == null) {
+                showMessage("Translate something first so the language can be detected.")
+                return
+            }
+            _sourceLanguage.value = detected
+            _detectedSourceLanguage.value = null
+        }
+
         val temp = _sourceLanguage.value
         _sourceLanguage.value = _targetLanguage.value
         _targetLanguage.value = temp
@@ -279,33 +308,41 @@ class TranslateViewModel(
                 val context = translationContext()
 
                 // 1. Initial translation (Fast)
-                val translated = translatePrimary(text, src, trg, context)
+                val primary = translatePrimary(text, src, trg, context)
+                val translated = primary.text
+                // The language actually translated from: what was selected, or
+                // what auto-detect found.
+                val effectiveSource = primary.source
 
                 _translationState.value = TranslationState.Success(text, translated)
-                saveTranslationToDatabase(text, translated)
+                saveTranslationToDatabase(text, translated, effectiveSource)
                 // Platform side-effect (Wear sync + notification) — moved out of the
                 // UI's LaunchedEffect into the VM so the UI owns no platform I/O.
-                broadcaster.broadcast(text, translated, src, trg)
+                broadcaster.broadcast(text, translated, effectiveSource, trg)
 
                 // 2. Parallel tasks: Round Trip & Validation
-                launch {
-                    try {
-                        val roundTrip = api.translateGoogle(
-                            text = translated,
-                            sourceLang = trg.code,
-                            targetLang = src.code
-                        )
-                        val currentState = _translationState.value
-                        if (currentState is TranslationState.Success && currentState.translatedText == translated) {
-                            _translationState.value = currentState.copy(roundTripText = roundTrip)
+                if (effectiveSource.code != Language.AUTO_CODE) {
+                    // Nothing to translate back *to* when detection came up
+                    // empty; the round trip is skipped rather than guessed.
+                    launch {
+                        try {
+                            val roundTrip = api.translateGoogle(
+                                text = translated,
+                                sourceLang = trg.code,
+                                targetLang = effectiveSource.code
+                            )
+                            val currentState = _translationState.value
+                            if (currentState is TranslationState.Success && currentState.translatedText == translated) {
+                                _translationState.value = currentState.copy(roundTripText = roundTrip)
+                            }
+                        } catch (e: Exception) {
+                            log.e(TAG, "Round trip exception", e)
                         }
-                    } catch (e: Exception) {
-                        log.e(TAG, "Round trip exception", e)
                     }
                 }
 
                 launch {
-                    val validation = runValidation(text, translated, src.name, trg.name, context)
+                    val validation = runValidation(text, translated, primary.sourceNameForPrompt, trg.name, context)
                     // Same staleness guard as the round trip above: a slow
                     // validation must not land on a newer translation's card.
                     val currentState = _translationState.value
@@ -321,21 +358,61 @@ class TranslateViewModel(
     }
 
     /**
+     * A finished primary translation. [source] is the language actually
+     * translated *from* — the same one that was asked for, or what auto-detect
+     * settled on. [sourceNameForPrompt] is what the validation prompt should
+     * call it, which differs only when detection returned a language this app
+     * does not list.
+     */
+    private class PrimaryTranslation(
+        val text: String,
+        val source: Language,
+        val sourceNameForPrompt: String,
+    )
+
+    /**
      * Primary translation call, honouring the AI-Enhanced (Gemini vs Google)
      * toggle — and overriding it when the [context] carries a tone or situation
      * Google's endpoint cannot express.
+     *
+     * An auto-detect source routes to the detecting variants, which report the
+     * language back so the round trip, the history row and the validation
+     * prompt all have a real language to work with.
      */
     private suspend fun translatePrimary(
         text: String,
         source: Language,
         target: Language,
         context: TranslationContext,
-    ): String =
-        if (_isAiEnhanced.value || context.needsAiModel) {
-            api.translateGemini(text, source.name, target.name, context)
-        } else {
-            api.translateGoogle(text, source.code, target.code)
+    ): PrimaryTranslation {
+        val useGemini = _isAiEnhanced.value || context.needsAiModel
+        if (source.code != Language.AUTO_CODE) {
+            val translated = if (useGemini) {
+                api.translateGemini(text, source.name, target.name, context)
+            } else {
+                api.translateGoogle(text, source.code, target.code)
+            }
+            return PrimaryTranslation(translated, source, source.name)
         }
+
+        val detected = if (useGemini) {
+            api.detectAndTranslateGemini(text, target.name, context)
+        } else {
+            api.detectAndTranslateGoogle(text, target.code)
+        }
+        val resolved = Language.findByCode(detected.detectedLangCode)
+            ?.takeIf { it.code != Language.AUTO_CODE }
+        _detectedSourceLanguage.value = resolved
+        return PrimaryTranslation(
+            text = detected.text,
+            // Unresolved detection keeps the auto sentinel: it has no language
+            // tag and no code, which is exactly what the round trip and the
+            // history row need to know so they can decline.
+            source = resolved ?: Language.autoDetect,
+            sourceNameForPrompt = resolved?.name
+                ?: detected.detectedLangCode.ifBlank { Language.autoDetect.name },
+        )
+    }
 
     /**
      * Cultural validation shared by the translate and conversation-draft pipelines.
@@ -437,15 +514,19 @@ class TranslateViewModel(
         _rewriteState.value = RewriteState.Idle
     }
 
-    private suspend fun saveTranslationToDatabase(original: String, translated: String) {
+    private suspend fun saveTranslationToDatabase(
+        original: String,
+        translated: String,
+        source: Language = _sourceLanguage.value,
+    ) {
         try {
             // timestamp = 0L is the "now" sentinel; the Room impl fills it with
             // System.currentTimeMillis(), matching the previous entity default.
             val translation = Translation(
                 sourceText = original,
                 translatedText = translated,
-                sourceLangCode = _sourceLanguage.value.code,
-                sourceLangName = _sourceLanguage.value.name,
+                sourceLangCode = source.code,
+                sourceLangName = source.name,
                 targetLangCode = _targetLanguage.value.code,
                 targetLangName = _targetLanguage.value.name,
                 timestamp = 0L,
@@ -477,6 +558,17 @@ class TranslateViewModel(
     // --- Conversation Mode Methods ---
 
     fun setConversationMode(enabled: Boolean) {
+        // Conversation mode labels both speakers, so neither side can be an
+        // open question. Resolve Auto-detect to what was found, or ask first.
+        if (enabled && _sourceLanguage.value.code == Language.AUTO_CODE) {
+            val detected = _detectedSourceLanguage.value
+            if (detected == null) {
+                showMessage("Pick a language for your side before starting a conversation.")
+                return
+            }
+            _sourceLanguage.value = detected
+            _detectedSourceLanguage.value = null
+        }
         _isConversationMode.value = enabled
         if (!enabled) {
             _conversationHistory.value = emptyList()

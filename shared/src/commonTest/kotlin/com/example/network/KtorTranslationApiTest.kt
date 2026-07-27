@@ -258,6 +258,48 @@ class KtorTranslationApiTest {
     }
 
     @Test
+    fun detectAndTranslateGoogle_sends_sl_auto_and_returns_the_detected_code() = runTest {
+        var capturedUrl = ""
+        val engine = MockEngine { request ->
+            capturedUrl = request.url.toString()
+            respond(
+                content = "[[[\"Hola\",\"Bonjour\"]],null,\"fr\"]",
+                status = HttpStatusCode.OK,
+                headers = headersOf(HttpHeaders.ContentType, "application/json"),
+            )
+        }
+        val client = HttpClient(engine) {
+            expectSuccess = false
+            install(ContentNegotiation) { json(LenientJson) }
+            install(HttpTimeout)
+        }
+
+        val result = KtorTranslationApi(apiKey = "k", client = client)
+            .detectAndTranslateGoogle("Bonjour", "es")
+
+        assertTrue(capturedUrl.contains("sl=auto"), capturedUrl)
+        assertTrue(capturedUrl.contains("tl=es"), capturedUrl)
+        assertEquals("Hola", result.text)
+        assertEquals("fr", result.detectedLangCode)
+    }
+
+    @Test
+    fun detectAndTranslateGemini_asks_for_an_ISO_code() = runTest {
+        val bodies = mutableListOf<String>()
+        val api = apiCapturingBody(
+            bodies,
+            text = """{"detectedSourceLanguage":"fr","translation":"Hola"}""",
+        )
+
+        val result = api.detectAndTranslateGemini("Bonjour", "Spanish")
+
+        assertTrue(bodies.single().contains("detectedSourceLanguage"), bodies.single())
+        assertTrue(bodies.single().contains("ISO 639-1"), bodies.single())
+        assertEquals("fr", result.detectedLangCode)
+        assertEquals("Hola", result.text)
+    }
+
+    @Test
     fun translateGoogle_blank_text_short_circuits() = runTest {
         val api = apiReturning(HttpStatusCode.OK, "unused")
         assertEquals("", api.translateGoogle("   ", "en", "es"))

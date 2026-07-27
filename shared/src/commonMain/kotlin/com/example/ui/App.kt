@@ -92,6 +92,15 @@ fun App(
         val rewriteState by viewModel.rewriteState.collectAsState()
         val sourceLang by viewModel.sourceLanguage.collectAsState()
         val targetLang by viewModel.targetLanguage.collectAsState()
+        val detectedSourceLang by viewModel.detectedSourceLanguage.collectAsState()
+        // "Auto-detect" has no BCP-47 tag, so speech in and out need the
+        // language it resolved to; before anything is detected there is none,
+        // and the tag stays blank (the mic and speaker guard on that).
+        val speechSourceLang = if (sourceLang.code == Language.AUTO_CODE) {
+            detectedSourceLang ?: sourceLang
+        } else {
+            sourceLang
+        }
         val isAiEnhanced by viewModel.isAiEnhanced.collectAsState()
         val tone by viewModel.tone.collectAsState()
         val situation by viewModel.situation.collectAsState()
@@ -165,6 +174,7 @@ fun App(
                                     LanguageBar(
                                         sourceLang = sourceLang,
                                         targetLang = targetLang,
+                                        detectedSourceLanguage = detectedSourceLang,
                                         extendedGlyphs = container.capabilities.extendedGlyphs,
                                         onSwap = { viewModel.swapLanguages() },
                                         onChooseSource = { choosingSourceLanguage = true },
@@ -184,7 +194,7 @@ fun App(
                                     TranslateScreen(
                                         viewModel = viewModel,
                                         sourceText = sourceText,
-                                        sourceLang = sourceLang,
+                                        sourceLang = speechSourceLang,
                                         targetLang = targetLang,
                                         translationState = translationState,
                                         validationState = validationState,
@@ -236,7 +246,13 @@ fun App(
                                 showMicRow = activeBottomTab == "translate",
                                 showVoiceInput = container.capabilities.voiceInput,
                                 onConversationMode = { viewModel.setConversationMode(true) },
-                                onMic = { launchVoiceInput(null, sourceLang) },
+                                onMic = {
+                                    if (speechSourceLang.languageTag.isBlank()) {
+                                        viewModel.showMessage("Pick a language to speak in, or type instead.")
+                                    } else {
+                                        launchVoiceInput(null, speechSourceLang)
+                                    }
+                                },
                                 sourceTextBlank = sourceText.isBlank(),
                                 onQuickEdit = {
                                     if (sourceText.isNotBlank()) {
@@ -256,6 +272,7 @@ fun App(
                         LanguagePickerDialog(
                             title = "Translate from",
                             currentlySelected = sourceLang,
+                            includeAuto = true,
                             extendedGlyphs = container.capabilities.extendedGlyphs,
                             onDismiss = { choosingSourceLanguage = false },
                             onSelect = {

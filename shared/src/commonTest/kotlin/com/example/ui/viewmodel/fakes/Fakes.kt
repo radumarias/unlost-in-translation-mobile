@@ -4,6 +4,7 @@ import com.example.data.TranslationHistoryRepository
 import com.example.model.Language
 import com.example.model.Translation
 import com.example.model.TranslationContext
+import com.example.network.DetectedTranslation
 import com.example.network.RewriteResult
 import com.example.network.TranslationApi
 import com.example.network.ValidationResult
@@ -25,6 +26,9 @@ class FakeTranslationApi : TranslationApi {
     val geminiCalls = mutableListOf<Triple<String, String, String>>()
     val validateCalls = mutableListOf<Pair<String, String>>()
 
+    /** The (source, target) language names each validation was told about. */
+    val validateLangNames = mutableListOf<Pair<String, String>>()
+
     /** The [TranslationContext] of each Gemini translate / validate call, in order. */
     val geminiContexts = mutableListOf<TranslationContext>()
     val validateContexts = mutableListOf<TranslationContext>()
@@ -39,6 +43,27 @@ class FakeTranslationApi : TranslationApi {
     override suspend fun translateGoogle(text: String, sourceLang: String, targetLang: String): String {
         googleCalls += Triple(text, sourceLang, targetLang)
         return onGoogle(text, sourceLang, targetLang)
+    }
+
+    /** Each auto-detect call as (text, targetLang, viaGemini). */
+    val detectCalls = mutableListOf<Triple<String, String, Boolean>>()
+
+    var onDetect: suspend (text: String, targetLang: String) -> DetectedTranslation =
+        { text, _ -> DetectedTranslation("D($text)", "fr") }
+
+    override suspend fun detectAndTranslateGoogle(text: String, targetLang: String): DetectedTranslation {
+        detectCalls += Triple(text, targetLang, false)
+        return onDetect(text, targetLang)
+    }
+
+    override suspend fun detectAndTranslateGemini(
+        text: String,
+        targetLangName: String,
+        context: TranslationContext,
+    ): DetectedTranslation {
+        detectCalls += Triple(text, targetLangName, true)
+        geminiContexts += context
+        return onDetect(text, targetLangName)
     }
 
     override suspend fun translateGemini(
@@ -60,6 +85,7 @@ class FakeTranslationApi : TranslationApi {
         context: TranslationContext,
     ): ValidationResult {
         validateCalls += originalText to translatedText
+        validateLangNames += sourceLangName to targetLangName
         validateContexts += context
         return onValidate(originalText, translatedText)
     }
