@@ -11,6 +11,7 @@ import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
 import io.ktor.serialization.kotlinx.json.json
+import com.example.model.ContextTurn
 import com.example.model.TranslationContext
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonPrimitive
@@ -105,6 +106,39 @@ class KtorTranslationApiTest {
         val body = bodies.single()
         assertFalse(body.contains("conversation tone"), body)
         assertTrue(body.contains("The requested situation/context is \\\"Emergency\\\""), body)
+    }
+
+    @Test
+    fun translateGemini_renders_prior_turns_as_conversation_history() = runTest {
+        val bodies = mutableListOf<String>()
+        apiCapturingBody(bodies).translateGemini(
+            "and for me?", "English", "Spanish",
+            TranslationContext(
+                history = listOf(
+                    ContextTurn("English", "we would like the fish"),
+                    ContextTurn("Spanish", "claro, para cuantas personas?"),
+                ),
+            ),
+        )
+
+        val body = bodies.single()
+        assertTrue(body.contains("Here is the conversation history so far:"), body)
+        assertTrue(body.contains("English Speaker: we would like the fish"), body)
+        assertTrue(body.contains("Spanish Speaker: claro, para cuantas personas?"), body)
+        // History precedes the text being translated.
+        assertTrue(body.indexOf("English Speaker") < body.indexOf("Text to translate"), body)
+    }
+
+    @Test
+    fun translateGemini_puts_history_before_the_tone_constraints() = runTest {
+        val bodies = mutableListOf<String>()
+        apiCapturingBody(bodies).translateGemini(
+            "sure", "English", "Spanish",
+            TranslationContext(tone = "Formal", history = listOf(ContextTurn("Spanish", "hola"))),
+        )
+
+        val body = bodies.single()
+        assertTrue(body.indexOf("Spanish Speaker: hola") < body.indexOf("IMPORTANT:"), body)
     }
 
     @Test

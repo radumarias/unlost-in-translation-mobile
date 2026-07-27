@@ -42,6 +42,9 @@ class TranslateViewModel(
 
         /** Shown when launching the platform recognizer fails outright. */
         const val VOICE_INPUT_UNSUPPORTED_MESSAGE = "Voice input is not supported on this device."
+
+        /** How many prior conversation turns are sent as prompt context. */
+        const val CONVERSATION_CONTEXT_TURNS = 10
     }
 
     /**
@@ -130,6 +133,24 @@ class TranslateViewModel(
     /** The current prompt context; [ContextTurn]s are added by conversation mode. */
     private fun translationContext(history: List<ContextTurn> = emptyList()) =
         TranslationContext(tone = _tone.value, situation = _situation.value, history = history)
+
+    /**
+     * The conversation so far, as prompt context. Only the last
+     * [CONVERSATION_CONTEXT_TURNS] are sent: a long exchange would otherwise
+     * grow the prompt without bound, and the turns that disambiguate a pronoun
+     * or a one-word answer are the recent ones.
+     *
+     * The Translate tab deliberately sends nothing. It has no session — its
+     * `history` flow is the persisted log, so yesterday's unrelated rows would
+     * be fed to the model as if they were this conversation.
+     */
+    private fun conversationTurns(): List<ContextTurn> =
+        _conversationHistory.value.takeLast(CONVERSATION_CONTEXT_TURNS).map { item ->
+            ContextTurn(
+                speakerLangName = if (item.speakA) _sourceLanguage.value.name else _targetLanguage.value.name,
+                text = item.text,
+            )
+        }
 
     // Database entries
     val history: StateFlow<List<Translation>> = repository.allTranslations()
@@ -401,7 +422,7 @@ class TranslateViewModel(
                 val targetLangName = if (isLanguageA) _targetLanguage.value.name else _sourceLanguage.value.name
                 val sourceLangCode = if (isLanguageA) _sourceLanguage.value.code else _targetLanguage.value.code
                 val targetLangCode = if (isLanguageA) _targetLanguage.value.code else _sourceLanguage.value.code
-                val context = translationContext()
+                val context = translationContext(conversationTurns())
 
                 val translation = if (_isAiEnhanced.value || context.needsAiModel) {
                     api.translateGemini(text, sourceLangName, targetLangName, context)
