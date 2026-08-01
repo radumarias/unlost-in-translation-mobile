@@ -68,6 +68,7 @@ internal val arabic = Strings(
     culturalContext = "سياق ثقافي",
     tapForDetails = "اضغط لعرض التفاصيل والاقتراحات",
     speakTranslation = "استماع إلى الترجمة",
+    showFullScreen = "عرض بملء الشاشة",
     copyText = "نسخ النص",
     share = "مشاركة",
     errorDescription = "خطأ",

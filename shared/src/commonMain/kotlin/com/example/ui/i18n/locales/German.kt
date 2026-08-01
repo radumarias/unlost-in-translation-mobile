@@ -68,6 +68,7 @@ internal val german = Strings(
     culturalContext = "Kultureller Kontext",
     tapForDetails = "Tippen für Details und Vorschläge",
     speakTranslation = "Übersetzung anhören",
+    showFullScreen = "Im Vollbild anzeigen",
     copyText = "Text kopieren",
     share = "Teilen",
     errorDescription = "Fehler",

@@ -71,6 +71,7 @@ internal val hindi = Strings(
     culturalContext = "सांस्कृतिक संदर्भ",
     tapForDetails = "विवरण और सुझाव देखने के लिए टैप करें",
     speakTranslation = "अनुवाद सुनें",
+    showFullScreen = "पूरी स्क्रीन पर दिखाएँ",
     copyText = "पाठ कॉपी करें",
     share = "साझा करें",
     errorDescription = "त्रुटि",

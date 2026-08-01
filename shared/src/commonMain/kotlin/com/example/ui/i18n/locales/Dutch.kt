@@ -71,6 +71,7 @@ internal val dutch = Strings(
     culturalContext = "Culturele context",
     tapForDetails = "Tik voor details en suggesties",
     speakTranslation = "Vertaling beluisteren",
+    showFullScreen = "Op volledig scherm tonen",
     copyText = "Tekst kopiëren",
     share = "Delen",
     errorDescription = "Fout",

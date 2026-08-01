@@ -32,6 +32,7 @@ import com.example.platform.AppContainer
 import com.example.platform.ImageSource
 import com.example.ui.components.AppTopBar
 import com.example.ui.components.BottomNavBar
+import com.example.ui.components.FullScreenTextOverlay
 import com.example.ui.components.LanguageBar
 import com.example.ui.components.LanguagePickerDialog
 import com.example.ui.components.ValidationDetailsSheet
@@ -144,6 +145,8 @@ private fun AppContent(
         var choosingSourceLanguage by remember { mutableStateOf(false) }
         var choosingTargetLanguage by remember { mutableStateOf(false) }
         var showValidationDetails by remember { mutableStateOf<ValidationState.Success?>(null) }
+        // The flashcard is reachable from three places, so its state is here.
+        var fullScreenText by remember { mutableStateOf<String?>(null) }
 
         // Voice-input status/errors are surfaced as snackbars, driven by the VM's
         // one-shot message stream (replaces the old Toast calls).
@@ -177,6 +180,7 @@ private fun AppContent(
                             showDualHeadset = container.capabilities.dualHeadset,
                             extendedGlyphs = container.capabilities.extendedGlyphs,
                             launchVoiceInput = launchVoiceInput,
+                            onShowFullScreen = { fullScreenText = it },
                         )
                     } else {
                         // --- High Density Google Translate Screen ---
@@ -240,6 +244,7 @@ private fun AppContent(
                                         extendedGlyphs = container.capabilities.extendedGlyphs,
                                         launchVoiceInput = launchVoiceInput,
                                         onShowValidationDetails = { showValidationDetails = it },
+                                        onShowFullScreen = { fullScreenText = it },
                                     )
                                 } else {
                                     // History or Saved view (Lists)
@@ -267,6 +272,7 @@ private fun AppContent(
                                             )
                                         },
                                         onToggleStar = { item -> viewModel.toggleStarred(item) },
+                                        onShowFullScreen = { fullScreenText = it },
                                     )
                                 }
                             }
@@ -347,6 +353,12 @@ private fun AppContent(
                             keyboardController?.hide()
                             viewModel.applyRewrite(text)
                         },
+                    )
+
+                    // --- Overlay Panel: the translation, alone and large ---
+                    FullScreenTextOverlay(
+                        text = fullScreenText,
+                        onDismiss = { fullScreenText = null },
                     )
                 }
             }

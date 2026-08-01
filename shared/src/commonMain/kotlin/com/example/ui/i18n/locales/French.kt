@@ -68,6 +68,7 @@ internal val french = Strings(
     culturalContext = "Contexte Culturel",
     tapForDetails = "Touchez pour voir les détails et les suggestions",
     speakTranslation = "Écouter la traduction",
+    showFullScreen = "Afficher en plein écran",
     copyText = "Copier le texte",
     share = "Partager",
     errorDescription = "Erreur",

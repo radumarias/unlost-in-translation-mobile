@@ -110,6 +110,8 @@ data class Strings(
     val culturalContext: String = "Cultural Context",
     val tapForDetails: String = "Tap to see details and suggestions",
     val speakTranslation: String = "Speak translation",
+    /** Opens the translation full-screen, to show it to the other person. */
+    val showFullScreen: String = "Show full screen",
     val copyText: String = "Copy text",
     val share: String = "Share",
     val errorDescription: String = "Error",

@@ -71,6 +71,7 @@ internal val turkish = Strings(
     culturalContext = "Kültürel bağlam",
     tapForDetails = "Ayrıntılar ve öneriler için dokunun",
     speakTranslation = "Çeviriyi dinle",
+    showFullScreen = "Tam ekran göster",
     copyText = "Metni kopyala",
     share = "Paylaş",
     errorDescription = "Hata",

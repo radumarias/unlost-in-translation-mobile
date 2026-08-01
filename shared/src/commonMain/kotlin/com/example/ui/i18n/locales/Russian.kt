@@ -68,6 +68,7 @@ internal val russian = Strings(
     culturalContext = "Культурный контекст",
     tapForDetails = "Нажмите, чтобы увидеть детали и предложения",
     speakTranslation = "Прослушать перевод",
+    showFullScreen = "Показать на весь экран",
     copyText = "Копировать текст",
     share = "Поделиться",
     errorDescription = "Ошибка",

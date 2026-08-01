@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Card
@@ -74,6 +75,7 @@ fun ConversationScreen(
     showDualHeadset: Boolean,
     extendedGlyphs: Boolean,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
+    onShowFullScreen: (String) -> Unit = {},
 ) {
     val strings = LocalStrings.current
     val conversationHistory by viewModel.conversationHistory.collectAsState()
@@ -159,21 +161,37 @@ fun ConversationScreen(
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Spacer(modifier = Modifier.height(4.dp))
-                            IconButton(
-                                onClick = {
-                                    val l = if (item.speakA) targetLang else sourceLang
-                                    val d = if (viewModel.dualHeadsetState.value.isDualHeadsetModeEnabled) {
-                                        if (item.speakA) viewModel.dualHeadsetState.value.deviceB else viewModel.dualHeadsetState.value.deviceA
-                                    } else null
-                                    speechSynthesizer.speak(item.translated, l.languageTag, d)
-                                },
-                                modifier = Modifier.size(24.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.VolumeUp,
-                                    contentDescription = strings.speakTranslation,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                // Showing the bubble to the other person is the
+                                // whole point of conversation mode, so the
+                                // flashcard belongs on every turn.
+                                IconButton(
+                                    onClick = { onShowFullScreen(item.translated) },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Fullscreen,
+                                        contentDescription = strings.showFullScreen,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                IconButton(
+                                    onClick = {
+                                        val l = if (item.speakA) targetLang else sourceLang
+                                        val d = if (viewModel.dualHeadsetState.value.isDualHeadsetModeEnabled) {
+                                            if (item.speakA) viewModel.dualHeadsetState.value.deviceB else viewModel.dualHeadsetState.value.deviceA
+                                        } else null
+                                        speechSynthesizer.speak(item.translated, l.languageTag, d)
+                                    },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.VolumeUp,
+                                        contentDescription = strings.speakTranslation,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
                         }
                     }
