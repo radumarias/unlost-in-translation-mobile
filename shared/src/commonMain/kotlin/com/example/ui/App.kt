@@ -14,6 +14,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,6 +24,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.model.Language
@@ -33,6 +35,8 @@ import com.example.ui.components.BottomNavBar
 import com.example.ui.components.LanguageBar
 import com.example.ui.components.LanguagePickerDialog
 import com.example.ui.components.ValidationDetailsSheet
+import com.example.ui.i18n.LocalStrings
+import com.example.ui.i18n.stringsFor
 import com.example.ui.screens.ConversationScreen
 import com.example.ui.screens.HistoryScreen
 import com.example.ui.screens.TranslateScreen
@@ -75,15 +79,33 @@ fun rememberTranslateViewModel(container: AppContainer): TranslateViewModel = vi
  * commonMain (design §8/§9); the `pendingVoiceRequestIsA` routing lives in the
  * caller.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun App(
     container: AppContainer,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
     launchImageInput: (source: ImageSource) -> Unit = {},
 ) {
+    // The device language chooses the string catalogue; an untranslated language
+    // — or an untranslated string inside a translated one — falls back to
+    // English inside `stringsFor`. `Locale.current` is Compose's own
+    // multiplatform read, so this needs no platform seam.
+    val languageTag = Locale.current.language
+    val strings = remember(languageTag) { stringsFor(languageTag) }
+    CompositionLocalProvider(LocalStrings provides strings) {
+        AppContent(container, launchVoiceInput, launchImageInput)
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun AppContent(
+    container: AppContainer,
+    launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
+    launchImageInput: (source: ImageSource) -> Unit,
+) {
     MyApplicationTheme {
         val keyboardController = LocalSoftwareKeyboardController.current
+        val strings = LocalStrings.current
 
         val viewModel = rememberTranslateViewModel(container)
 
@@ -230,7 +252,7 @@ fun App(
                                         },
                                         onDeleteItem = { item ->
                                             viewModel.deleteHistoricalItem(item.id)
-                                            viewModel.showMessage("Deleted from history")
+                                            viewModel.showMessage(strings.deletedFromHistory)
                                         },
                                         onSpeak = { item ->
                                             container.speechSynthesizer.speak(
@@ -252,7 +274,7 @@ fun App(
                                 onConversationMode = { viewModel.setConversationMode(true) },
                                 onMic = {
                                     if (speechSourceLang.languageTag.isBlank()) {
-                                        viewModel.showMessage("Pick a language to speak in, or type instead.")
+                                        viewModel.showMessage(strings.pickLanguageToSpeak)
                                     } else {
                                         launchVoiceInput(null, speechSourceLang)
                                     }
@@ -265,7 +287,7 @@ fun App(
                                         viewModel.setSourceText("")
                                     } else {
                                         // Load a pleasant prompt
-                                        viewModel.setSourceText("Hello, how are you?")
+                                        viewModel.setSourceText(strings.sampleText)
                                         viewModel.triggerTranslation()
                                     }
                                 },
@@ -276,7 +298,7 @@ fun App(
                     // --- Dialog Panel: Choose Source Language ---
                     if (choosingSourceLanguage) {
                         LanguagePickerDialog(
-                            title = "Translate from",
+                            title = strings.pickerTitleSource,
                             currentlySelected = sourceLang,
                             includeAuto = true,
                             extendedGlyphs = container.capabilities.extendedGlyphs,
@@ -291,7 +313,7 @@ fun App(
                     // --- Dialog Panel: Choose Target Language ---
                     if (choosingTargetLanguage) {
                         LanguagePickerDialog(
-                            title = "Translate to",
+                            title = strings.pickerTitleTarget,
                             currentlySelected = targetLang,
                             extendedGlyphs = container.capabilities.extendedGlyphs,
                             onDismiss = { choosingTargetLanguage = false },

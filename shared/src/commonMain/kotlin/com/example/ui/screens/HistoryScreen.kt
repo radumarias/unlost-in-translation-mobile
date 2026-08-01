@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import com.example.model.Language
 import com.example.model.flagLabel
 import com.example.model.Translation
+import com.example.ui.i18n.LocalStrings
 
 /**
  * History / Saved list view. Extracted verbatim from MainAppScreen's non-translate
@@ -68,6 +69,7 @@ fun HistoryScreen(
     // "➔" (U+2794) is outside the web canvas's font coverage just like the
     // flags — and so is "→" (U+2192, verified empirically) — hence ASCII there.
     val directionArrow = if (extendedGlyphs) "➔" else "->"
+    val strings = LocalStrings.current
     Column(
         modifier = Modifier.fillMaxSize()
     ) {
@@ -77,7 +79,7 @@ fun HistoryScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = if (tab == "history") "RECENT TRANSLATIONS" else "SAVED TRANSLATIONS",
+                text = if (tab == "history") strings.recentTranslations else strings.savedTranslations,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -88,12 +90,12 @@ fun HistoryScreen(
                 TextButton(onClick = onClearAll) {
                     Icon(
                         Icons.Default.DeleteSweep,
-                        contentDescription = "Clear all",
+                        contentDescription = strings.clearAllDescription,
                         modifier = Modifier.size(16.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Clear All", fontSize = 11.sp)
+                    Text(strings.clearAll, fontSize = 11.sp)
                 }
             }
         }
@@ -111,13 +113,13 @@ fun HistoryScreen(
             ) {
                 Icon(
                     imageVector = if (tab == "history") Icons.Default.History else Icons.Default.Star,
-                    contentDescription = "Empty",
+                    contentDescription = strings.emptyDescription,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
                     modifier = Modifier.size(64.dp)
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = if (tab == "history") "No translation history yet." else "No favorite items saved.",
+                    text = if (tab == "history") strings.noHistory else strings.noFavorites,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                     fontSize = 14.sp,
                     textAlign = TextAlign.Center
@@ -181,7 +183,7 @@ fun HistoryScreen(
                                     ) {
                                         Icon(
                                             Icons.Default.VolumeUp,
-                                            contentDescription = "Speak translation",
+                                            contentDescription = strings.speakTranslation,
                                             tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -193,7 +195,7 @@ fun HistoryScreen(
                                     ) {
                                         Icon(
                                             imageVector = if (item.isStarred) Icons.Default.Star else Icons.Default.StarBorder,
-                                            contentDescription = "Toggle favorite",
+                                            contentDescription = strings.toggleFavorite,
                                             tint = if (item.isStarred) Color(0xFFFFD700) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
                                             modifier = Modifier.size(18.dp)
                                         )

@@ -51,6 +51,8 @@ import com.example.platform.AudioOutputCatalog
 import com.example.platform.SpeechSynthesizer
 import com.example.ui.components.ConversationDraftDialog
 import com.example.ui.components.ToneSituationBar
+import com.example.ui.i18n.LocalStrings
+import com.example.ui.i18n.withArg
 import com.example.ui.viewmodel.TranslateViewModel
 
 /**
@@ -73,6 +75,7 @@ fun ConversationScreen(
     extendedGlyphs: Boolean,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
 ) {
+    val strings = LocalStrings.current
     val conversationHistory by viewModel.conversationHistory.collectAsState()
     val tone by viewModel.tone.collectAsState()
     val situation by viewModel.situation.collectAsState()
@@ -88,11 +91,11 @@ fun ConversationScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = { viewModel.setConversationMode(false) }) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                Icon(Icons.Default.ArrowBack, contentDescription = strings.back)
             }
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Conversation Mode",
+                text = strings.conversationMode,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
@@ -168,7 +171,7 @@ fun ConversationScreen(
                             ) {
                                 Icon(
                                     Icons.Default.VolumeUp,
-                                    contentDescription = "Speak translation",
+                                    contentDescription = strings.speakTranslation,
                                     modifier = Modifier.size(16.dp)
                                 )
                             }
@@ -226,8 +229,8 @@ fun ConversationScreen(
                 viewModel.confirmConversationDraft { translated, isA ->
                     val dualState = viewModel.dualHeadsetState.value
                     if (dualState.isDualHeadsetModeEnabled) {
-                        val userStr = if (isA) "User 2" else "User 1"
-                        viewModel.showMessage("Playing translation to $userStr's headset...")
+                        val userStr = if (isA) strings.user2 else strings.user1
+                        viewModel.showMessage(strings.playingTranslationToHeadset.withArg(userStr))
                     }
                     val targetLanguageTag = if (isA) targetLang.languageTag else sourceLang.languageTag
                     val targetDevice = if (dualState.isDualHeadsetModeEnabled) {
@@ -261,6 +264,7 @@ private fun RowScope.SpeakerInput(
     onVoiceClick: () -> Unit,
     onSubmit: (String) -> Unit,
 ) {
+    val strings = LocalStrings.current
     val party = if (isLanguageA) "a" else "b"
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -278,7 +282,7 @@ private fun RowScope.SpeakerInput(
                 containerColor = if (isLanguageA) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary,
                 modifier = Modifier.testTag("mic_party_$party")
             ) {
-                Icon(Icons.Default.Mic, contentDescription = if (isLanguageA) "Mic A" else "Mic B")
+                Icon(Icons.Default.Mic, contentDescription = if (isLanguageA) strings.micA else strings.micB)
             }
         } else {
             ConversationTypedInput(
@@ -301,6 +305,7 @@ private fun ConversationTypedInput(
     testTag: String,
     onSubmit: (String) -> Unit,
 ) {
+    val strings = LocalStrings.current
     var text by remember { mutableStateOf("") }
     val submit = {
         if (text.isNotBlank()) {
@@ -311,7 +316,7 @@ private fun ConversationTypedInput(
     OutlinedTextField(
         value = text,
         onValueChange = { text = it },
-        placeholder = { Text("Type in $languageName…", fontSize = 14.sp) },
+        placeholder = { Text(strings.typeInLanguage.withArg(languageName), fontSize = 14.sp) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
         keyboardActions = KeyboardActions(onSend = { submit() }),
@@ -320,7 +325,7 @@ private fun ConversationTypedInput(
                 onClick = submit,
                 enabled = text.isNotBlank()
             ) {
-                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send $languageName message")
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = strings.sendLanguageMessage.withArg(languageName))
             }
         },
         modifier = Modifier

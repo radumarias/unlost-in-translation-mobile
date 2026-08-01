@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.model.Language
 import com.example.model.flagLabel
+import com.example.ui.i18n.LocalStrings
 
 @Composable
 fun LanguagePickerDialog(
@@ -53,6 +54,7 @@ fun LanguagePickerDialog(
     /** Only the source picker offers it — a target must be a real language. */
     includeAuto: Boolean = false,
 ) {
+    val strings = LocalStrings.current
     var searchQuery by remember { mutableStateOf("") }
     val filteredLanguages = remember(searchQuery, includeAuto) {
         val all = Language.pickerLanguages(includeAuto)
@@ -90,7 +92,7 @@ fun LanguagePickerDialog(
                         fontWeight = FontWeight.Bold
                     )
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close Picker", modifier = Modifier.size(20.dp))
+                        Icon(Icons.Default.Close, contentDescription = strings.closePicker, modifier = Modifier.size(20.dp))
                     }
                 }
 
@@ -99,8 +101,8 @@ fun LanguagePickerDialog(
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = { Text("Search language...") },
-                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = "Search", modifier = Modifier.size(18.dp)) },
+                    placeholder = { Text(strings.searchLanguagePlaceholder) },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = strings.search, modifier = Modifier.size(18.dp)) },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     singleLine = true
@@ -139,7 +141,7 @@ fun LanguagePickerDialog(
                             if (currentlySelected.code == lang.code) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
-                                    contentDescription = "Selected",
+                                    contentDescription = strings.selected,
                                     tint = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(18.dp)
                                 )

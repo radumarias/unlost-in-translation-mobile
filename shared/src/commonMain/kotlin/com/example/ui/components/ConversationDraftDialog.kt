@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.example.ui.i18n.LocalStrings
+import com.example.ui.i18n.withArg
 import com.example.ui.viewmodel.ConversationDraft
 import com.example.ui.viewmodel.ValidationState
 
@@ -62,6 +64,7 @@ fun ConversationDraftDialog(
     sourceLangName: String,
     targetLangName: String
 ) {
+    val strings = LocalStrings.current
     var showDetailsState by remember { mutableStateOf<Boolean>(false) }
 
     Dialog(onDismissRequest = onCancel) {
@@ -77,7 +80,7 @@ fun ConversationDraftDialog(
                     .padding(24.dp)
             ) {
                 Text(
-                    text = "Confirm Translation",
+                    text = strings.confirmTranslation,
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
                     color = MaterialTheme.colorScheme.onSurface
@@ -85,7 +88,7 @@ fun ConversationDraftDialog(
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Source text
-                Text("You said ($sourceLangName):", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(strings.youSaidIn.withArg(sourceLangName), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(text = draft.sourceText, fontSize = 16.sp, color = MaterialTheme.colorScheme.onSurface)
 
@@ -95,7 +98,7 @@ fun ConversationDraftDialog(
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.CenterHorizontally))
                 } else {
                     // Translated text
-                    Text("Translation ($targetLangName):", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(strings.translationIn.withArg(targetLangName), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(text = draft.translatedText, fontSize = 16.sp, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
 
@@ -103,7 +106,7 @@ fun ConversationDraftDialog(
 
                     val roundTrip = draft.roundTripText
                     if (roundTrip != null && roundTrip != draft.sourceText) {
-                        Text("Translates back as:", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(strings.roundTripTitle, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(text = roundTrip, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurface, fontStyle = FontStyle.Italic)
                         Spacer(modifier = Modifier.height(12.dp))
@@ -115,11 +118,11 @@ fun ConversationDraftDialog(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Validating cultural meaning...", fontSize = 12.sp)
+                                Text(strings.validatingCulturalMeaning, fontSize = 12.sp)
                             }
                         }
                         is ValidationState.Success -> {
-                                val displayExplanation = vs.explanation.takeIf { it.isNotBlank() } ?: "The translation is accurate. No significant cultural nuances or warnings detected."
+                                val displayExplanation = vs.explanation.takeIf { it.isNotBlank() } ?: strings.noCulturalIssues
                                 val successContainerColor = if (isSystemInDarkTheme()) Color(0xFF1B5E20).copy(alpha=0.5f) else Color(0xFFE8F5E9)
                                 val onSuccessContainerColor = if (isSystemInDarkTheme()) Color(0xFFA5D6A7) else Color(0xFF1B5E20)
                                 val containerColor = if (vs.isWarning) MaterialTheme.colorScheme.errorContainer else successContainerColor
@@ -134,13 +137,13 @@ fun ConversationDraftDialog(
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Icon(
                                                 imageVector = if (vs.isWarning) Icons.Default.Warning else Icons.Default.CheckCircle,
-                                                contentDescription = "Validation Info",
+                                                contentDescription = strings.validationInfo,
                                                 tint = contentColor,
                                                 modifier = Modifier.size(16.dp)
                                             )
                                             Spacer(modifier = Modifier.width(6.dp))
                                             Text(
-                                                text = if (vs.isWarning) "Cultural Warning" else "Cultural Context",
+                                                text = if (vs.isWarning) strings.culturalWarning else strings.culturalContext,
                                                 fontWeight = FontWeight.Bold,
                                                 color = contentColor,
                                                 fontSize = 14.sp
@@ -156,7 +159,7 @@ fun ConversationDraftDialog(
                                         )
                                         Spacer(modifier = Modifier.height(8.dp))
                                         Text(
-                                            text = "Tap to see details and suggestions",
+                                            text = strings.tapForDetails,
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.SemiBold,
                                             color = contentColor.copy(alpha = 0.8f)
@@ -178,14 +181,14 @@ fun ConversationDraftDialog(
                     horizontalArrangement = Arrangement.End
                 ) {
                     TextButton(onClick = onCancel) {
-                        Text("Cancel")
+                        Text(strings.cancel)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Button(
                         onClick = onConfirm,
                         enabled = !draft.isTranslating
                     ) {
-                        Text("Send")
+                        Text(strings.send)
                     }
                 }
             }
@@ -206,10 +209,10 @@ fun ConversationDraftDialog(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     TopAppBar(
-                        title = { Text("Cultural Details") },
+                        title = { Text(strings.culturalDetails) },
                         navigationIcon = {
                             IconButton(onClick = { showDetailsState = false }) {
-                                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                                Icon(Icons.Default.ArrowBack, contentDescription = strings.back)
                             }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(
@@ -245,7 +248,7 @@ fun ConversationDraftDialog(
                                 }
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Text(
-                                    text = if (vs.isWarning) "Important Tone Warning" else "Cultural Context",
+                                    text = if (vs.isWarning) strings.importantToneWarning else strings.culturalContext,
                                     fontSize = 22.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onSurface
@@ -254,7 +257,7 @@ fun ConversationDraftDialog(
 
                             Spacer(modifier = Modifier.height(24.dp))
 
-                            val displayExplanation = vs.explanation.takeIf { it.isNotBlank() } ?: "The translation is accurate. No significant cultural nuances or warnings detected."
+                            val displayExplanation = vs.explanation.takeIf { it.isNotBlank() } ?: strings.noCulturalIssues
                             if (displayExplanation.isNotBlank()) {
                                 Text(
                                     text = displayExplanation,
@@ -269,15 +272,15 @@ fun ConversationDraftDialog(
                             // party will actually read this, and any idiom in
                             // the original. Both cost no extra request.
                             if (vs.sanityCheck.isNotBlank()) {
-                                DraftDetailSection("How they will read it", vs.sanityCheck)
+                                DraftDetailSection(strings.howTheyWillReadIt, vs.sanityCheck)
                             }
-                            vs.idiomExplanation?.let { DraftDetailSection("Idiom or local expression", it) }
+                            vs.idiomExplanation?.let { DraftDetailSection(strings.idiomOrLocalExpression, it) }
                         }
 
                         if (vs.suggestions.isNotEmpty()) {
                             item {
                                 Text(
-                                    text = "Suggested alternatives:",
+                                    text = strings.suggestedAlternatives,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
