@@ -72,6 +72,7 @@ internal val dutch = Strings(
     tapForDetails = "Tik voor details en suggesties",
     speakTranslation = "Vertaling beluisteren",
     showFullScreen = "Op volledig scherm tonen",
+    handOverForReply = "Nu zijn zij aan de beurt",
     copyText = "Tekst kopiëren",
     share = "Delen",
     errorDescription = "Fout",

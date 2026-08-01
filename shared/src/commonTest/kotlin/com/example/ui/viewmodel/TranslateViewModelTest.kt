@@ -783,6 +783,74 @@ class TranslateViewModelTest {
         assertEquals(false, draft?.isLanguageA)
     }
 
+    // --- Hand-over for the reply ---
+
+    @Test
+    fun handOver_swapsTheLanguagesAndClearsTheWorkspace() = runTest {
+        val vm = viewModel()
+        vm.setSourceText("hello")
+        vm.triggerTranslation()
+        assertIs<TranslationState.Success>(vm.translationState.value)
+
+        vm.handOverForReply()
+
+        assertEquals("es", vm.sourceLanguage.value.code)
+        assertEquals("en", vm.targetLanguage.value.code)
+        assertEquals("", vm.sourceText.value)
+        assertEquals(TranslationState.Idle, vm.translationState.value)
+        assertEquals(ValidationState.Idle, vm.validationState.value)
+        assertEquals(RewriteState.Idle, vm.rewriteState.value)
+    }
+
+    @Test
+    fun handOver_costsNoCall_unlikeSwapping() = runTest {
+        val vm = viewModel()
+        vm.setSourceText("hello")
+        vm.triggerTranslation()
+        val callsAfterTranslating = api.googleCalls.size
+
+        vm.handOverForReply()
+
+        // swapLanguages carries the translation back into the input and
+        // re-translates; handing over starts a blank turn instead.
+        assertEquals(callsAfterTranslating, api.googleCalls.size)
+    }
+
+    @Test
+    fun handOver_resolvesAutoDetectToWhatWasFound() = runTest {
+        val vm = viewModel()
+        api.onDetect = { _, _ -> DetectedTranslation("T(bonjour)", "fr") }
+        vm.setSourceLanguage(Language.autoDetect)
+        vm.setSourceText("bonjour")
+        vm.triggerTranslation()
+        assertEquals("fr", vm.detectedSourceLanguage.value?.code)
+
+        vm.handOverForReply()
+
+        // The detected French becomes the target for the reply; Auto-detect
+        // itself must never end up there — it has no BCP-47 tag.
+        assertEquals("es", vm.sourceLanguage.value.code)
+        assertEquals("fr", vm.targetLanguage.value.code)
+        assertNull(vm.detectedSourceLanguage.value)
+    }
+
+    @Test
+    fun handOver_refusesWhileAutoDetectHasFoundNothing() = runTest {
+        val vm = viewModel()
+        vm.setSourceLanguage(Language.autoDetect)
+        val seen = mutableListOf<String>()
+        val collector = launch(UnconfinedTestDispatcher(testScheduler)) {
+            vm.messages.collect { seen += it }
+        }
+
+        vm.handOverForReply()
+
+        assertEquals(Language.AUTO_CODE, vm.sourceLanguage.value.code)
+        assertEquals("es", vm.targetLanguage.value.code)
+        assertEquals(listOf(Strings().translateFirstToDetect), seen)
+        collector.cancel()
+    }
+
     // --- Localised messages ---
 
     @Test

@@ -72,6 +72,7 @@ internal val hindi = Strings(
     tapForDetails = "विवरण और सुझाव देखने के लिए टैप करें",
     speakTranslation = "अनुवाद सुनें",
     showFullScreen = "पूरी स्क्रीन पर दिखाएँ",
+    handOverForReply = "अब उनकी बारी है",
     copyText = "पाठ कॉपी करें",
     share = "साझा करें",
     errorDescription = "त्रुटि",

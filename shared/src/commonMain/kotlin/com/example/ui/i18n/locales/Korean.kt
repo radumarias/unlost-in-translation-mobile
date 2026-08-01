@@ -69,6 +69,7 @@ internal val korean = Strings(
     tapForDetails = "탭하여 상세 내용과 제안 보기",
     speakTranslation = "번역 듣기",
     showFullScreen = "전체 화면으로 보기",
+    handOverForReply = "상대가 답할 차례",
     copyText = "텍스트 복사",
     share = "공유",
     errorDescription = "오류",

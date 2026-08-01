@@ -285,6 +285,46 @@ class TranslateViewModel(
         }
     }
 
+    /**
+     * Hand the phone over. Swaps the two languages and clears the workspace, so
+     * the other person can answer in theirs.
+     *
+     * This is the useful half of the web build's approve step, which commits the
+     * draft and then swaps for the reply. The other half — holding the
+     * translation back until it is approved — is deliberately not ported: the
+     * translate tab is a lookup surface where the answer should appear at once,
+     * and conversation mode already has a draft flow for the case where a turn
+     * really is being sent to someone.
+     *
+     * Distinct from [swapLanguages], which carries the translation into the
+     * input and re-translates it — that answers "what does this come back as",
+     * and costs two Gemini calls. This one starts a blank turn and costs none.
+     */
+    fun handOverForReply() {
+        // Same rule as swapLanguages: Auto-detect cannot become the target, so
+        // it resolves to what was found, and refuses while nothing has been.
+        if (_sourceLanguage.value.code == Language.AUTO_CODE) {
+            val detected = _detectedSourceLanguage.value
+            if (detected == null) {
+                showMessage(strings.translateFirstToDetect)
+                return
+            }
+            _sourceLanguage.value = detected
+        }
+        // The new source is a language the user chose, so any earlier detection
+        // no longer describes it.
+        _detectedSourceLanguage.value = null
+
+        val previousSource = _sourceLanguage.value
+        _sourceLanguage.value = _targetLanguage.value
+        _targetLanguage.value = previousSource
+
+        _sourceText.value = ""
+        _translationState.value = TranslationState.Idle
+        _validationState.value = ValidationState.Idle
+        _rewriteState.value = RewriteState.Idle
+    }
+
     fun setAiEnhanced(enabled: Boolean) {
         _isAiEnhanced.value = enabled
         if (_sourceText.value.isNotBlank()) {
