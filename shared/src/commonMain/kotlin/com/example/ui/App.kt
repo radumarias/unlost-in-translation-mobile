@@ -51,13 +51,19 @@ import com.example.ui.viewmodel.ValidationState
  * the VM type under the shared [LocalViewModelStoreOwner] — one instance.
  */
 @Composable
-fun rememberTranslateViewModel(container: AppContainer): TranslateViewModel = viewModel {
-    TranslateViewModel(
-        api = container.api,
-        repository = container.historyRepository,
-        broadcaster = container.broadcaster,
-        log = container.log,
-    )
+fun rememberTranslateViewModel(container: AppContainer): TranslateViewModel {
+    // Read outside `viewModel {}`: the factory body is not composable, and the
+    // VM needs the catalogue for the messages it authors itself.
+    val strings = stringsFor(Locale.current.language)
+    return viewModel {
+        TranslateViewModel(
+            api = container.api,
+            repository = container.historyRepository,
+            broadcaster = container.broadcaster,
+            log = container.log,
+            strings = strings,
+        )
+    }
 }
 
 /**

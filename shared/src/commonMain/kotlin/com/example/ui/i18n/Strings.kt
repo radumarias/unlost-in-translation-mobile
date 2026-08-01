@@ -172,6 +172,15 @@ data class Strings(
     val user2: String = "User 2",
     /** `{0}` is [user1] or [user2]. */
     val playingTranslationToHeadset: String = "Playing translation to {0}'s headset...",
+    /** `{0}` is [user1] or [user2]. */
+    val listeningOnHeadset: String = "Listening on {0}'s headset...",
+
+    // --- Voice input ---
+    /** `{0}` is the language being listened for. Android shows it in the
+     *  RecognizerIntent dialog, the web as a snackbar. */
+    val voiceInputPrompt: String = "Speak now ({0})...",
+    val voiceInputUnsupported: String = "Voice input is not supported on this device.",
+    val voiceInputFailed: String = "Voice input failed.",
 
     // --- View-model messages ---
     val aiEnhancedTurnedOn: String = "AI Enhanced turned on — tone and situation need it.",
@@ -179,6 +188,8 @@ data class Strings(
     val pickLanguageBeforeConversation: String =
         "Pick a language for your side before starting a conversation.",
     val translationFailed: String = "Failed to perform translation",
+    /** `{0}` is the underlying error. Quota errors bypass this and speak for themselves. */
+    val validationFailed: String = "Validation failed: {0}",
     val imageReadFailed: String = "Failed to read the image",
     val rewriteFailed: String = "Failed to rewrite the message",
     val conversationTranslationFailed: String = "Failed at translation stage",

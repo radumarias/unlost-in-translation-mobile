@@ -7,6 +7,7 @@ import com.example.model.Tone
 import com.example.network.DetectedTranslation
 import com.example.network.ImageTranslationResult
 import com.example.network.ValidationResult
+import com.example.ui.i18n.Strings
 import com.example.ui.viewmodel.fakes.FakeHistoryRepository
 import com.example.ui.viewmodel.fakes.FakeTranslationApi
 import com.example.ui.viewmodel.fakes.RecordingBroadcaster
@@ -14,6 +15,7 @@ import com.example.ui.viewmodel.fakes.RecordingLog
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -779,5 +781,59 @@ class TranslateViewModelTest {
         val draft = vm.conversationDraft.value
         assertEquals("hola", draft?.sourceText)
         assertEquals(false, draft?.isLanguageA)
+    }
+
+    // --- Localised messages ---
+
+    @Test
+    fun snackbarMessages_comeFromTheInjectedCatalogue() = runTest {
+        val vm = TranslateViewModel(
+            api, repository, broadcaster, log,
+            strings = Strings(aiEnhancedTurnedOn = "Ton activat"),
+        )
+        val seen = mutableListOf<String>()
+        // Unconfined so the collector is subscribed before the emit — `messages`
+        // is a tryEmit SharedFlow with no replay, so a late collector sees nothing.
+        val collector = launch(UnconfinedTestDispatcher(testScheduler)) {
+            vm.messages.collect { seen += it }
+        }
+
+        vm.setTone("Formal")
+
+        assertEquals(listOf("Ton activat"), seen)
+        collector.cancel()
+    }
+
+    @Test
+    fun errorFallbacks_comeFromTheCatalogue_whenTheExceptionHasNoMessage() = runTest {
+        val vm = TranslateViewModel(
+            api, repository, broadcaster, log,
+            strings = Strings(translationFailed = "Traducere eșuată"),
+        )
+        // An exception with a null message is what the fallback exists for.
+        api.onGoogle = { _, _, _ -> throw RuntimeException() }
+        vm.setSourceText("hello")
+
+        vm.triggerTranslation()
+
+        assertEquals("Traducere eșuată", assertIs<TranslationState.Error>(vm.translationState.value).message)
+    }
+
+    @Test
+    fun theVoicePrompt_isBuiltFromTheCatalogue_andNamesTheLanguage() {
+        val vm = TranslateViewModel(
+            api, repository, broadcaster, log,
+            strings = Strings(voiceInputPrompt = "Vorbiți acum ({0})"),
+        )
+
+        assertEquals("Vorbiți acum (French)", vm.voiceInputPrompt(Language.getByCode("fr")))
+    }
+
+    @Test
+    fun theDefaultCatalogueKeepsTheEnglishWording() {
+        val vm = viewModel()
+
+        assertEquals("Speak now (Spanish)...", vm.voiceInputPrompt(Language.getByCode("es")))
+        assertEquals("Voice input is not supported on this device.", vm.strings.voiceInputUnsupported)
     }
 }
