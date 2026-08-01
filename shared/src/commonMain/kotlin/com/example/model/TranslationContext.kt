@@ -32,24 +32,27 @@ data class ContextTurn(val speakerLangName: String, val text: String)
 
 /**
  * A selectable preset. [id] is what goes into the prompt (and must stay the
- * web's verbatim id — it is product behavior); [label] is what the UI shows and
- * [icon] is an emoji shown only where the platform has an emoji font
- * (`PlatformCapabilities.extendedGlyphs`; the wasm canvas has none).
+ * web's verbatim id — it is product behavior); [icon] is an emoji shown only
+ * where the platform has an emoji font (`PlatformCapabilities.extendedGlyphs`;
+ * the wasm canvas has none).
+ *
+ * The visible label is not here: it is translated, so it lives in the string
+ * catalogue and is looked up by [id] (`Strings.preset`).
  */
-data class Preset(val id: String, val icon: String, val label: String)
+data class Preset(val id: String, val icon: String)
 
 /** The seven conversation tones, ids and icons verbatim from the web build. */
 object Tone {
     const val AUTO = "Auto"
 
     val presets = listOf(
-        Preset(AUTO, "✨", "Auto Tone"),
-        Preset("Casual", "😊", "Casual"),
-        Preset("Formal", "👔", "Formal"),
-        Preset("Business", "💼", "Business"),
-        Preset("Playful", "🥳", "Playful"),
-        Preset("Empathetic", "❤️", "Empathetic"),
-        Preset("Direct", "🎯", "Direct"),
+        Preset(AUTO, "✨"),
+        Preset("Casual", "😊"),
+        Preset("Formal", "👔"),
+        Preset("Business", "💼"),
+        Preset("Playful", "🥳"),
+        Preset("Empathetic", "❤️"),
+        Preset("Direct", "🎯"),
     )
 }
 
@@ -62,11 +65,11 @@ object Situation {
     const val GENERAL = "General"
 
     val presets = listOf(
-        Preset(GENERAL, "🌍", "General"),
-        Preset("Medical", "🏥", "Medical"),
-        Preset("Dating", "❤️", "Dating"),
-        Preset("Service", "🍽️", "Service"),
-        Preset("Emergency", "🚨", "Emergency"),
+        Preset(GENERAL, "🌍"),
+        Preset("Medical", "🏥"),
+        Preset("Dating", "❤️"),
+        Preset("Service", "🍽️"),
+        Preset("Emergency", "🚨"),
     )
 }
 

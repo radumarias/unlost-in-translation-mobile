@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.i18n.LocalStrings
 import com.example.ui.viewmodel.RewriteState
 import com.example.ui.viewmodel.ValidationState
 
@@ -71,6 +72,7 @@ fun ValidationDetailsSheet(
     onRequestRewrite: (direction: String?) -> Unit,
     onApplyRewrite: (String) -> Unit,
 ) {
+    val strings = LocalStrings.current
     var lastShown by remember { mutableStateOf<ValidationState.Success?>(null) }
     LaunchedEffect(current) {
         if (current != null) {
@@ -113,20 +115,20 @@ fun ValidationDetailsSheet(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 if (vs.isWarning) Icons.Default.Warning else Icons.Default.CheckCircle,
-                                contentDescription = "Details",
+                                contentDescription = strings.detailsDescription,
                                 tint = if (vs.isWarning) MaterialTheme.colorScheme.error else successIconColor,
                                 modifier = Modifier.size(28.dp)
                             )
                             Spacer(modifier = Modifier.width(12.dp))
                             Text(
-                                text = if (vs.isWarning) "Cultural Warning" else "Cultural Context",
+                                text = if (vs.isWarning) strings.culturalWarning else strings.culturalContext,
                                 fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                         IconButton(onClick = { onDismiss() }) {
-                            Icon(Icons.Default.Close, contentDescription = "Close", modifier = Modifier.size(28.dp))
+                            Icon(Icons.Default.Close, contentDescription = strings.close, modifier = Modifier.size(28.dp))
                         }
                     }
 
@@ -137,7 +139,7 @@ fun ValidationDetailsSheet(
                     ) {
                         item {
                             Text(
-                                text = "Explanation",
+                                text = strings.explanation,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.SemiBold,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -159,7 +161,7 @@ fun ValidationDetailsSheet(
                             item {
                                 DetailSection(
                                     icon = Icons.Default.Visibility,
-                                    title = "How they will read it",
+                                    title = strings.howTheyWillReadIt,
                                     body = vs.sanityCheck,
                                 )
                             }
@@ -169,7 +171,7 @@ fun ValidationDetailsSheet(
                             item {
                                 DetailSection(
                                     icon = Icons.Default.Translate,
-                                    title = "Idiom or local expression",
+                                    title = strings.idiomOrLocalExpression,
                                     body = idiom,
                                 )
                             }
@@ -191,7 +193,7 @@ fun ValidationDetailsSheet(
                         if (vs.suggestions.isNotEmpty()) {
                             item {
                                 Text(
-                                    text = "Suggested alternatives:",
+                                    text = strings.suggestedAlternatives,
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -213,7 +215,7 @@ fun ValidationDetailsSheet(
                                     ) {
                                         Icon(
                                             Icons.Default.AutoFixHigh,
-                                            contentDescription = "Suggestion",
+                                            contentDescription = strings.suggestionDescription,
                                             tint = MaterialTheme.colorScheme.primary,
                                             modifier = Modifier.size(24.dp)
                                         )
@@ -262,6 +264,7 @@ private fun RewritePanel(
     onRequestRewrite: (direction: String?) -> Unit,
     onApplyRewrite: (String) -> Unit,
 ) {
+    val strings = LocalStrings.current
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(
             Icons.Default.AutoFixHigh,
@@ -271,7 +274,7 @@ private fun RewritePanel(
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = "Rewrite what you said",
+            text = strings.rewriteTitle,
             fontSize = 18.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -282,14 +285,14 @@ private fun RewritePanel(
     val success = state as? RewriteState.Success
     if (success == null && state != RewriteState.Loading) {
         Text(
-            text = "Ask for a version of your message that keeps the intent but avoids the problem above.",
+            text = strings.rewriteBlurb,
             fontSize = 14.sp,
             lineHeight = 20.sp,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(12.dp))
         Button(onClick = { onRequestRewrite(null) }) {
-            Text("Suggest a rewrite")
+            Text(strings.rewriteAction)
         }
     }
 
@@ -304,7 +307,7 @@ private fun RewritePanel(
         Row(verticalAlignment = Alignment.CenterVertically) {
             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Rewriting...", fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(strings.rewriting, fontSize = 14.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 
@@ -332,13 +335,13 @@ private fun RewritePanel(
         )
         Spacer(modifier = Modifier.height(12.dp))
         Button(onClick = { onApplyRewrite(success.rewrittenSource) }) {
-            Text("Use this version")
+            Text(strings.useThisVersion)
         }
 
         if (success.alternativeDirections.isNotEmpty()) {
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Or try another angle:",
+                text = strings.otherWaysToRewrite,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

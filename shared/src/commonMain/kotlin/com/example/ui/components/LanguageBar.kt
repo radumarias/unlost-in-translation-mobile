@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model.Language
 import com.example.model.flagLabel
+import com.example.ui.i18n.LocalStrings
+import com.example.ui.i18n.withArg
 
 /**
  * Header language selector: source pill, swap button, target pill.
@@ -50,8 +52,9 @@ fun LanguageBar(
     // The selection stays "Auto-detect"; the pill reports what it resolved to
     // so the user can see the app understood them. ASCII separator: the wasm
     // canvas has no glyph for the middle dot.
+    val strings = LocalStrings.current
     val resolvedSource = detectedSourceLanguage.takeIf { sourceLang.code == Language.AUTO_CODE }
-    val sourceLabel = resolvedSource?.let { "Auto - ${it.name}" } ?: sourceLang.name
+    val sourceLabel = resolvedSource?.let { strings.autoDetectedLabel.withArg(it.name) } ?: sourceLang.name
     // Dual horizontal language selector pills with swap icon
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -86,7 +89,7 @@ fun LanguageBar(
                 )
                 Icon(
                     Icons.Default.ArrowDropDown,
-                    contentDescription = "Select language",
+                    contentDescription = strings.selectSourceLanguage,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
                 )
@@ -104,7 +107,7 @@ fun LanguageBar(
         ) {
             Icon(
                 Icons.Default.SwapHoriz,
-                contentDescription = "Swap Languages",
+                contentDescription = strings.swapLanguages,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(20.dp)
             )
@@ -135,7 +138,7 @@ fun LanguageBar(
                 )
                 Icon(
                     Icons.Default.ArrowDropDown,
-                    contentDescription = "Select target language",
+                    contentDescription = strings.selectTargetLanguage,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
                 )

@@ -35,6 +35,9 @@ import com.example.model.Preset
 import com.example.model.Situation
 import com.example.model.Tone
 import com.example.model.byId
+import com.example.ui.i18n.LocalStrings
+import com.example.ui.i18n.Strings
+import com.example.ui.i18n.withArg
 
 /**
  * The tone and situation selectors ported from the web build. Two dropdown
@@ -53,6 +56,7 @@ fun ToneSituationBar(
     onSelectSituation: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val strings = LocalStrings.current
     Row(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -62,7 +66,7 @@ fun ToneSituationBar(
             presets = Tone.presets,
             selectedId = tone,
             defaultId = Tone.AUTO,
-            label = "Tone",
+            label = strings.toneLabel,
             testTag = "tone_chip",
             extendedGlyphs = extendedGlyphs,
             onSelect = onSelectTone,
@@ -71,7 +75,7 @@ fun ToneSituationBar(
             presets = Situation.presets,
             selectedId = situation,
             defaultId = Situation.GENERAL,
-            label = "Situation",
+            label = strings.situationLabel,
             testTag = "situation_chip",
             extendedGlyphs = extendedGlyphs,
             onSelect = onSelectSituation,
@@ -90,6 +94,7 @@ private fun RowScope.PresetChip(
     onSelect: (String) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val strings = LocalStrings.current
     val selected = presets.byId(selectedId)
     val isActive = selectedId != defaultId
 
@@ -114,7 +119,7 @@ private fun RowScope.PresetChip(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = presetLabel(selected, extendedGlyphs),
+                    text = presetLabel(selected, extendedGlyphs, strings),
                     fontSize = 12.sp,
                     fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
                     color = if (isActive) {
@@ -128,7 +133,7 @@ private fun RowScope.PresetChip(
                 )
                 Icon(
                     Icons.Default.ArrowDropDown,
-                    contentDescription = "Select $label",
+                    contentDescription = strings.selectPreset.withArg(label),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp),
                 )
@@ -140,7 +145,7 @@ private fun RowScope.PresetChip(
                 DropdownMenuItem(
                     text = {
                         Text(
-                            text = presetLabel(preset, extendedGlyphs),
+                            text = presetLabel(preset, extendedGlyphs, strings),
                             fontWeight = if (preset.id == selectedId) FontWeight.Bold else FontWeight.Normal,
                         )
                     },
@@ -154,5 +159,7 @@ private fun RowScope.PresetChip(
     }
 }
 
-private fun presetLabel(preset: Preset, extendedGlyphs: Boolean): String =
-    if (extendedGlyphs) "${preset.icon} ${preset.label}" else preset.label
+private fun presetLabel(preset: Preset, extendedGlyphs: Boolean, strings: Strings): String {
+    val label = strings.preset(preset.id)
+    return if (extendedGlyphs) "${preset.icon} $label" else label
+}

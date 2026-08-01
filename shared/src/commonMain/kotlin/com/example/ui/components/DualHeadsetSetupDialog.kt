@@ -20,6 +20,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.example.platform.AudioOutputCatalog
 import com.example.platform.AudioOutputDevice
+import com.example.ui.i18n.LocalStrings
+import com.example.ui.i18n.withArg
+import com.example.ui.i18n.withArgs
 import com.example.ui.viewmodel.DualHeadsetModel
 import com.example.ui.viewmodel.TranslateViewModel
 
@@ -36,12 +39,13 @@ fun DualHeadsetEntry(
     show: Boolean,
 ) {
     if (!show) return
+    val strings = LocalStrings.current
     val dualHeadsetState by viewModel.dualHeadsetState.collectAsState()
     var showSetup by remember { mutableStateOf(false) }
     IconButton(onClick = { showSetup = true }) {
         Icon(
             Icons.Default.Headphones,
-            contentDescription = "Dual Headset Setup",
+            contentDescription = strings.dualHeadsetSetup,
             tint = if (dualHeadsetState.isDualHeadsetModeEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -66,6 +70,7 @@ fun DualHeadsetSetupDialog(
     catalog: AudioOutputCatalog,
     onDismiss: () -> Unit
 ) {
+    val strings = LocalStrings.current
     // Retrieve available audio outputs (headsets/earphones) from the platform catalog
     var availableDevices by remember { mutableStateOf<List<AudioOutputDevice>>(emptyList()) }
 
@@ -97,16 +102,16 @@ fun DualHeadsetSetupDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text("Dual Headphone Mode", fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text(strings.dualHeadphoneMode, fontSize = 20.sp, fontWeight = FontWeight.Bold)
                     IconButton(onClick = onDismiss) {
-                        Icon(Icons.Default.Close, contentDescription = "Close")
+                        Icon(Icons.Default.Close, contentDescription = strings.close)
                     }
                 }
                 Divider()
 
                 Column(modifier = Modifier.padding(16.dp).weight(1f)) {
                     Text(
-                        "Connect two sets of headphones. We will route each person's translations to their specific headphones.",
+                        strings.dualHeadsetBlurb,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -118,16 +123,16 @@ fun DualHeadsetSetupDialog(
                             onCheckedChange = { viewModel.setDualHeadsetModeEnabled(it) }
                         )
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text("Enable Dual Headset Routing", fontWeight = FontWeight.Medium)
+                        Text(strings.enableDualHeadsetRouting, fontWeight = FontWeight.Medium)
                     }
 
                     if (dualHeadsetState.isDualHeadsetModeEnabled) {
                         Spacer(modifier = Modifier.height(24.dp))
-                        Text("Available Devices", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(strings.availableDevices, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Spacer(modifier = Modifier.height(8.dp))
 
                         if (availableDevices.isEmpty()) {
-                            Text("No Bluetooth or Wired headsets found.", color = MaterialTheme.colorScheme.error)
+                            Text(strings.noHeadsetsFound, color = MaterialTheme.colorScheme.error)
                         } else {
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 items(availableDevices) { device ->
@@ -151,12 +156,13 @@ fun DeviceItemRow(
     sourceLangName: String,
     targetLangName: String
 ) {
+    val strings = LocalStrings.current
     val isAssignedToA = state.deviceA == device.id
     val isAssignedToB = state.deviceB == device.id
 
     fun playTestSound(testIsA: Boolean) {
         val languageName = if (testIsA) sourceLangName else targetLangName
-        viewModel.showMessage("Playing test sound to ${device.label} in $languageName...")
+        viewModel.showMessage(strings.playingTestSound.withArgs(device.label, languageName))
         catalog.playTestTone(device.id)
     }
 
@@ -186,7 +192,7 @@ fun DeviceItemRow(
                             playTestSound(true)
                         }
                     },
-                    label = { Text("Assign User 1 ($sourceLangName)") },
+                    label = { Text(strings.assignUser1.withArg(sourceLangName)) },
                     leadingIcon = if (isAssignedToA) { { Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp)) } } else null
                 )
             }
@@ -203,7 +209,7 @@ fun DeviceItemRow(
                             playTestSound(false)
                         }
                     },
-                    label = { Text("Assign User 2 ($targetLangName)") },
+                    label = { Text(strings.assignUser2.withArg(targetLangName)) },
                     leadingIcon = if (isAssignedToB) { { Icon(Icons.Default.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp)) } } else null
                 )
             }
@@ -216,7 +222,7 @@ fun DeviceItemRow(
                 ) {
                     Icon(Icons.Default.VolumeUp, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Test Headphone Output")
+                    Text(strings.testHeadphoneOutput)
                 }
             }
         }

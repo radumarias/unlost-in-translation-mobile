@@ -69,6 +69,7 @@ import com.example.model.Translation
 import com.example.platform.PlatformActions
 import com.example.platform.SpeechSynthesizer
 import com.example.ui.components.ToneSituationBar
+import com.example.ui.i18n.LocalStrings
 import com.example.ui.viewmodel.TranslateViewModel
 import com.example.ui.viewmodel.TranslationState
 import com.example.ui.viewmodel.ValidationState
@@ -106,6 +107,7 @@ fun TranslateScreen(
     onShowValidationDetails: (ValidationState.Success) -> Unit,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
+    val strings = LocalStrings.current
 
     // Translate Tab Screen Workspace
     Column(
@@ -139,7 +141,7 @@ fun TranslateScreen(
                         onValueChange = { viewModel.setSourceText(it) },
                         placeholder = {
                             Text(
-                                "Enter text to translate...",
+                                strings.inputPlaceholder,
                                 fontSize = 16.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                             )
@@ -169,7 +171,7 @@ fun TranslateScreen(
                         ) {
                             Icon(
                                 Icons.Default.Close,
-                                contentDescription = "Clear",
+                                contentDescription = strings.clear,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(16.dp)
                             )
@@ -194,7 +196,7 @@ fun TranslateScreen(
                             ) {
                                 Icon(
                                     Icons.Default.Mic,
-                                    contentDescription = "Record Speech",
+                                    contentDescription = strings.recordSpeech,
                                     tint = MaterialTheme.colorScheme.primary
                                 )
                             }
@@ -212,7 +214,7 @@ fun TranslateScreen(
                         ) {
                             Icon(
                                 Icons.Default.VolumeUp,
-                                contentDescription = "Hear input",
+                                contentDescription = strings.hearInput,
                                 tint = if (sourceText.isNotBlank() && sourceLang.languageTag.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
                             )
                         }
@@ -227,7 +229,7 @@ fun TranslateScreen(
                         modifier = Modifier.testTag("translate_submit_btn"),
                         shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("Translate", fontSize = 13.sp)
+                        Text(strings.translateAction, fontSize = 13.sp)
                     }
                 }
             }
@@ -265,7 +267,7 @@ fun TranslateScreen(
                                 Text(
                                     // "Translating..." under a photo that has
                                     // not been read yet would be a lie.
-                                    if (isReadingImage) "Reading image..." else "Translating...",
+                                    if (isReadingImage) strings.readingImage else strings.translating,
                                     style = TextStyle(fontSize = 14.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
                                 )
                             }
@@ -296,7 +298,7 @@ fun TranslateScreen(
                                             if (existingEntity != null) {
                                                 viewModel.toggleStarred(existingEntity)
                                             } else {
-                                                viewModel.showMessage("Added to star history.")
+                                                viewModel.showMessage(strings.addedToStarHistory)
                                             }
                                         },
                                         modifier = Modifier.size(24.dp)
@@ -305,7 +307,7 @@ fun TranslateScreen(
                                         val isStarred = starredList.contains(state.originalText to state.translatedText)
                                         Icon(
                                             imageVector = if (isStarred) Icons.Default.Star else Icons.Default.StarBorder,
-                                            contentDescription = "Favorite",
+                                            contentDescription = strings.favorite,
                                             tint = if (isStarred) Color(0xFFFFD700) else MaterialTheme.colorScheme.onPrimaryContainer,
                                             modifier = Modifier.size(20.dp)
                                         )
@@ -332,9 +334,9 @@ fun TranslateScreen(
                                     ) {
                                         Column(modifier = Modifier.padding(12.dp)) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(Icons.Default.Repeat, contentDescription = "Round trip", modifier = Modifier.size(16.dp))
+                                                Icon(Icons.Default.Repeat, contentDescription = strings.roundTripDescription, modifier = Modifier.size(16.dp))
                                                 Spacer(modifier = Modifier.width(6.dp))
-                                                Text(text = "Translates back as:", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                Text(text = strings.roundTripTitle, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                             }
                                             Spacer(modifier = Modifier.height(6.dp))
                                             Text(text = roundTripText, fontSize = 14.sp)
@@ -355,9 +357,9 @@ fun TranslateScreen(
                                     ) {
                                         Column(modifier = Modifier.padding(12.dp)) {
                                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(Icons.Default.Visibility, contentDescription = "Perceived meaning", modifier = Modifier.size(16.dp))
+                                                Icon(Icons.Default.Visibility, contentDescription = strings.perceivedMeaningDescription, modifier = Modifier.size(16.dp))
                                                 Spacer(modifier = Modifier.width(6.dp))
-                                                Text(text = "They will read it as:", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                                Text(text = strings.perceivedMeaningTitle, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                             }
                                             Spacer(modifier = Modifier.height(6.dp))
                                             Text(
@@ -384,13 +386,13 @@ fun TranslateScreen(
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
                                                     Spacer(modifier = Modifier.width(8.dp))
-                                                    Text("Validating cultural meaning...", fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
+                                                    Text(strings.validatingCulturalMeaning, fontSize = 12.sp, color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f))
                                                 }
                                             }
                                         }
                                         is ValidationState.Success -> {
                                             val hasWarning = vs.isWarning
-                                            val displayExplanation = vs.explanation.takeIf { it.isNotBlank() } ?: "The translation is accurate. No significant cultural nuances or warnings detected."
+                                            val displayExplanation = vs.explanation.takeIf { it.isNotBlank() } ?: strings.noCulturalIssues
                                             val successContainerColor = if (isSystemInDarkTheme()) Color(0xFF1B5E20).copy(alpha=0.5f) else Color(0xFFE8F5E9)
                                             val onSuccessContainerColor = if (isSystemInDarkTheme()) Color(0xFFA5D6A7) else Color(0xFF1B5E20)
 
@@ -408,13 +410,13 @@ fun TranslateScreen(
                                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                                             Icon(
                                                                 if (hasWarning) Icons.Default.Warning else Icons.Default.CheckCircle,
-                                                                contentDescription = "Context",
+                                                                contentDescription = strings.culturalContextDescription,
                                                                 modifier = Modifier.size(16.dp),
                                                                 tint = if (hasWarning) MaterialTheme.colorScheme.onErrorContainer else onSuccessContainerColor
                                                             )
                                                             Spacer(modifier = Modifier.width(6.dp))
                                                             Text(
-                                                                text = if (hasWarning) "Cultural Warning" else "Cultural Context",
+                                                                text = if (hasWarning) strings.culturalWarning else strings.culturalContext,
                                                                 fontSize = 12.sp,
                                                                 fontWeight = FontWeight.Bold,
                                                                 color = if (hasWarning) MaterialTheme.colorScheme.onErrorContainer else onSuccessContainerColor
@@ -430,7 +432,7 @@ fun TranslateScreen(
                                                         )
                                                         Spacer(modifier = Modifier.height(4.dp))
                                                         Text(
-                                                            text = "Tap to see details and suggestions",
+                                                            text = strings.tapForDetails,
                                                             fontSize = 11.sp,
                                                             fontWeight = FontWeight.Medium,
                                                             color = if (hasWarning) MaterialTheme.colorScheme.onErrorContainer.copy(alpha=0.8f) else onSuccessContainerColor.copy(alpha=0.8f)
@@ -472,7 +474,7 @@ fun TranslateScreen(
                                     ) {
                                         Icon(
                                             Icons.Default.VolumeUp,
-                                            contentDescription = "Speak translation",
+                                            contentDescription = strings.speakTranslation,
                                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -482,7 +484,7 @@ fun TranslateScreen(
                                     IconButton(
                                         onClick = {
                                             platformActions.copyToClipboard(state.translatedText)
-                                            viewModel.showMessage("Copied translation!")
+                                            viewModel.showMessage(strings.copiedTranslation)
                                         },
                                         modifier = Modifier
                                             .padding(horizontal = 4.dp)
@@ -491,7 +493,7 @@ fun TranslateScreen(
                                     ) {
                                         Icon(
                                             Icons.Default.ContentCopy,
-                                            contentDescription = "Copy text",
+                                            contentDescription = strings.copyText,
                                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -509,7 +511,7 @@ fun TranslateScreen(
                                     ) {
                                         Icon(
                                             Icons.Default.Share,
-                                            contentDescription = "Share",
+                                            contentDescription = strings.share,
                                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                             modifier = Modifier.size(18.dp)
                                         )
@@ -525,7 +527,7 @@ fun TranslateScreen(
                             ) {
                                 Icon(
                                     Icons.Default.ErrorOutline,
-                                    contentDescription = "Error",
+                                    contentDescription = strings.errorDescription,
                                     tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(24.dp)
                                 )

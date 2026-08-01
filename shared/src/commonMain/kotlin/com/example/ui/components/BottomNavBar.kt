@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import com.example.platform.ImageSource
+import com.example.ui.i18n.LocalStrings
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -64,6 +65,7 @@ fun BottomNavBar(
     showImageInput: Boolean = false,
     onPickImage: (ImageSource) -> Unit = {},
 ) {
+    val strings = LocalStrings.current
     var choosingImageSource by remember { mutableStateOf(false) }
     Surface(
         tonalElevation = 6.dp,
@@ -97,7 +99,7 @@ fun BottomNavBar(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Hearing,
-                            contentDescription = "Conversation split-mic Mode",
+                            contentDescription = strings.conversationModeDescription,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
@@ -116,7 +118,7 @@ fun BottomNavBar(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Mic,
-                                contentDescription = "Record Speech",
+                                contentDescription = strings.recordSpeech,
                                 tint = MaterialTheme.colorScheme.onPrimary,
                                 modifier = Modifier.size(26.dp)
                             )
@@ -137,7 +139,7 @@ fun BottomNavBar(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.PhotoCamera,
-                                    contentDescription = "Translate a photo",
+                                    contentDescription = strings.translatePhoto,
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.size(20.dp)
                                 )
@@ -147,14 +149,14 @@ fun BottomNavBar(
                                 onDismissRequest = { choosingImageSource = false },
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("Take a photo") },
+                                    text = { Text(strings.takePhoto) },
                                     onClick = {
                                         choosingImageSource = false
                                         onPickImage(ImageSource.CAMERA)
                                     },
                                 )
                                 DropdownMenuItem(
-                                    text = { Text("Choose from gallery") },
+                                    text = { Text(strings.chooseFromGallery) },
                                     onClick = {
                                         choosingImageSource = false
                                         onPickImage(ImageSource.GALLERY)
@@ -173,7 +175,7 @@ fun BottomNavBar(
                     ) {
                         Icon(
                             imageVector = if (!sourceTextBlank) Icons.Default.Close else Icons.Default.Edit,
-                            contentDescription = "Quick text input action",
+                            contentDescription = strings.quickTextInput,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
@@ -189,25 +191,25 @@ fun BottomNavBar(
             ) {
                 TabItem(
                     tabId = "translate",
-                    label = "Translate",
+                    label = strings.tabTranslate,
                     icon = Icons.Default.Translate,
-                    contentDescription = "Translate Tab Button",
+                    contentDescription = strings.tabTranslateDescription,
                     activeBottomTab = activeBottomTab,
                     onSelectTab = onSelectTab,
                 )
                 TabItem(
                     tabId = "history",
-                    label = "History",
+                    label = strings.tabHistory,
                     icon = Icons.Default.History,
-                    contentDescription = "History Tab Button",
+                    contentDescription = strings.tabHistoryDescription,
                     activeBottomTab = activeBottomTab,
                     onSelectTab = onSelectTab,
                 )
                 TabItem(
                     tabId = "saved",
-                    label = "Saved",
+                    label = strings.tabSaved,
                     icon = Icons.Default.Star,
-                    contentDescription = "Saved Tab Button",
+                    contentDescription = strings.tabSavedDescription,
                     activeBottomTab = activeBottomTab,
                     onSelectTab = onSelectTab,
                 )

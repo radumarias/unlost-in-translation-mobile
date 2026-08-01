@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.platform.AudioOutputCatalog
+import com.example.ui.i18n.LocalStrings
 import com.example.ui.viewmodel.TranslateViewModel
 
 /**
@@ -42,6 +43,7 @@ fun AppTopBar(
     audioOutputCatalog: AudioOutputCatalog,
     showDualHeadset: Boolean,
 ) {
+    val strings = LocalStrings.current
     // Top branding line with AI toggle
     Row(
         modifier = Modifier
@@ -53,13 +55,13 @@ fun AppTopBar(
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 imageVector = Icons.Default.Translate,
-                contentDescription = "Logo",
+                contentDescription = strings.logoDescription,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(26.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
-                text = "Translate",
+                text = strings.appName,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
@@ -93,13 +95,13 @@ fun AppTopBar(
                 ) {
                     Icon(
                         imageVector = if (isAiEnhanced) Icons.Default.AutoAwesome else Icons.Default.SettingsSuggest,
-                        contentDescription = "AI Mode",
+                        contentDescription = strings.aiModeDescription,
                         tint = if (isAiEnhanced) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = if (isAiEnhanced) "Gemini Translation" else "Standard Engine",
+                        text = if (isAiEnhanced) strings.engineGemini else strings.engineStandard,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isAiEnhanced) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant

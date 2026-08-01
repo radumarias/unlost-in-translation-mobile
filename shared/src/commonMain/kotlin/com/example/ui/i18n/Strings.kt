@@ -1,0 +1,234 @@
+package com.example.ui.i18n
+
+import androidx.compose.runtime.staticCompositionLocalOf
+
+/**
+ * Every user-visible string in the shared UI, in one place.
+ *
+ * Each field defaults to the English text the composable used to hold inline, so
+ * a locale is written as a [Strings] copy that overrides only what it actually
+ * translates — anything it leaves out falls back to English automatically. That
+ * matters here: the web build this catalogue was ported from has uneven coverage
+ * (`cameraTranslation` exists in 5 of its 13 locales), and a half-translated
+ * locale should degrade to English rather than to a blank label.
+ *
+ * A data class rather than a `Map<String, String>` on purpose: the field names
+ * are checked by the compiler, so a renamed or deleted string breaks the build
+ * instead of silently rendering an empty box at runtime.
+ *
+ * Language *names* are deliberately NOT in here. `Language.name` is also what
+ * goes into the Gemini prompts, so it has to stay English; translating the names
+ * shown in the picker is the separate "endonyms" item (Tier C, out of scope).
+ *
+ * Placeholders are `{0}` / `{1}`, substituted with [withArg] / [withArgs].
+ */
+data class Strings(
+    // --- Top bar ---
+    val appName: String = "Translate",
+    val logoDescription: String = "Logo",
+    val aiModeDescription: String = "AI Mode",
+    val engineGemini: String = "Gemini Translation",
+    val engineStandard: String = "Standard Engine",
+
+    // --- Language bar and picker ---
+    /** Source pill once auto-detect has resolved; `{0}` is the detected language. */
+    val autoDetectedLabel: String = "Auto - {0}",
+    val selectSourceLanguage: String = "Select language",
+    val selectTargetLanguage: String = "Select target language",
+    val swapLanguages: String = "Swap Languages",
+    val pickerTitleSource: String = "Translate from",
+    val pickerTitleTarget: String = "Translate to",
+    val closePicker: String = "Close Picker",
+    val searchLanguagePlaceholder: String = "Search language...",
+    val search: String = "Search",
+    val selected: String = "Selected",
+
+    // --- Tone / situation ---
+    val toneLabel: String = "Tone",
+    val situationLabel: String = "Situation",
+    /** Dropdown affordance; `{0}` is [toneLabel] or [situationLabel]. */
+    val selectPreset: String = "Select {0}",
+    val toneAuto: String = "Auto Tone",
+    val toneCasual: String = "Casual",
+    val toneFormal: String = "Formal",
+    val toneBusiness: String = "Business",
+    val tonePlayful: String = "Playful",
+    val toneEmpathetic: String = "Empathetic",
+    val toneDirect: String = "Direct",
+    val situationGeneral: String = "General",
+    val situationMedical: String = "Medical",
+    val situationDating: String = "Dating",
+    val situationService: String = "Service",
+    val situationEmergency: String = "Emergency",
+
+    // --- Bottom dock ---
+    val conversationModeDescription: String = "Conversation split-mic Mode",
+    val recordSpeech: String = "Record Speech",
+    val translatePhoto: String = "Translate a photo",
+    val takePhoto: String = "Take a photo",
+    val chooseFromGallery: String = "Choose from gallery",
+    val quickTextInput: String = "Quick text input action",
+    val tabTranslate: String = "Translate",
+    val tabHistory: String = "History",
+    val tabSaved: String = "Saved",
+    val tabTranslateDescription: String = "Translate Tab Button",
+    val tabHistoryDescription: String = "History Tab Button",
+    val tabSavedDescription: String = "Saved Tab Button",
+
+    // --- Translate screen ---
+    val inputPlaceholder: String = "Enter text to translate...",
+    val clear: String = "Clear",
+    val hearInput: String = "Hear input",
+    val translateAction: String = "Translate",
+    val translating: String = "Translating...",
+    val readingImage: String = "Reading image...",
+    val favorite: String = "Favorite",
+    val roundTripDescription: String = "Round trip",
+    val roundTripTitle: String = "Translates back as:",
+    val perceivedMeaningDescription: String = "Perceived meaning",
+    val perceivedMeaningTitle: String = "They will read it as:",
+    val validatingCulturalMeaning: String = "Validating cultural meaning...",
+    val noCulturalIssues: String =
+        "The translation is accurate. No significant cultural nuances or warnings detected.",
+    val culturalContextDescription: String = "Context",
+    val culturalWarning: String = "Cultural Warning",
+    val culturalContext: String = "Cultural Context",
+    val tapForDetails: String = "Tap to see details and suggestions",
+    val speakTranslation: String = "Speak translation",
+    val copyText: String = "Copy text",
+    val share: String = "Share",
+    val errorDescription: String = "Error",
+    val copiedTranslation: String = "Copied translation!",
+    val addedToStarHistory: String = "Added to star history.",
+    /** Loaded by the quick-edit button when the input is empty. */
+    val sampleText: String = "Hello, how are you?",
+
+    // --- Validation details ---
+    val detailsDescription: String = "Details",
+    val close: String = "Close",
+    val explanation: String = "Explanation",
+    val howTheyWillReadIt: String = "How they will read it",
+    val idiomOrLocalExpression: String = "Idiom or local expression",
+    val suggestedAlternatives: String = "Suggested alternatives:",
+    val suggestionDescription: String = "Suggestion",
+    val importantToneWarning: String = "Important Tone Warning",
+    val culturalDetails: String = "Cultural Details",
+
+    // --- Rewrite ---
+    val rewriteTitle: String = "Rewrite what you said",
+    val rewriteBlurb: String =
+        "Ask for a version of your message that keeps the intent but avoids the problem above.",
+    val rewriteAction: String = "Suggest a rewrite",
+    val rewriting: String = "Rewriting...",
+    val useThisVersion: String = "Use this version",
+    val otherWaysToRewrite: String = "Or try another angle:",
+
+    // --- History / saved ---
+    val recentTranslations: String = "RECENT TRANSLATIONS",
+    val savedTranslations: String = "SAVED TRANSLATIONS",
+    val clearAll: String = "Clear All",
+    val clearAllDescription: String = "Clear all",
+    val emptyDescription: String = "Empty",
+    val noHistory: String = "No translation history yet.",
+    val noFavorites: String = "No favorite items saved.",
+    val toggleFavorite: String = "Toggle favorite",
+    val deletedFromHistory: String = "Deleted from history",
+
+    // --- Conversation ---
+    val back: String = "Back",
+    val conversationMode: String = "Conversation Mode",
+    val micA: String = "Mic A",
+    val micB: String = "Mic B",
+    /** Typed-input placeholder when voice input is unavailable; `{0}` is a language. */
+    val typeInLanguage: String = "Type in {0}…",
+    /** Send affordance for that field; `{0}` is a language. */
+    val sendLanguageMessage: String = "Send {0} message",
+    val confirmTranslation: String = "Confirm Translation",
+    /** `{0}` is the speaker's language. */
+    val youSaidIn: String = "You said ({0}):",
+    /** `{0}` is the listener's language. */
+    val translationIn: String = "Translation ({0}):",
+    val validationInfo: String = "Validation Info",
+    val cancel: String = "Cancel",
+    val send: String = "Send",
+    val pickLanguageToSpeak: String = "Pick a language to speak in, or type instead.",
+
+    // --- Dual headset ---
+    val dualHeadsetSetup: String = "Dual Headset Setup",
+    val dualHeadphoneMode: String = "Dual Headphone Mode",
+    val dualHeadsetBlurb: String =
+        "Connect two sets of headphones. We will route each person's translations to their specific headphones.",
+    val enableDualHeadsetRouting: String = "Enable Dual Headset Routing",
+    val availableDevices: String = "Available Devices",
+    val noHeadsetsFound: String = "No Bluetooth or Wired headsets found.",
+    /** `{0}` is the device label, `{1}` the language it will speak. */
+    val playingTestSound: String = "Playing test sound to {0} in {1}...",
+    /** `{0}` is the party's language. */
+    val assignUser1: String = "Assign User 1 ({0})",
+    /** `{0}` is the party's language. */
+    val assignUser2: String = "Assign User 2 ({0})",
+    val testHeadphoneOutput: String = "Test Headphone Output",
+    val user1: String = "User 1",
+    val user2: String = "User 2",
+    /** `{0}` is [user1] or [user2]. */
+    val playingTranslationToHeadset: String = "Playing translation to {0}'s headset...",
+
+    // --- View-model messages ---
+    val aiEnhancedTurnedOn: String = "AI Enhanced turned on — tone and situation need it.",
+    val translateFirstToDetect: String = "Translate something first so the language can be detected.",
+    val pickLanguageBeforeConversation: String =
+        "Pick a language for your side before starting a conversation.",
+    val translationFailed: String = "Failed to perform translation",
+    val imageReadFailed: String = "Failed to read the image",
+    val rewriteFailed: String = "Failed to rewrite the message",
+    val conversationTranslationFailed: String = "Failed at translation stage",
+) {
+    /**
+     * The label for a tone or situation preset. Keyed by [com.example.model.Preset.id],
+     * which is prompt text and therefore always English — only the label moves.
+     */
+    fun preset(id: String): String = when (id) {
+        "Auto" -> toneAuto
+        "Casual" -> toneCasual
+        "Formal" -> toneFormal
+        "Business" -> toneBusiness
+        "Playful" -> tonePlayful
+        "Empathetic" -> toneEmpathetic
+        "Direct" -> toneDirect
+        "General" -> situationGeneral
+        "Medical" -> situationMedical
+        "Dating" -> situationDating
+        "Service" -> situationService
+        "Emergency" -> situationEmergency
+        else -> id
+    }
+}
+
+/** Substitutes the single `{0}` placeholder. */
+fun String.withArg(value: String): String = replace("{0}", value)
+
+/** Substitutes `{0}` and `{1}`. */
+fun String.withArgs(first: String, second: String): String =
+    replace("{0}", first).replace("{1}", second)
+
+/**
+ * Locales other than English, keyed by ISO 639-1 code. Empty until the
+ * translations land; [stringsFor] falls back to English for anything missing,
+ * which is also what an unsupported device language gets.
+ */
+internal val localeCatalogs: Map<String, Strings> = emptyMap()
+
+/**
+ * The catalogue for a device language tag (`"ro"`, `"pt-BR"`, `null`), English
+ * when the language is not translated.
+ */
+fun stringsFor(languageTag: String?): Strings {
+    val code = languageTag?.substringBefore('-')?.lowercase().orEmpty()
+    return localeCatalogs[code] ?: Strings()
+}
+
+/**
+ * The catalogue in scope. Defaults to English so a composable rendered outside
+ * [com.example.ui.App] — a preview, a screenshot test — still has text.
+ */
+val LocalStrings = staticCompositionLocalOf { Strings() }
