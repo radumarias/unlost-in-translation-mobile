@@ -45,10 +45,25 @@ day per model) and the owner does not pay for it.
 | Copy to clipboard, share | Already here, behind `PlatformActions`. |
 | Shareable URL state (`?text=&src=…`) | Web-only concept; the mobile shell has no address bar. |
 | PWA install + offline fallback | Would apply to `:webApp`, but the public-deploy gate is not crossed. Revisit if it ever is. |
-| Full-screen "flashcard" display | Tier B, out of the agreed scope. |
-| Draft/approve flow on the translate tab | Tier B. Conversation mode already has one. |
-| Help/onboarding drawer | Tier B. |
+| Draft/approve flow on the translate tab | **Half-ported, deliberately** — see below. |
 | Theme toggle, version badge, language endonyms | Tier C. |
+
+**Tier B has since been done** — PRs #27, #28, #29. The flashcard and the help drawer were
+ported in full; the translate tab's draft/approve flow was **half-ported on purpose**:
+
+- **Ported:** the hand-over. The web build's approve step swaps the two languages so the
+  other person can answer, which is the part that carries the value. It is now a button on
+  the result card (`handOverForReply`) and costs no request.
+- **Not ported:** holding the translation back as a draft until it is approved. The
+  translate tab is a lookup surface — the answer should appear at once, and the cultural
+  warning already arrives before you say anything. Conversation mode already has a real
+  draft flow for the case where a turn is genuinely being sent to someone. Inverting the
+  translate pipeline to add an approval step would make the common case slower to serve the
+  rare one.
+
+The help drawer's text was **rewritten rather than copied** for the same reason the
+deviations below exist: the web build's help describes its auto-detect swapping and
+conflates the back-translation with the perceived meaning, neither of which is true here.
 
 **UI i18n has since been done** — see [03-i18n.md](03-i18n.md). It was deferred out of
 this port and landed afterwards in PRs #24–#26, with **15 locales** rather than the

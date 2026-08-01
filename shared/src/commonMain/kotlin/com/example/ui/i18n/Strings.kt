@@ -112,6 +112,8 @@ data class Strings(
     val speakTranslation: String = "Speak translation",
     /** Opens the translation full-screen, to show it to the other person. */
     val showFullScreen: String = "Show full screen",
+    /** Swaps the languages and clears the workspace for the other person's answer. */
+    val handOverForReply: String = "Their turn to reply",
     val copyText: String = "Copy text",
     val share: String = "Share",
     val errorDescription: String = "Error",

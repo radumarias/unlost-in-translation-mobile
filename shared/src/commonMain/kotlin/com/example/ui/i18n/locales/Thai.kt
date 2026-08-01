@@ -69,6 +69,7 @@ internal val thai = Strings(
     tapForDetails = "แตะเพื่อดูรายละเอียดและข้อเสนอแนะ",
     speakTranslation = "ฟังคำแปล",
     showFullScreen = "แสดงเต็มหน้าจอ",
+    handOverForReply = "ถึงตาอีกฝ่ายตอบ",
     copyText = "คัดลอกข้อความ",
     share = "แชร์",
     errorDescription = "ข้อผิดพลาด",

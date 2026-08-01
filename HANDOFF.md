@@ -112,6 +112,20 @@ container member and no `expect`/`actual`. A locale overrides only what it trans
 back to English field by field. English stayed the default, so **the Roborazzi baselines were
 never re-recorded** — the concern that deferred this work turned out not to apply.
 
+### Arc 5 — Tier B
+
+| PR | What |
+|---|---|
+| #27 | Full-screen flashcard: a translation alone at 40sp, for holding the phone up. On the result card, history rows and every conversation bubble |
+| #28 | Help drawer: eight capability-gated sections, text **rewritten** for this build rather than copied |
+| #29 | Hand-over button, and the deliberate decision not to port the rest of the draft/approve flow |
+
+The draft/approve flow was **half-ported on purpose**. Its hand-over — swap the languages so
+the other person can answer — is a button on the result card and costs nothing. Holding the
+translation back until approved was not ported: the translate tab is a lookup surface, the
+warning already arrives before you say anything, and conversation mode already has a real
+draft flow. Reasoning in `features/web-feature-port/01-feature-inventory.md`.
+
 ---
 
 ## 4. Setting up a fresh clone
@@ -317,7 +331,9 @@ None of these can be exercised by the test suite. They are the real remaining ve
    transcribes, so the transcript extraction in the `js()` `onresult` handler is the one unexercised line).
 5. Web TTS by ear.
 6. Android: Wear once-fire sync, and dual-headset tone timing/labels.
-7. **Read the translations.** The 15 locales are machine-authored; the tests check structure
+7. **The two overlays** — the full-screen flashcard and the help drawer. Neither has a rendering
+   test (a Dialog is more machinery to capture than the layout justifies), so open each once.
+8. **Read the translations.** The 15 locales are machine-authored; the tests check structure
    (placeholders, coverage, glyphs) but nothing can judge whether a string reads naturally. Romanian
    is the obvious one to check on device — set the phone's language and look at the app.
 
@@ -333,7 +349,7 @@ validation sheet shows the sanity check and idiom sections and that the rewrite 
 
 | Item | Notes |
 |---|---|
-| **Tier B features** | Draft/approve on the translate tab, full-screen flashcard, help drawer. Excluded from the port's scope by the owner |
+| **Tier C features** | Theme toggle, version badge, PWA, language endonyms. Same |
 | **Tier C features** | Theme toggle, version badge, PWA, language endonyms. Same |
 | **Design §4 consolidation** | Behaviour-preserving refactor of `prepareConversationPart`; §10 tests pin both pipelines |
 | **Issue #15** | Ray-Ban Display spike via the Meta Wearables Device Access Toolkit — opened by the owner 2026-07-27, not started. Read the issue body; the SDK situation changed since the first write-up |

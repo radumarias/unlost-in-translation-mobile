@@ -69,6 +69,7 @@ internal val arabic = Strings(
     tapForDetails = "اضغط لعرض التفاصيل والاقتراحات",
     speakTranslation = "استماع إلى الترجمة",
     showFullScreen = "عرض بملء الشاشة",
+    handOverForReply = "الدور عليهم للرد",
     copyText = "نسخ النص",
     share = "مشاركة",
     errorDescription = "خطأ",

@@ -72,6 +72,7 @@ internal val chinese = Strings(
     tapForDetails = "点击查看详情和建议",
     speakTranslation = "朗读译文",
     showFullScreen = "全屏显示",
+    handOverForReply = "轮到对方回答",
     copyText = "复制文本",
     share = "分享",
     errorDescription = "错误",

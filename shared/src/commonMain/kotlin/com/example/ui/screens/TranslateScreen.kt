@@ -30,6 +30,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Reply
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
@@ -477,6 +478,24 @@ fun TranslateScreen(
                                         Icon(
                                             Icons.Default.VolumeUp,
                                             contentDescription = strings.speakTranslation,
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    // Hand-over: swap the languages and clear
+                                    // the workspace so they can answer.
+                                    IconButton(
+                                        onClick = { viewModel.handOverForReply() },
+                                        modifier = Modifier
+                                            .padding(horizontal = 4.dp)
+                                            .size(40.dp)
+                                            .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.08f), shape = CircleShape)
+                                            .testTag("hand_over_button")
+                                    ) {
+                                        Icon(
+                                            Icons.AutoMirrored.Filled.Reply,
+                                            contentDescription = strings.handOverForReply,
                                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                             modifier = Modifier.size(18.dp)
                                         )

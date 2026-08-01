@@ -73,6 +73,7 @@ internal val spanish = Strings(
     tapForDetails = "Toca para ver detalles y sugerencias",
     speakTranslation = "Escuchar la traducción",
     showFullScreen = "Mostrar a pantalla completa",
+    handOverForReply = "Ahora les toca a ellos",
     copyText = "Copiar texto",
     share = "Compartir",
     errorDescription = "Error",
