@@ -48,8 +48,13 @@ day per model) and the owner does not pay for it.
 | Full-screen "flashcard" display | Tier B, out of the agreed scope. |
 | Draft/approve flow on the translate tab | Tier B. Conversation mode already has one. |
 | Help/onboarding drawer | Tier B. |
-| UI i18n (13 locales) | Deferred to its own PR: it touches every composable and invalidates every Roborazzi baseline. The web build's own coverage is uneven — `cameraTranslation` exists in 5 of its 13 locales. |
 | Theme toggle, version badge, language endonyms | Tier C. |
+
+**UI i18n has since been done** — see [03-i18n.md](03-i18n.md). It was deferred out of
+this port and landed afterwards in PRs #24–#26, with **15 locales** rather than the
+web build's 13: the catalogue is keyed by the *device* language, so it covers every
+language this app can translate into, including the three (Hindi, Dutch, Turkish) the
+web build has no UI locale for.
 
 ## Deviations from the web build
 

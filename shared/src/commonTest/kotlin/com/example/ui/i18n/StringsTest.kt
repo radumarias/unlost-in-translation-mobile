@@ -1,5 +1,6 @@
 package com.example.ui.i18n
 
+import com.example.model.Language
 import com.example.model.Situation
 import com.example.model.Tone
 import kotlin.test.Test
@@ -14,6 +15,21 @@ class StringsTest {
     @Test
     fun an_unknown_language_falls_back_to_english() {
         assertEquals(Strings(), stringsFor("xx"))
+    }
+
+    @Test
+    fun every_language_the_app_can_translate_into_has_its_own_catalogue() {
+        // The device locale picks the UI language, and a device set to any of
+        // the sixteen this app translates into should not land on English.
+        Language.supportedLanguages
+            .filter { it.code != "en" }
+            .forEach { language ->
+                assertNotEquals(
+                    Strings(),
+                    stringsFor(language.code),
+                    "no catalogue for ${language.name} (${language.code})",
+                )
+            }
     }
 
     @Test
@@ -126,6 +142,69 @@ class StringsTest {
 
     // --- Partial locales ---
 
+    // --- Every shipped locale ---
+
+    @Test
+    fun no_shipped_locale_leaves_a_field_at_its_english_default() {
+        // A field left English inside an otherwise translated locale is almost
+        // always an oversight rather than a decision, and it reads as a bug on
+        // screen. The mechanism tolerates it; this test says we do not ship it.
+        val english = fieldsOf(Strings())
+        // Reported together rather than one locale at a time: fixing these one
+        // failure per run would take fifteen runs.
+        val offenders = localeCatalogs.mapValues { (_, locale) ->
+            val fields = fieldsOf(locale)
+            english.filterKeys { it !in SHARED_WITH_ENGLISH }
+                .filter { (name, value) -> fields[name] == value }
+                .keys.sorted()
+        }.filterValues { it.isNotEmpty() }
+
+        assertTrue(offenders.isEmpty(), "left at the English default: $offenders")
+    }
+
+    @Test
+    fun every_shipped_locale_keeps_the_placeholders_its_field_needs() {
+        // Dropping `{0}` in translation silently loses the interpolated name.
+        val english = Strings()
+        val templates = fieldsOf(english).filterValues { it.contains("{0}") }.keys
+        localeCatalogs.forEach { (code, locale) ->
+            val fields = fieldsOf(locale)
+            templates.forEach { name ->
+                assertTrue(
+                    fields.getValue(name).contains("{0}"),
+                    "$code dropped {0} from $name: ${fields[name]}",
+                )
+            }
+            assertTrue(
+                fields.getValue("playingTestSound").contains("{1}"),
+                "$code dropped {1} from playingTestSound",
+            )
+        }
+    }
+
+    @Test
+    fun no_shipped_locale_uses_a_glyph_the_wasm_canvas_cannot_draw() {
+        // The web canvas ships no emoji font and has no arrow glyphs — the same
+        // constraint that put `extendedGlyphs` in PlatformCapabilities.
+        val banned = listOf("→", "➔", "·", "…​")
+        localeCatalogs.forEach { (code, locale) ->
+            fieldsOf(locale).forEach { (name, value) ->
+                banned.forEach { glyph ->
+                    assertTrue(!value.contains(glyph), "$code.$name contains '$glyph'")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun no_shipped_locale_has_a_blank_field() {
+        localeCatalogs.forEach { (code, locale) ->
+            fieldsOf(locale).forEach { (name, value) ->
+                assertTrue(value.isNotBlank(), "$code.$name is blank")
+            }
+        }
+    }
+
     @Test
     fun an_overridden_field_does_not_disturb_the_others() {
         // The point of the defaults: a locale translates what it has and the
@@ -134,5 +213,41 @@ class StringsTest {
         assertEquals("Anulează", partial.cancel)
         assertEquals(Strings().send, partial.send)
         assertEquals(Strings().culturalWarning, partial.culturalWarning)
+    }
+
+    private companion object {
+        /**
+         * Field name to value, read off the data class's own `toString`.
+         *
+         * Kotlin/Wasm has no reflection, so this is the only way to walk the
+         * catalogue generically instead of listing 120 accessors by hand. The
+         * split is on a field boundary — `, name=` — not on plain `", "`,
+         * because the values are prose full of commas.
+         */
+        fun fieldsOf(strings: Strings): Map<String, String> =
+            strings.toString()
+                .removePrefix("Strings(")
+                .removeSuffix(")")
+                .split(Regex(", (?=[a-zA-Z][A-Za-z0-9]*=)"))
+                .associate { field ->
+                    val name = field.substringBefore('=')
+                    name to field.substring(name.length + 1)
+                }
+
+        /**
+         * Fields a locale may legitimately leave identical to English, because
+         * the word really is the same there — "Situation" in French and German,
+         * "Details" in German and Dutch, "Casual" in Spanish and Italian — plus
+         * the `Auto - {0}` shape, which stays ASCII in every Latin-script
+         * locale. Everything not listed here has to actually be translated.
+         */
+        val SHARED_WITH_ENGLISH = setOf(
+            "autoDetectedLabel", "logoDescription", "errorDescription",
+            "culturalContextDescription", "detailsDescription",
+            "suggestionDescription", "situationLabel",
+            "toneCasual", "toneFormal", "toneBusiness", "toneDirect",
+            "situationGeneral", "situationMedical", "situationDating",
+            "situationService", "micA", "micB",
+        )
     }
 }

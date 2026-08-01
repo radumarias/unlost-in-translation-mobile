@@ -95,8 +95,22 @@ into `:shared`, in Kotlin, for both targets.
 | #22 | docs | — |
 
 Scope was the owner's: **Tier A only**. Tier B (draft/approve on the translate tab, full-screen
-flashcard, help drawer) and Tier C (theme toggle, version badge, PWA, endonyms) were excluded, and
-UI i18n was deferred to its own PR.
+flashcard, help drawer) and Tier C (theme toggle, version badge, PWA, endonyms) were excluded.
+
+### Arc 4 — UI internationalisation
+
+Record: [`features/web-feature-port/03-i18n.md`](features/web-feature-port/03-i18n.md).
+
+| PR | What |
+|---|---|
+| #24 | `ui/i18n/Strings.kt` — every shared UI string in one data class, defaulted to English; composables read `LocalStrings.current` |
+| #25 | The view model's own snackbars and error fallbacks, plus three strings that were sitting in the platform entry points |
+| #26 | The 15 non-English locales |
+
+Keyed by **device** language via `Locale.current` — already multiplatform, so it needed no
+container member and no `expect`/`actual`. A locale overrides only what it translates and falls
+back to English field by field. English stayed the default, so **the Roborazzi baselines were
+never re-recorded** — the concern that deferred this work turned out not to apply.
 
 ---
 
@@ -171,8 +185,8 @@ Windows: `.\gradlew.bat` with the same arguments.
 
 | Task | What it proves | Expected |
 |---|---|---|
-| `:shared:testAndroidHostTest` | `commonTest` on the JVM — parsers, `KtorTranslationApi` with MockEngine, `TranslateViewModel` with fakes | **126 tests, 0 failures** |
-| `:shared:wasmJsTest` | the same `commonTest` **plus** `wasmJsTest` in headless Chrome | **131 tests, 0 failures** |
+| `:shared:testAndroidHostTest` | `commonTest` on the JVM — parsers, `KtorTranslationApi` with MockEngine, `TranslateViewModel` with fakes, the string catalogue | **148 tests, 0 failures** |
+| `:shared:wasmJsTest` | the same `commonTest` **plus** `wasmJsTest` in headless Chrome | **153 tests, 0 failures** |
 | `:app:testDebugUnitTest` | Robolectric + Roborazzi | **3 tests, 0 failures** |
 | `:app:verifyRoborazziDebug` | Android UI is pixel-identical to the committed baselines | green |
 | `:app:assembleDebug` | the Android app still builds | green |
@@ -228,6 +242,10 @@ a device still says something — just not everything.
    the `GeminiDtos.kt` style.
 4. **Android stays behaviour-identical unless a UI change is deliberate** — `:app:verifyRoborazziDebug`
    must be green on every commit (see the re-record procedure above).
+4b. **No user-visible string goes inline in a composable.** They live in `ui/i18n/Strings.kt`; adding
+   one means adding a field, then translating it in `ui/i18n/locales/`. `StringsTest` fails the build
+   if a supported language has no catalogue, if a locale drops a `{0}` placeholder, or if one uses a
+   glyph the wasm canvas cannot draw.
 5. **The plan docs are binding.** `features/full-kmp-restructure/*` govern structure. Contradictions
    get escalated to the owner, not resolved by inventing a deviation. Any accepted deviation is
    recorded inline in `02-design.md`.
@@ -299,6 +317,9 @@ None of these can be exercised by the test suite. They are the real remaining ve
    transcribes, so the transcript extraction in the `js()` `onresult` handler is the one unexercised line).
 5. Web TTS by ear.
 6. Android: Wear once-fire sync, and dual-headset tone timing/labels.
+7. **Read the translations.** The 15 locales are machine-authored; the tests check structure
+   (placeholders, coverage, glyphs) but nothing can judge whether a string reads naturally. Romanian
+   is the obvious one to check on device — set the phone's language and look at the app.
 
 Worth checking on device while you are there, since it is cheap: pick situation "Medical" and confirm
 AI Enhanced flips on with the snackbar; trigger a warning (e.g. "break a leg") and confirm the
@@ -312,7 +333,6 @@ validation sheet shows the sanity check and idiom sections and that the rewrite 
 
 | Item | Notes |
 |---|---|
-| **UI i18n, 13 locales** | Deferred by the owner to its own PR. Touches every composable and invalidates every Roborazzi baseline. The web build's own coverage is uneven (`cameraTranslation` exists in 5 of its 13 locales) |
 | **Tier B features** | Draft/approve on the translate tab, full-screen flashcard, help drawer. Excluded from the port's scope by the owner |
 | **Tier C features** | Theme toggle, version badge, PWA, language endonyms. Same |
 | **Design §4 consolidation** | Behaviour-preserving refactor of `prepareConversationPart`; §10 tests pin both pipelines |
