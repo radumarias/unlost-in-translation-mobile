@@ -1,6 +1,21 @@
 package com.example.ui.i18n
 
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.example.ui.i18n.locales.arabic
+import com.example.ui.i18n.locales.chinese
+import com.example.ui.i18n.locales.dutch
+import com.example.ui.i18n.locales.french
+import com.example.ui.i18n.locales.german
+import com.example.ui.i18n.locales.hindi
+import com.example.ui.i18n.locales.italian
+import com.example.ui.i18n.locales.japanese
+import com.example.ui.i18n.locales.korean
+import com.example.ui.i18n.locales.portuguese
+import com.example.ui.i18n.locales.romanian
+import com.example.ui.i18n.locales.russian
+import com.example.ui.i18n.locales.spanish
+import com.example.ui.i18n.locales.thai
+import com.example.ui.i18n.locales.turkish
 
 /**
  * Every user-visible string in the shared UI, in one place.
@@ -223,11 +238,27 @@ fun String.withArgs(first: String, second: String): String =
     replace("{0}", first).replace("{1}", second)
 
 /**
- * Locales other than English, keyed by ISO 639-1 code. Empty until the
- * translations land; [stringsFor] falls back to English for anything missing,
- * which is also what an unsupported device language gets.
+ * Locales other than English, keyed by ISO 639-1 code — one per language this
+ * app can translate into, so the UI can speak whichever of them the device is
+ * set to. [stringsFor] falls back to English for any other device language.
  */
-internal val localeCatalogs: Map<String, Strings> = emptyMap()
+internal val localeCatalogs: Map<String, Strings> = mapOf(
+    "es" to spanish,
+    "ro" to romanian,
+    "fr" to french,
+    "de" to german,
+    "it" to italian,
+    "pt" to portuguese,
+    "ru" to russian,
+    "ja" to japanese,
+    "zh" to chinese,
+    "ko" to korean,
+    "ar" to arabic,
+    "th" to thai,
+    "nl" to dutch,
+    "tr" to turkish,
+    "hi" to hindi,
+)
 
 /**
  * The catalogue for a device language tag (`"ro"`, `"pt-BR"`, `null`), English
