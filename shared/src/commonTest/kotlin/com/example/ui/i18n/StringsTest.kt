@@ -186,7 +186,10 @@ class StringsTest {
     fun no_shipped_locale_uses_a_glyph_the_wasm_canvas_cannot_draw() {
         // The web canvas ships no emoji font and has no arrow glyphs — the same
         // constraint that put `extendedGlyphs` in PlatformCapabilities.
-        val banned = listOf("→", "➔", "·", "…​")
+        // Not the ellipsis: U+2026 is in ordinary font coverage and already
+        // ships in `typeInLanguage`. Only the arrows and the middle dot are
+        // missing on the canvas.
+        val banned = listOf("→", "➔", "·")
         localeCatalogs.forEach { (code, locale) ->
             fieldsOf(locale).forEach { (name, value) ->
                 banned.forEach { glyph ->
@@ -244,7 +247,7 @@ class StringsTest {
         val SHARED_WITH_ENGLISH = setOf(
             "autoDetectedLabel", "logoDescription", "errorDescription",
             "culturalContextDescription", "detailsDescription",
-            "suggestionDescription", "situationLabel",
+            "suggestionDescription", "situationLabel", "helpDescription",
             "toneCasual", "toneFormal", "toneBusiness", "toneDirect",
             "situationGeneral", "situationMedical", "situationDating",
             "situationService", "micA", "micB",
