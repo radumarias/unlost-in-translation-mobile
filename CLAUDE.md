@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Picking the work up cold?** Read [`HANDOFF.md`](HANDOFF.md) first — current state, what has been done, fresh-clone setup (three gitignored files break the build), the gate suite with expected test counts, the hard rules, and what is left.
+
 ## Project Overview
 
 Kotlin Multiplatform translation app (Compose Multiplatform, Material 3), originally exported from Google AI Studio ("Remix: Translate") as an Android app and restructured per GitHub issue #1 (plan in `features/full-kmp-restructure/`). Google Translate–style UI with speech input/output, dual-headset conversation mode, translation history, and Wear OS integration on Android; the same UI runs in the browser on Kotlin/Wasm. All code lives under the `com.example` namespace (Android application ID is `com.aistudio.translate.vqxwmn`).
