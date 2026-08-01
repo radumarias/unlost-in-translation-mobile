@@ -25,6 +25,7 @@ import com.example.platform.AndroidImageLoading
 import com.example.platform.AppContainer
 import com.example.platform.CameraCapture
 import com.example.platform.ImageSource
+import com.example.ui.i18n.withArg
 import com.example.platform.UnavailableVoiceInput
 import com.example.speech.TTSHelper
 import com.example.ui.App
@@ -90,8 +91,8 @@ private fun AndroidApp() {
 
         val dualState = viewModel.dualHeadsetState.value
         if (dualState.isDualHeadsetModeEnabled && isConversationA != null) {
-            val userStr = if (isConversationA) "User 1" else "User 2"
-            viewModel.showMessage("Listening on $userStr's headset...")
+            val userStr = if (isConversationA) viewModel.strings.user1 else viewModel.strings.user2
+            viewModel.showMessage(viewModel.strings.listeningOnHeadset.withArg(userStr))
         }
 
         try {
@@ -101,11 +102,11 @@ private fun AndroidApp() {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, language.languageTag)
                 putExtra(RecognizerIntent.EXTRA_ONLY_RETURN_LANGUAGE_PREFERENCE, language.languageTag)
                 putExtra("android.speech.extra.EXTRA_ADDITIONAL_LANGUAGES", arrayOf(language.languageTag))
-                putExtra(RecognizerIntent.EXTRA_PROMPT, TranslateViewModel.voiceInputPrompt(language))
+                putExtra(RecognizerIntent.EXTRA_PROMPT, viewModel.voiceInputPrompt(language))
             }
             speechLauncher.launch(intent)
         } catch (e: Exception) {
-            viewModel.showMessage(TranslateViewModel.VOICE_INPUT_UNSUPPORTED_MESSAGE)
+            viewModel.showMessage(viewModel.strings.voiceInputUnsupported)
         }
     }
 

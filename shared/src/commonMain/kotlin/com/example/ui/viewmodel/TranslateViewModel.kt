@@ -12,6 +12,8 @@ import com.example.model.TranslationContext
 import com.example.network.KtorTranslationApi
 import com.example.network.TranslationApi
 import com.example.platform.AppLog
+import com.example.ui.i18n.Strings
+import com.example.ui.i18n.withArg
 import com.example.wear.TranslationBroadcaster
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -30,23 +32,27 @@ class TranslateViewModel(
     private val repository: TranslationHistoryRepository,
     private val broadcaster: TranslationBroadcaster,
     private val log: AppLog,
+    /**
+     * The string catalogue for the messages this view model authors itself.
+     * Public because the platform entry points need the same one for the text
+     * they show outside the composition (the recognizer prompt, its failures).
+     */
+    val strings: Strings = Strings(),
 ) : ViewModel() {
     companion object {
         private const val TAG = "TranslateViewModel"
 
-        /**
-         * The "Speak now" voice prompt, shared so platforms cannot drift:
-         * Android shows it inside the RecognizerIntent dialog (EXTRA_PROMPT),
-         * web surfaces it as a snackbar (no system dialog exists there).
-         */
-        fun voiceInputPrompt(language: Language): String = "Speak now (${language.name})..."
-
-        /** Shown when launching the platform recognizer fails outright. */
-        const val VOICE_INPUT_UNSUPPORTED_MESSAGE = "Voice input is not supported on this device."
-
         /** How many prior conversation turns are sent as prompt context. */
         const val CONVERSATION_CONTEXT_TURNS = 10
     }
+
+    /**
+     * The "Speak now" voice prompt, built here so the platforms cannot drift:
+     * Android shows it inside the RecognizerIntent dialog (EXTRA_PROMPT), web
+     * surfaces it as a snackbar (no system dialog exists there).
+     */
+    fun voiceInputPrompt(language: Language): String =
+        strings.voiceInputPrompt.withArg(language.name)
 
     /**
      * Routes a completed voice-recognition result identically on every platform
@@ -140,7 +146,7 @@ class TranslateViewModel(
     private fun onContextPresetChanged(enabledAi: Boolean) {
         if (enabledAi && !_isAiEnhanced.value) {
             _isAiEnhanced.value = true
-            showMessage("AI Enhanced turned on — tone and situation need it.")
+            showMessage(strings.aiEnhancedTurnedOn)
         }
         if (_sourceText.value.isNotBlank()) {
             triggerTranslation()
@@ -258,7 +264,7 @@ class TranslateViewModel(
         if (_sourceLanguage.value.code == Language.AUTO_CODE) {
             val detected = _detectedSourceLanguage.value
             if (detected == null) {
-                showMessage("Translate something first so the language can be detected.")
+                showMessage(strings.translateFirstToDetect)
                 return
             }
             _sourceLanguage.value = detected
@@ -315,7 +321,7 @@ class TranslateViewModel(
                 publishTranslation(text, primary, trg, context)
 
             } catch (e: Exception) {
-                _translationState.value = TranslationState.Error(e.message ?: "Failed to perform translation")
+                _translationState.value = TranslationState.Error(e.message ?: strings.translationFailed)
             }
         }
     }
@@ -459,7 +465,7 @@ class TranslateViewModel(
         if (message == KtorTranslationApi.GEMINI_QUOTA_MESSAGE) {
             ValidationState.Error(message)
         } else {
-            ValidationState.Error("Validation failed: $message")
+            ValidationState.Error(strings.validationFailed.withArg(message.orEmpty()))
         }
     }
 
@@ -534,7 +540,7 @@ class TranslateViewModel(
             } catch (e: Exception) {
                 log.e(TAG, "Image translation failed", e)
                 _isReadingImage.value = false
-                _translationState.value = TranslationState.Error(e.message ?: "Failed to read the image")
+                _translationState.value = TranslationState.Error(e.message ?: strings.imageReadFailed)
                 _validationState.value = ValidationState.Idle
             }
         }
@@ -592,7 +598,7 @@ class TranslateViewModel(
                 )
             } catch (e: Exception) {
                 log.e(TAG, "Rewrite failed", e)
-                _rewriteState.value = RewriteState.Error(e.message ?: "Failed to rewrite the message")
+                _rewriteState.value = RewriteState.Error(e.message ?: strings.rewriteFailed)
             }
         }
     }
@@ -657,7 +663,7 @@ class TranslateViewModel(
         if (enabled && _sourceLanguage.value.code == Language.AUTO_CODE) {
             val detected = _detectedSourceLanguage.value
             if (detected == null) {
-                showMessage("Pick a language for your side before starting a conversation.")
+                showMessage(strings.pickLanguageBeforeConversation)
                 return
             }
             _sourceLanguage.value = detected
@@ -720,7 +726,7 @@ class TranslateViewModel(
                 log.e(TAG, "Conversation mode translation failed: ", e)
                 _conversationDraft.value = _conversationDraft.value?.copy(
                     isTranslating = false,
-                    validationState = ValidationState.Error(e.message ?: "Failed at translation stage")
+                    validationState = ValidationState.Error(e.message ?: strings.conversationTranslationFailed)
                 )
             }
         }

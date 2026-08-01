@@ -5,7 +5,6 @@ import androidx.compose.ui.window.ComposeViewport
 import com.example.platform.createAppContainer
 import com.example.ui.App
 import com.example.ui.rememberTranslateViewModel
-import com.example.ui.viewmodel.TranslateViewModel
 import kotlinx.browser.document
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -46,7 +45,7 @@ fun main() {
                 // its browser session via recognize()'s invokeOnCancellation.
                 activeVoiceJob?.cancel()
                 activeVoiceJob = scope.launch {
-                    val prompt = TranslateViewModel.voiceInputPrompt(language)
+                    val prompt = viewModel.voiceInputPrompt(language)
                     viewModel.showMessage(prompt)
                     val spokenText = try {
                         container.voiceInput.recognize(
@@ -56,7 +55,7 @@ fun main() {
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        viewModel.showMessage(e.message ?: "Voice input failed.")
+                        viewModel.showMessage(e.message ?: viewModel.strings.voiceInputFailed)
                         null
                     }
                     viewModel.onVoiceInputResult(spokenText, isConversationA)
