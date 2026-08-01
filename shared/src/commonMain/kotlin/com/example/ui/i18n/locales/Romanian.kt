@@ -68,6 +68,7 @@ internal val romanian = Strings(
     culturalContext = "Context Cultural",
     tapForDetails = "Apasă pentru detalii și sugestii",
     speakTranslation = "Ascultă traducerea",
+    showFullScreen = "Arată pe tot ecranul",
     copyText = "Copiază textul",
     share = "Distribuie",
     errorDescription = "Eroare",

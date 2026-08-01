@@ -68,6 +68,7 @@ internal val thai = Strings(
     culturalContext = "บริบททางวัฒนธรรม",
     tapForDetails = "แตะเพื่อดูรายละเอียดและข้อเสนอแนะ",
     speakTranslation = "ฟังคำแปล",
+    showFullScreen = "แสดงเต็มหน้าจอ",
     copyText = "คัดลอกข้อความ",
     share = "แชร์",
     errorDescription = "ข้อผิดพลาด",

@@ -68,6 +68,7 @@ internal val japanese = Strings(
     culturalContext = "文化的背景",
     tapForDetails = "タップして詳細と提案を表示",
     speakTranslation = "翻訳を聞く",
+    showFullScreen = "全画面で表示",
     copyText = "テキストをコピー",
     share = "共有",
     errorDescription = "エラー",

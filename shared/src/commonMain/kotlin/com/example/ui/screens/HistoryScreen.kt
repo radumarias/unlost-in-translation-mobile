@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -65,6 +66,7 @@ fun HistoryScreen(
     onDeleteItem: (Translation) -> Unit,
     onSpeak: (Translation) -> Unit,
     onToggleStar: (Translation) -> Unit,
+    onShowFullScreen: (String) -> Unit = {},
 ) {
     // "➔" (U+2794) is outside the web canvas's font coverage just like the
     // flags — and so is "→" (U+2192, verified empirically) — hence ASCII there.
@@ -177,6 +179,20 @@ fun HistoryScreen(
                                 }
 
                                 Row(verticalAlignment = Alignment.CenterVertically) {
+                                    // Same reason as on the result card: a saved
+                                    // phrase is often saved to be shown.
+                                    IconButton(
+                                        onClick = { onShowFullScreen(item.translatedText) },
+                                        modifier = Modifier.size(32.dp)
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Fullscreen,
+                                            contentDescription = strings.showFullScreen,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
                                     IconButton(
                                         onClick = { onSpeak(item) },
                                         modifier = Modifier.size(32.dp)

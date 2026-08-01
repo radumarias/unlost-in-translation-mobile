@@ -68,6 +68,7 @@ internal val italian = Strings(
     culturalContext = "Contesto Culturale",
     tapForDetails = "Tocca per vedere dettagli e suggerimenti",
     speakTranslation = "Ascolta la traduzione",
+    showFullScreen = "Mostra a schermo intero",
     copyText = "Copia il testo",
     share = "Condividi",
     errorDescription = "Errore",

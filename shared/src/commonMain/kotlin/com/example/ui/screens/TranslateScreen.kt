@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Share
@@ -105,6 +106,7 @@ fun TranslateScreen(
     extendedGlyphs: Boolean,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
     onShowValidationDetails: (ValidationState.Success) -> Unit,
+    onShowFullScreen: (String) -> Unit = {},
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val strings = LocalStrings.current
@@ -475,6 +477,24 @@ fun TranslateScreen(
                                         Icon(
                                             Icons.Default.VolumeUp,
                                             contentDescription = strings.speakTranslation,
+                                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+
+                                    // Full-screen: the one tool aimed at the
+                                    // other person rather than at the user.
+                                    IconButton(
+                                        onClick = { onShowFullScreen(state.translatedText) },
+                                        modifier = Modifier
+                                            .padding(horizontal = 4.dp)
+                                            .size(40.dp)
+                                            .background(MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.08f), shape = CircleShape)
+                                            .testTag("fullscreen_button")
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Fullscreen,
+                                            contentDescription = strings.showFullScreen,
                                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                             modifier = Modifier.size(18.dp)
                                         )

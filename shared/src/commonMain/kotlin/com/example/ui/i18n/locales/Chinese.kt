@@ -71,6 +71,7 @@ internal val chinese = Strings(
     culturalContext = "文化背景",
     tapForDetails = "点击查看详情和建议",
     speakTranslation = "朗读译文",
+    showFullScreen = "全屏显示",
     copyText = "复制文本",
     share = "分享",
     errorDescription = "错误",
