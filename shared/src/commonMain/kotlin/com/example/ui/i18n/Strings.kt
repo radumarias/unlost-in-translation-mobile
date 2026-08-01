@@ -192,6 +192,57 @@ data class Strings(
     /** `{0}` is [user1] or [user2]. */
     val listeningOnHeadset: String = "Listening on {0}'s headset...",
 
+    // --- Help ---
+    // Written for this build, not copied from the web build: several of its
+    // help sections describe behaviour that was deliberately not ported.
+    val helpDescription: String = "Help",
+    val helpTitle: String = "How to use this app",
+    val helpVoiceTitle: String = "Voice and text",
+    val helpVoiceShort: String = "Speak or type, and check what actually got across.",
+    val helpVoiceBody: String =
+        "Tap the microphone or just start typing. Under each translation you get two checks: " +
+            "\"Translates back as\" is the words translated back literally, and \"They will read it as\" " +
+            "is what the other person will actually take from it.",
+    val helpCulturalTitle: String = "Cultural warnings and idioms",
+    val helpCulturalShort: String = "Avoid the mistakes a literal translation makes.",
+    val helpCulturalBody: String =
+        "If a phrase would land badly in the other language, you get a warning instead of a " +
+            "confident wrong answer. Idioms are flagged too, with how a native speaker would say the " +
+            "same thing. Tap the banner for the details and a rewrite.",
+    val helpToneTitle: String = "Tone and situation",
+    val helpToneShort: String = "Adapt the register to where you are.",
+    val helpToneBody: String =
+        "The two pills above the input set the tone and the situation — Medical, Emergency, Dating " +
+            "and so on. A situation outranks the tone: precision beats charm in a hospital. Picking " +
+            "either turns AI Enhanced on, because the fast engine cannot express them.",
+    val helpCameraTitle: String = "Camera translation",
+    val helpCameraShort: String = "Photograph a sign or a menu.",
+    val helpCameraBody: String =
+        "The camera button takes a photo or picks one from the gallery, reads the text in it and " +
+            "translates it. The photo is not saved.",
+    val helpAutoDetectTitle: String = "Auto-detect",
+    val helpAutoDetectShort: String = "When you do not know what language you are looking at.",
+    val helpAutoDetectBody: String =
+        "Set the source language to Auto-detect and the app works out what was written. The " +
+            "selection stays on Auto-detect afterwards — it reports what it found next to it, so " +
+            "several messages in an unknown language cost you nothing extra.",
+    val helpConversationTitle: String = "Conversation mode",
+    val helpConversationShort: String = "Two people, one phone, taking turns.",
+    val helpConversationBody: String =
+        "Conversation mode gives each side its own button and keeps the exchange on screen. Every " +
+            "turn is shown to you for approval before it goes out, and the last few turns are used " +
+            "as context so pronouns and short answers still make sense.",
+    val helpDualHeadsetTitle: String = "Two headsets",
+    val helpDualHeadsetShort: String = "Each person hears only their own side.",
+    val helpDualHeadsetBody: String =
+        "Connect two sets of headphones and assign one to each person. Each translation is then " +
+            "played only into the headphones of the person it is meant for.",
+    val helpFullScreenTitle: String = "Show it to them",
+    val helpFullScreenShort: String = "Make the translation big enough to read across a table.",
+    val helpFullScreenBody: String =
+        "The full-screen button on any translation fills the screen with it, so you can hold the " +
+            "phone up instead of reading it out. Tap anywhere to come back.",
+
     // --- Voice input ---
     /** `{0}` is the language being listened for. Android shows it in the
      *  RecognizerIntent dialog, the web as a snackbar. */

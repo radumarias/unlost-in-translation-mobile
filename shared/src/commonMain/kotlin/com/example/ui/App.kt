@@ -33,6 +33,7 @@ import com.example.platform.ImageSource
 import com.example.ui.components.AppTopBar
 import com.example.ui.components.BottomNavBar
 import com.example.ui.components.FullScreenTextOverlay
+import com.example.ui.components.HelpDrawer
 import com.example.ui.components.LanguageBar
 import com.example.ui.components.LanguagePickerDialog
 import com.example.ui.components.ValidationDetailsSheet
@@ -147,6 +148,7 @@ private fun AppContent(
         var showValidationDetails by remember { mutableStateOf<ValidationState.Success?>(null) }
         // The flashcard is reachable from three places, so its state is here.
         var fullScreenText by remember { mutableStateOf<String?>(null) }
+        var showHelp by remember { mutableStateOf(false) }
 
         // Voice-input status/errors are surfaced as snackbars, driven by the VM's
         // one-shot message stream (replaces the old Toast calls).
@@ -204,6 +206,7 @@ private fun AppContent(
                                         isAiEnhanced = isAiEnhanced,
                                         audioOutputCatalog = container.audioOutputCatalog,
                                         showDualHeadset = container.capabilities.dualHeadset,
+                                        onShowHelp = { showHelp = true },
                                     )
 
                                     LanguageBar(
@@ -359,6 +362,15 @@ private fun AppContent(
                     FullScreenTextOverlay(
                         text = fullScreenText,
                         onDismiss = { fullScreenText = null },
+                    )
+
+                    // --- Overlay Panel: what the app does ---
+                    HelpDrawer(
+                        visible = showHelp,
+                        showVoiceInput = container.capabilities.voiceInput,
+                        showImageInput = container.capabilities.imageInput,
+                        showDualHeadset = container.capabilities.dualHeadset,
+                        onDismiss = { showHelp = false },
                     )
                 }
             }
