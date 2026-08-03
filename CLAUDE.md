@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Picking the work up cold?** Read [`HANDOFF.md`](HANDOFF.md) first — current state, what has been done, fresh-clone setup (three gitignored files break the build), the gate suite with expected test counts, the hard rules, and what is left.
+**Picking the work up cold?** Read [`HANDOFF.md`](HANDOFF.md) first — current state, what has been done, fresh-clone setup (three gitignored files break the build), the gate suite with expected test counts, and the hard rules. Then [`STATUS.md`](STATUS.md) — per-component confidence (what is test-proven vs. never executed), the known imperfections that are deliberate, and the remaining work ranked by value per unit of risk.
 
 ## Project Overview
 
