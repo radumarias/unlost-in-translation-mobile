@@ -42,8 +42,11 @@ internal object AndroidImageLoading {
      */
     private fun decodeDownscaled(context: Context, uri: Uri): Bitmap? {
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-        context.contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it, null, bounds) }
-            ?: return null
+        // The measuring pass returns no bitmap by contract, so only the stream
+        // may be null-checked here — testing the decode result would abort every
+        // image, valid ones included.
+        val boundsStream = context.contentResolver.openInputStream(uri) ?: return null
+        boundsStream.use { BitmapFactory.decodeStream(it, null, bounds) }
 
         val longestEdge = maxOf(bounds.outWidth, bounds.outHeight)
         if (longestEdge <= 0) return null
