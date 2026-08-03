@@ -24,7 +24,8 @@ class VoiceInputException(val code: String) : RuntimeException("Voice input fail
  * One-shot recognition per call, mirroring the Android RecognizerIntent flow:
  * the final result resolves the suspension; "no-speech" and "aborted" resolve
  * null silently (the dialog-cancel equivalents); hard failures throw
- * [VoiceInputException] with a user-displayable message. Cancelling the
+ * [VoiceInputException] carrying the browser's error code, which the entry
+ * point turns into a message through the catalogue. Cancelling the
  * calling coroutine aborts the browser session. [prompt] has no browser UI to
  * host it (there is no system "Speak now" dialog on the web); callers surface
  * it as a snackbar instead.

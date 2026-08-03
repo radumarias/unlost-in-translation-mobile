@@ -552,7 +552,10 @@ fun TranslateScreen(
                                     // Share tool
                                     IconButton(
                                         onClick = {
-                                            platformActions.share(state.translatedText)
+                                            platformActions.share(
+                                                state.translatedText,
+                                                strings.shareTranslationTitle,
+                                            )
                                         },
                                         modifier = Modifier
                                             .padding(horizontal = 4.dp)

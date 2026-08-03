@@ -190,6 +190,18 @@ own sentences. Those are now catalogue fields too, in all 15 locales:
 name and description). Deliberate — it is level-C code that needs a paired watch, so it should be
 changed in the same pass that finally exercises it.
 
+Three things review turned up in the same area, all fixed here:
+
+- The web entry point's `catch (Exception)` could not see a throw out of `js()` interop, which
+  arrives as `kotlin.Error` — the trap `KtorTranslationApi.apiCall` already documents. Uncaught it
+  would cancel the scope the mic and camera lambdas share and kill **both** buttons for the rest of
+  the session. Both now catch `Throwable` (after rethrowing `CancellationException`) and log.
+- `TranslateViewModel.strings` was fixed at construction, but the view model outlives the Activity
+  recreation a device-language change triggers, so its snackbars kept the old language while the
+  screen switched. `rememberTranslateViewModel` now reassigns it.
+- `PlatformActions.share` takes the sheet title, instead of `AndroidPlatformActions` resolving its
+  own catalogue from `java.util.Locale` — one resolution path, from Compose, for the whole app.
+
 ---
 
 ## 4. Setting up a fresh clone
@@ -479,7 +491,7 @@ validation sheet shows the sanity check and idiom sections and that the rewrite 
 | **Issue #35** | iOS target (`:shared` iosArm64 + `:iosApp`) — opened by the owner, not started. Needs a Mac; every platform seam already has an interface waiting |
 | **Relay deploy** | `cd relay && npm install && npx wrangler deploy`, then `RELAY_BASE_URL` in `.env`. **Owner-only** — remote conversation mode does nothing until this happens |
 | **Issue #1 / #33 / #34 close-out** | Code is complete for all three. Closing is the owner's call — **do not close them yourself** |
-| **Web polish candidates** | TTS unsupported-language fallback (Android falls back to `Locale.US`, browsers vary) · `release()` vs `stop()` semantics · `share()` silent clipboard fallback needs user feedback · i18n-ready error codes for `VoiceInputException` · localStorage size cap · `user-scalable=no` in `index.html` (a11y) · `WearSyncManager` could use `flagLabel` |
+| **Web polish candidates** | TTS unsupported-language fallback (Android falls back to `Locale.US`, browsers vary) · `release()` vs `stop()` semantics · `share()` silent clipboard fallback needs user feedback · localStorage size cap · `user-scalable=no` in `index.html` (a11y) · `WearSyncManager` could use `flagLabel` |
 | **Deploy** | Only after owner sign-off. Consider a key proxy first |
 
 ---

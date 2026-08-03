@@ -19,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -57,7 +58,7 @@ fun rememberTranslateViewModel(container: AppContainer): TranslateViewModel {
     // Read outside `viewModel {}`: the factory body is not composable, and the
     // VM needs the catalogue for the messages it authors itself.
     val strings = stringsFor(Locale.current.language)
-    return viewModel {
+    val viewModel = viewModel {
         TranslateViewModel(
             api = container.api,
             repository = container.historyRepository,
@@ -67,6 +68,11 @@ fun rememberTranslateViewModel(container: AppContainer): TranslateViewModel {
             link = container.conversationLink,
         )
     }
+    // The factory body runs once, but the view model survives the Activity
+    // recreation a language change triggers — without this the snackbars it
+    // authors would stay in the language the app started in.
+    SideEffect { viewModel.strings = strings }
+    return viewModel
 }
 
 /**

@@ -27,6 +27,8 @@ import kotlinx.coroutines.launch
  * the device language — mirroring MainActivity's catch around the
  * RecognizerIntent launch.
  */
+private const val TAG = "WebEntryPoint"
+
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     // Lives outside the composition: plain state for the entry-point lambda,
@@ -59,7 +61,14 @@ fun main() {
                     } catch (e: VoiceInputException) {
                         viewModel.showMessage(viewModel.strings.voiceInputError(e.code))
                         null
-                    } catch (e: Exception) {
+                    } catch (t: Throwable) {
+                        // Throwable, not Exception: a throw out of the js()
+                        // interop arrives as kotlin.Error, which catch(Exception)
+                        // misses — the same trap KtorTranslationApi.apiCall
+                        // documents. Uncaught, it would cancel the scope this
+                        // lambda shares with the image picker and leave both
+                        // buttons silently dead for the rest of the session.
+                        container.log.e(TAG, "Voice input failed", t)
                         viewModel.showMessage(viewModel.strings.voiceInputFailed)
                         null
                     }
@@ -71,7 +80,16 @@ fun main() {
                 // abandoned file dialog, which the browser never reports.
                 activeImageJob?.cancel()
                 activeImageJob = scope.launch {
-                    val picked = container.imagePicker.pick(source)
+                    val picked = try {
+                        container.imagePicker.pick(source)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (t: Throwable) {
+                        // Same shared scope, same reason as above.
+                        container.log.e(TAG, "Image input failed", t)
+                        viewModel.showMessage(viewModel.strings.imageReadFailed)
+                        null
+                    }
                     viewModel.onImageInputResult(picked?.base64, picked?.mimeType ?: "")
                 }
             },

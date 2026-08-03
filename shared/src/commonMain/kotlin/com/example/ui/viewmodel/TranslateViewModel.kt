@@ -49,8 +49,14 @@ class TranslateViewModel(
      * The string catalogue for the messages this view model authors itself.
      * Public because the platform entry points need the same one for the text
      * they show outside the composition (the recognizer prompt, its failures).
+     *
+     * A `var` because this view model outlives the Activity: a device language
+     * change recreates the Activity but keeps the view model, so a catalogue
+     * fixed at construction would keep speaking the previous language while the
+     * screen around it had already switched. `rememberTranslateViewModel`
+     * reassigns it whenever the device language changes.
      */
-    val strings: Strings = Strings(),
+    var strings: Strings = Strings(),
     /**
      * Two-device conversation transport (issue #33). Defaulted so every existing
      * construction — the tests especially — keeps compiling; the container passes

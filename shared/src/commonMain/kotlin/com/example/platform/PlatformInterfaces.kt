@@ -94,7 +94,14 @@ interface AudioOutputCatalog {
  */
 interface PlatformActions {
     fun copyToClipboard(text: String)
-    fun share(text: String)
+
+    /**
+     * [title] labels the share sheet. It is passed in rather than looked up
+     * here because the catalogue is resolved once, from Compose, at the call
+     * site — a platform implementation resolving its own would be a second
+     * source of truth for the device language.
+     */
+    fun share(text: String, title: String)
 }
 
 /** Feature flags that gate capability-specific UI (design §3). */

@@ -162,8 +162,12 @@ interface VoiceInput {                              // null = cancelled/unavaila
 // `TranslateViewModel.onVoiceInputResult(spokenText, isConversationA)`
 // (main mic → setSourceText + triggerTranslation; conversation →
 // prepareConversationPart; blank/null ignored). Hard recognition failures
-// (blocked mic, no network, unsupported language) throw `VoiceInputException`
-// with a user-displayable message that the web entry point snackbars —
+// (blocked mic, no network, unsupported language) throw `VoiceInputException`.
+// DEVIATION (2026-08-03, i18n of the platform layer): it carries the browser's
+// SpeechRecognition error *code*, not a sentence. The entry point resolves the
+// wording through `Strings.voiceInputError(code)`, so a translated device gets
+// a translated failure; the original design had the platform layer compose an
+// English message that the web entry point snackbarred as-is —
 // Android-parity with MainActivity's catch; "no-speech"/"aborted" stay null
 // (dialog-cancel equivalents). The web runs one recognition at a time: a new
 // mic tap cancels the in-flight job, which aborts the browser session.
