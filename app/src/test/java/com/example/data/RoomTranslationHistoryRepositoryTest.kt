@@ -83,6 +83,21 @@ class RoomTranslationHistoryRepositoryTest {
   }
 
   @Test
+  fun `rows written in the same millisecond keep a stable newest-first order`() = runTest {
+    // The realistic case: a translation and its conversation counterpart, or a
+    // fast retry. Without the id tiebreaker SQLite may return either first and
+    // the history list reshuffles between reads.
+    val first = repository.insert(translation("first", timestamp = 5_000L))
+    val second = repository.insert(translation("second", timestamp = 5_000L))
+    val third = repository.insert(translation("third", timestamp = 5_000L))
+
+    val all = repository.allTranslations().first()
+
+    assertEquals(listOf(third, second, first), all.map { it.id })
+    assertEquals(listOf("third", "second", "first"), all.map { it.sourceText })
+  }
+
+  @Test
   fun `every field survives the round trip through the entity`() = runTest {
     val id = repository.insert(
       Translation(

@@ -10,7 +10,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
@@ -18,6 +20,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.InputStream
 
 /**
@@ -27,12 +30,17 @@ import java.io.InputStream
  *
  * NATIVE graphics are required: under the legacy Robolectric graphics shadows
  * BitmapFactory hands back placeholder bitmaps and the sampling maths would be
- * asserted against fiction.
+ * asserted against fiction. Source bitmaps are kept as thin as the assertion
+ * allows — the maths only reads the longest edge — because a full 6200x4000
+ * ARGB_8888 source is ~99 MB of real allocation per test.
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [36])
 class AndroidImageLoadingTest {
+
+  @get:Rule
+  val temporaryFolder = TemporaryFolder()
 
   private val context = ApplicationProvider.getApplicationContext<Context>()
 
@@ -48,10 +56,10 @@ class AndroidImageLoadingTest {
    * A *supplier*, not a single stream: the decode measures bounds first and
    * decodes second, so it opens the Uri twice.
    */
-  private fun uriServing(bytes: ByteArray?): Uri {
-    val uri = Uri.parse("content://com.example.test/image/${bytes?.size ?: "none"}")
+  private fun uriServing(bytes: ByteArray): Uri {
+    val uri = Uri.parse("content://com.example.test/image/${bytes.size}")
     shadowOf(context.contentResolver).registerInputStreamSupplier(uri) {
-      bytes?.let { ByteArrayInputStream(it) } as InputStream?
+      ByteArrayInputStream(bytes) as InputStream?
     }
     return uri
   }
@@ -60,25 +68,29 @@ class AndroidImageLoadingTest {
     val bytes = Base64.decode(base64, Base64.NO_WRAP)
     val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
     assertNotNull("result must decode back to a bitmap", bitmap)
-    return bitmap.width to bitmap.height
+    val size = bitmap.width to bitmap.height
+    bitmap.recycle()
+    return size
   }
 
   @Test
-  fun `a camera-sized image is halved to the first power of two above the cap`() {
+  fun `a camera-sized image comes back at exactly the cap`() {
     val result = AndroidImageLoading.toBase64Jpeg(context, uriServing(jpegBytes(4000, 3000)))
 
     assertNotNull(result)
-    // inSampleSize = 2. Sampling never drops below MAX_EDGE_PX (1536), so 4000
-    // becomes 2000 rather than exactly 1536 — powers of two are all it can pick.
-    assertEquals(2000 to 1500, decodedSize(result!!))
+    // Sampling alone (inSampleSize = 2) would stop at 2000x1500: powers of two
+    // never drop below the cap. The scale pass finishes the job.
+    assertEquals(1536 to 1152, decodedSize(result!!))
   }
 
   @Test
-  fun `a larger image samples down by four`() {
-    val result = AndroidImageLoading.toBase64Jpeg(context, uriServing(jpegBytes(6200, 4000)))
+  fun `an image just under twice the cap is still brought down to it`() {
+    // The case power-of-two sampling misses entirely: 3070 / 2 is below the
+    // cap, so inSampleSize stays 1 and the photo would upload untouched.
+    val result = AndroidImageLoading.toBase64Jpeg(context, uriServing(jpegBytes(3070, 400)))
 
     assertNotNull(result)
-    assertEquals(1550 to 1000, decodedSize(result!!))
+    assertEquals(1536 to 200, decodedSize(result!!))
   }
 
   @Test
@@ -105,9 +117,28 @@ class AndroidImageLoadingTest {
   }
 
   @Test
-  fun `a uri that cannot be opened yields null`() {
-    val result = AndroidImageLoading.toBase64Jpeg(context, uriServing(null))
+  fun `a uri whose file has gone away yields null instead of throwing`() {
+    // openInputStream throws FileNotFoundException here rather than returning
+    // null — the picked photo deleted between the pick and the read. Reaching
+    // this test through a real file: Uri is deliberate: a content: Uri with no
+    // provider gets Robolectric's UnregisteredInputStream, which is not null
+    // and so would not exercise the same path.
+    val missing = File(temporaryFolder.root, "gone.jpg")
+    val result = AndroidImageLoading.toBase64Jpeg(context, Uri.fromFile(missing))
 
     assertNull(result)
+  }
+
+  @Test
+  fun `a readable file uri is decoded like any other source`() {
+    // The counterpart to the test above: proves that path fails for the file
+    // being missing, not for the scheme.
+    val file = temporaryFolder.newFile("photo.jpg")
+    file.writeBytes(jpegBytes(800, 600))
+
+    val result = AndroidImageLoading.toBase64Jpeg(context, Uri.fromFile(file))
+
+    assertNotNull(result)
+    assertEquals(800 to 600, decodedSize(result!!))
   }
 }

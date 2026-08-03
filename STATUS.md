@@ -71,8 +71,8 @@ Nothing at level C in this table has ever run.
 
 | Component | Level | Status |
 |---|---|---|
-| `RoomTranslationHistoryRepository` (+ DAO, entity, DB) | **A** | 7 Robolectric tests over an in-memory database — `RoomTranslationHistoryRepositoryTest` in `:app`. Ids, newest-first ordering, field mapping, the `timestamp = 0` "now" branch, star on/off, delete, clear-all, `REPLACE` on a duplicate id |
-| `AndroidImageLoading` (downscale, Base64) | **A** | 6 tests — `AndroidImageLoadingTest`. **These found a real bug**: the function returned null for *every* image, so camera and gallery OCR could never have worked on Android. Fixed with the tests. The sampling maths, `NO_WRAP`, and both null paths are now pinned |
+| `RoomTranslationHistoryRepository` (+ DAO, entity, DB) | **A** | 8 Robolectric tests over an in-memory database — `RoomTranslationHistoryRepositoryTest` in `:app`. Ids, newest-first ordering including the same-millisecond tiebreak, field mapping, the `timestamp = 0` "now" branch, star on/off, delete, clear-all, `REPLACE` on a duplicate id |
+| `AndroidImageLoading` (downscale, Base64) | **A** | 7 tests — `AndroidImageLoadingTest`. **These found three real bugs**: the function returned null for *every* image (camera and gallery OCR could never have worked); a Uri whose file had gone away threw `FileNotFoundException` out of the launcher callback instead of returning null; and a failed re-encode produced `""`, which is not null, so the photo vanished with no message. All fixed. The size cap is now exact rather than power-of-two-approximate |
 | `TTSHelper` incl. dual-headset WAV + `MediaPlayer.setPreferredDevice` | **C** | Needs audio hardware |
 | `AndroidAudioOutputCatalog` | **C** | Needs a device with headsets |
 | `MainActivity` voice launcher (`RecognizerIntent`) | **C** | Activity-scoped result launcher |
@@ -214,9 +214,9 @@ Repeated from HANDOFF because breaking one of these is worse than shipping nothi
           --rerun-tasks --continue
 ```
 
-Expected after the §4.1 floor-raise: **152** JVM · **157** wasm · **16** `:app` · Roborazzi green ·
-both builds green. The JVM and wasm counts are unchanged by that work, which is itself the proof
-that the deleted `_partnerAText`/`_partnerBText` flows really were dead.
+Expected after the §4.1 floor-raise: **152** JVM · **158** wasm · **18** `:app` · Roborazzi green ·
+both builds green. The JVM count is unchanged by that work, which is itself the proof that the
+deleted `_partnerAText`/`_partnerBText` flows really were dead.
 
 `--rerun-tasks` is not optional when you are reporting numbers: Gradle caches hard enough that a
 docs-only change reports everything `UP-TO-DATE` and proves nothing.
@@ -230,7 +230,7 @@ Counts come from `*/build/test-results/*/*.xml`. Where the numbers live:
 | `TranslateViewModelTest` | 55 |
 | `StringsTest` | 18 |
 | `LanguageTest` | 3 |
-| `LocalStorageHistoryRepositoryTest` | 5 (wasm only) |
-| `RoomTranslationHistoryRepositoryTest` | 7 (`:app`) |
-| `AndroidImageLoadingTest` | 6 (`:app`) |
-| `:app` | 16, of which 1 is the screenshot |
+| `LocalStorageHistoryRepositoryTest` | 6 (wasm only) |
+| `RoomTranslationHistoryRepositoryTest` | 8 (`:app`) |
+| `AndroidImageLoadingTest` | 7 (`:app`) |
+| `:app` | 18, of which 1 is the screenshot |
