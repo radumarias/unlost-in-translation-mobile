@@ -1,6 +1,11 @@
 # HANDOFF — read this first
 
 Entry point for anyone (human or agent) picking this repo up cold. Written 2026-08-01.
+
+**How much to trust each part of the code — and what is left to do, ranked — is in
+[`STATUS.md`](STATUS.md).** Read this file to work in the repo; read that one before changing
+something you have not verified.
+
 Everything here was verified against the repo and `gh` on that date, not recalled.
 
 If this file disagrees with the code, **the code is right and this file is stale** — fix the file.
