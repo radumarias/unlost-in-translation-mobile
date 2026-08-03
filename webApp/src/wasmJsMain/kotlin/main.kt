@@ -2,6 +2,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
+import com.example.platform.VoiceInputException
 import com.example.platform.createAppContainer
 import com.example.ui.App
 import com.example.ui.rememberTranslateViewModel
@@ -22,8 +23,9 @@ import kotlinx.coroutines.launch
  * aborts the in-flight one. The shared "Speak now" prompt is surfaced as a
  * snackbar (the web has no system recognizer dialog), results route through
  * the shared `onVoiceInputResult`, and hard failures ([VoiceInputException])
- * surface their message as a snackbar — mirroring MainActivity's catch around
- * the RecognizerIntent launch.
+ * carry the browser's error code, which the catalogue turns into a snackbar in
+ * the device language — mirroring MainActivity's catch around the
+ * RecognizerIntent launch.
  */
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
@@ -54,8 +56,11 @@ fun main() {
                         )
                     } catch (e: CancellationException) {
                         throw e
+                    } catch (e: VoiceInputException) {
+                        viewModel.showMessage(viewModel.strings.voiceInputError(e.code))
+                        null
                     } catch (e: Exception) {
-                        viewModel.showMessage(e.message ?: viewModel.strings.voiceInputFailed)
+                        viewModel.showMessage(viewModel.strings.voiceInputFailed)
                         null
                     }
                     viewModel.onVoiceInputResult(spokenText, isConversationA)

@@ -4,6 +4,8 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import com.example.ui.i18n.stringsFor
+import java.util.Locale
 
 /**
  * Android [PlatformActions]: clipboard via [ClipboardManager] and share via an
@@ -26,7 +28,11 @@ class AndroidPlatformActions(context: Context) : PlatformActions {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, text)
         }
-        val chooser = Intent.createChooser(intent, "Share translation").apply {
+        // The catalogue is keyed by device language everywhere else too, and the
+        // chooser is raised outside any composition, so it is resolved here
+        // rather than plumbed in through the container.
+        val title = stringsFor(Locale.getDefault().language).shareTranslationTitle
+        val chooser = Intent.createChooser(intent, title).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         appContext.startActivity(chooser)

@@ -202,6 +202,12 @@ internal val spanish = Strings(
     voiceInputPrompt = "Habla ahora ({0})...",
     voiceInputUnsupported = "La entrada de voz no es compatible con este dispositivo.",
     voiceInputFailed = "Falló la entrada de voz.",
+    voiceInputMicBlocked = "El acceso al micrófono está bloqueado. Permítelo en los ajustes del navegador.",
+    voiceInputNoMicrophone = "No se encontró ningún micrófono.",
+    voiceInputNoNetwork = "La entrada de voz necesita conexión a la red.",
+    voiceInputLanguageUnsupported =
+        "La entrada de voz no admite este idioma en este navegador.",
+    voiceInputFailedWithCode = "Falló la entrada de voz ({0}).",
 
     aiEnhancedTurnedOn = "IA Mejorada activada: el tono y la situación la necesitan.",
     translateFirstToDetect = "Traduce algo primero para poder detectar el idioma.",
@@ -210,6 +216,8 @@ internal val spanish = Strings(
     validationFailed = "Falló la validación: {0}",
     validationUnavailable = "No se ha podido completar la comprobación cultural.",
     imageReadFailed = "No se pudo leer la imagen",
+    imageInputUnavailable = "No hay ninguna aplicación disponible para proporcionar una foto.",
+    shareTranslationTitle = "Compartir traducción",
     rewriteFailed = "No se pudo reescribir el mensaje",
     conversationTranslationFailed = "Falló en la fase de traducción",
 )

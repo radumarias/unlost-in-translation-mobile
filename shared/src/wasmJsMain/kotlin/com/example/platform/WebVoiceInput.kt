@@ -6,11 +6,12 @@ import kotlin.coroutines.resumeWithException
 
 /**
  * Thrown by [WebVoiceInput] for hard recognition failures (blocked microphone,
- * no network, unsupported language). [message] is user-displayable — the entry
- * point surfaces it as a snackbar, mirroring MainActivity's catch around the
- * RecognizerIntent launch.
+ * no network, unsupported language). [code] is the browser's own
+ * SpeechRecognition error code, **not** a sentence: the entry point turns it
+ * into a snackbar through `Strings.voiceInputError`, so the wording follows the
+ * device language. [message] exists for logs only.
  */
-class VoiceInputException(message: String) : RuntimeException(message)
+class VoiceInputException(val code: String) : RuntimeException("Voice input failed ($code)")
 
 /**
  * Web [VoiceInput] backed by the Web Speech API's `SpeechRecognition`
@@ -52,15 +53,14 @@ class WebVoiceInput(private val log: AppLog) : VoiceInput {
                 },
                 onError = { error ->
                     resumeOnce {
-                        val friendly = hardErrorMessage(error)
-                        if (friendly == null) {
+                        if (isBenign(error)) {
                             // no-speech / aborted: the user simply didn't provide
                             // speech — the RecognizerIntent-cancel equivalent.
                             log.d(TAG, "Speech recognition ended without result: $error")
                             continuation.resume(null)
                         } else {
                             log.e(TAG, "Speech recognition failed: $error")
-                            continuation.resumeWithException(VoiceInputException(friendly))
+                            continuation.resumeWithException(VoiceInputException(error))
                         }
                     }
                 },
@@ -69,16 +69,13 @@ class WebVoiceInput(private val log: AppLog) : VoiceInput {
             continuation.invokeOnCancellation { abortRecognition(recognition) }
         }
 
-    /** User-displayable message for a hard failure, or null for benign outcomes. */
-    private fun hardErrorMessage(error: String): String? = when (error) {
-        "no-speech", "aborted" -> null
-        "not-allowed", "service-not-allowed" ->
-            "Microphone access is blocked. Allow it in the browser settings."
-        "audio-capture" -> "No microphone was found."
-        "network" -> "Voice input needs a network connection."
-        "language-not-supported" -> "Voice input does not support this language in this browser."
-        else -> "Voice input failed ($error)."
-    }
+    /**
+     * True for the outcomes that are not failures at all — the user said
+     * nothing, or the session was superseded. Everything else is reported.
+     * Which sentence a reported code gets is the catalogue's business, not this
+     * layer's (`Strings.voiceInputError`).
+     */
+    private fun isBenign(error: String): Boolean = error == "no-speech" || error == "aborted"
 }
 
 /**

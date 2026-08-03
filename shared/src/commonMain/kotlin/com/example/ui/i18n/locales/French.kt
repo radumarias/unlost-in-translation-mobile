@@ -198,6 +198,12 @@ internal val french = Strings(
     voiceInputPrompt = "Parlez maintenant ({0})...",
     voiceInputUnsupported = "La saisie vocale n'est pas prise en charge sur cet appareil.",
     voiceInputFailed = "Échec de la saisie vocale.",
+    voiceInputMicBlocked = "L'accès au microphone est bloqué. Autorisez-le dans les paramètres du navigateur.",
+    voiceInputNoMicrophone = "Aucun microphone n'a été trouvé.",
+    voiceInputNoNetwork = "La saisie vocale nécessite une connexion réseau.",
+    voiceInputLanguageUnsupported =
+        "La saisie vocale ne prend pas en charge cette langue dans ce navigateur.",
+    voiceInputFailedWithCode = "Échec de la saisie vocale ({0}).",
 
     aiEnhancedTurnedOn = "IA Avancée activée — le ton et la situation en ont besoin.",
     translateFirstToDetect = "Traduisez d'abord quelque chose pour que la langue puisse être détectée.",
@@ -206,6 +212,8 @@ internal val french = Strings(
     validationFailed = "Échec de la validation : {0}",
     validationUnavailable = "La vérification culturelle n'a pas pu être effectuée.",
     imageReadFailed = "Impossible de lire l'image",
+    imageInputUnavailable = "Aucune application disponible ne peut fournir une photo.",
+    shareTranslationTitle = "Partager la traduction",
     rewriteFailed = "Impossible de reformuler le message",
     conversationTranslationFailed = "Échec à l'étape de traduction",
 )

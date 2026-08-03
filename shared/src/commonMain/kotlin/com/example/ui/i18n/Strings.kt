@@ -116,6 +116,8 @@ data class Strings(
     val handOverForReply: String = "Their turn to reply",
     val copyText: String = "Copy text",
     val share: String = "Share",
+    /** Title of the Android share sheet. The web share API shows no title. */
+    val shareTranslationTitle: String = "Share translation",
     val errorDescription: String = "Error",
     val copiedTranslation: String = "Copied translation!",
     val addedToStarHistory: String = "Added to star history.",
@@ -305,6 +307,21 @@ data class Strings(
     val voiceInputPrompt: String = "Speak now ({0})...",
     val voiceInputUnsupported: String = "Voice input is not supported on this device.",
     val voiceInputFailed: String = "Voice input failed.",
+    // Hard browser-recognition failures, keyed by the DOM error code through
+    // [voiceInputError]. The platform layer reports the code; the wording is
+    // chosen here, so it follows the device language like everything else.
+    val voiceInputMicBlocked: String =
+        "Microphone access is blocked. Allow it in the browser settings.",
+    val voiceInputNoMicrophone: String = "No microphone was found.",
+    val voiceInputNoNetwork: String = "Voice input needs a network connection.",
+    val voiceInputLanguageUnsupported: String =
+        "Voice input does not support this language in this browser.",
+    /** `{0}` is the browser's own error code, kept so an unknown failure is still reportable. */
+    val voiceInputFailedWithCode: String = "Voice input failed ({0}).",
+
+    // --- Image input ---
+    /** No camera or gallery app answered the launch — Android only. */
+    val imageInputUnavailable: String = "No app is available to provide a photo.",
 
     // --- View-model messages ---
     val aiEnhancedTurnedOn: String = "AI Enhanced turned on — tone and situation need it.",
@@ -338,6 +355,21 @@ data class Strings(
         "Service" -> situationService
         "Emergency" -> situationEmergency
         else -> id
+    }
+
+    /**
+     * The message for a hard voice-input failure, keyed by the browser's own
+     * SpeechRecognition error code. The platform layer used to compose these
+     * sentences itself, which left them English on a translated device; it now
+     * hands up the code and the wording is picked here. An unrecognised code
+     * stays visible in the message so a failure is still reportable.
+     */
+    fun voiceInputError(code: String): String = when (code) {
+        "not-allowed", "service-not-allowed" -> voiceInputMicBlocked
+        "audio-capture" -> voiceInputNoMicrophone
+        "network" -> voiceInputNoNetwork
+        "language-not-supported" -> voiceInputLanguageUnsupported
+        else -> voiceInputFailedWithCode.withArg(code)
     }
 }
 

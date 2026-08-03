@@ -175,6 +175,21 @@ the code reads correctly and does not work.
 Both test classes live in `:app/src/test/` rather than `:shared`, because Robolectric is already
 wired there and the AGP KMP-library `withHostTest {}` source set is not set up for JUnit4.
 
+### Arc 7 — the platform layer's last English strings
+
+Arc 4 moved the shared UI into `Strings.kt`, but the platform entry points kept composing their
+own sentences. Those are now catalogue fields too, in all 15 locales:
+
+- `MainActivity`'s two image-input snackbars, and the Android share-sheet title.
+- `WebVoiceInput` no longer writes user-facing prose at all. `VoiceInputException` carries the
+  browser's own SpeechRecognition **error code**; `Strings.voiceInputError(code)` chooses the
+  sentence, so a translated device gets a translated failure. This closes the item that was
+  logged in `STATUS.md` §4.2.
+
+**Still English:** the Wear notification (title, `Original:` / `Translation:` labels, channel
+name and description). Deliberate — it is level-C code that needs a paired watch, so it should be
+changed in the same pass that finally exercises it.
+
 ---
 
 ## 4. Setting up a fresh clone
@@ -248,8 +263,8 @@ Windows: `.\gradlew.bat` with the same arguments.
 
 | Task | What it proves | Expected |
 |---|---|---|
-| `:shared:testAndroidHostTest` | `commonTest` on the JVM — parsers, `KtorTranslationApi` with MockEngine, `TranslateViewModel` with fakes, the string catalogue — **plus** `androidHostTest`, which is where the conversation link is driven against a real WebSocket server | **286 tests, 0 failures** |
-| `:shared:wasmJsTest` | the same `commonTest` **plus** `wasmJsTest` in headless Chrome | **276 tests, 0 failures** |
+| `:shared:testAndroidHostTest` | `commonTest` on the JVM — parsers, `KtorTranslationApi` with MockEngine, `TranslateViewModel` with fakes, the string catalogue — **plus** `androidHostTest`, which is where the conversation link is driven against a real WebSocket server | **289 tests, 0 failures** |
+| `:shared:wasmJsTest` | the same `commonTest` **plus** `wasmJsTest` in headless Chrome | **279 tests, 0 failures** |
 | `:app:testDebugUnitTest` | Robolectric + Roborazzi — plus the Room repository and image-downscale suites | **18 tests, 0 failures** |
 | `:app:verifyRoborazziDebug` | Android UI is pixel-identical to the committed baselines | green |
 | `:app:assembleDebug` | the Android app still builds | green |

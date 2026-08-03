@@ -198,6 +198,12 @@ internal val italian = Strings(
     voiceInputPrompt = "Parla ora ({0})...",
     voiceInputUnsupported = "L'input vocale non è supportato su questo dispositivo.",
     voiceInputFailed = "Input vocale non riuscito.",
+    voiceInputMicBlocked = "L'accesso al microfono è bloccato. Consentilo nelle impostazioni del browser.",
+    voiceInputNoMicrophone = "Nessun microfono trovato.",
+    voiceInputNoNetwork = "L'input vocale richiede una connessione di rete.",
+    voiceInputLanguageUnsupported =
+        "L'input vocale non supporta questa lingua in questo browser.",
+    voiceInputFailedWithCode = "Input vocale non riuscito ({0}).",
 
     aiEnhancedTurnedOn = "IA Avanzata attivata: tono e situazione ne hanno bisogno.",
     translateFirstToDetect = "Traduci prima qualcosa, così la lingua può essere rilevata.",
@@ -206,6 +212,8 @@ internal val italian = Strings(
     validationFailed = "Convalida non riuscita: {0}",
     validationUnavailable = "Non è stato possibile completare il controllo culturale.",
     imageReadFailed = "Impossibile leggere l'immagine",
+    imageInputUnavailable = "Nessuna app disponibile può fornire una foto.",
+    shareTranslationTitle = "Condividi la traduzione",
     rewriteFailed = "Impossibile riscrivere il messaggio",
     conversationTranslationFailed = "Non riuscito nella fase di traduzione",
 )

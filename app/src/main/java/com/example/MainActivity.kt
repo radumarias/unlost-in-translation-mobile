@@ -123,7 +123,7 @@ private fun AndroidApp() {
         if (uri == null) return // the user backed out
         val base64 = AndroidImageLoading.toBase64Jpeg(context, uri)
         if (base64 == null) {
-            viewModel.showMessage("That image could not be read.")
+            viewModel.showMessage(viewModel.strings.imageReadFailed)
             return
         }
         viewModel.onImageInputResult(base64, AndroidImageLoading.MIME_TYPE)
@@ -159,7 +159,7 @@ private fun AndroidApp() {
         } catch (e: Exception) {
             Log.e("MainActivity", "Image input failed to launch", e)
             pendingCameraUri = null
-            viewModel.showMessage("No app is available to provide a photo.")
+            viewModel.showMessage(viewModel.strings.imageInputUnavailable)
         }
     }
 

@@ -198,6 +198,12 @@ internal val arabic = Strings(
     voiceInputPrompt = "تحدث الآن ({0})...",
     voiceInputUnsupported = "الإدخال الصوتي غير مدعوم على هذا الجهاز.",
     voiceInputFailed = "فشل الإدخال الصوتي.",
+    voiceInputMicBlocked = "الوصول إلى الميكروفون محظور. اسمح به من إعدادات المتصفح.",
+    voiceInputNoMicrophone = "لم يتم العثور على ميكروفون.",
+    voiceInputNoNetwork = "يحتاج الإدخال الصوتي إلى اتصال بالشبكة.",
+    voiceInputLanguageUnsupported =
+        "الإدخال الصوتي لا يدعم هذه اللغة في هذا المتصفح.",
+    voiceInputFailedWithCode = "فشل الإدخال الصوتي ({0}).",
 
     aiEnhancedTurnedOn = "تم تفعيل الذكاء الاصطناعي المُحسَّن — النبرة والموقف يحتاجان إليه.",
     translateFirstToDetect = "ترجم شيئًا أولاً حتى يمكن تحديد اللغة.",
@@ -206,6 +212,8 @@ internal val arabic = Strings(
     validationFailed = "فشل التحقق: {0}",
     validationUnavailable = "تعذّر إكمال الفحص الثقافي.",
     imageReadFailed = "تعذّرت قراءة الصورة",
+    imageInputUnavailable = "لا يوجد تطبيق متاح لتوفير صورة.",
+    shareTranslationTitle = "مشاركة الترجمة",
     rewriteFailed = "تعذّرت إعادة صياغة الرسالة",
     conversationTranslationFailed = "فشل في مرحلة الترجمة",
 )

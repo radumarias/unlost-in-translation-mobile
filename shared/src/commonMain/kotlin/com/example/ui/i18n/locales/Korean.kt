@@ -198,6 +198,12 @@ internal val korean = Strings(
     voiceInputPrompt = "지금 말하세요 ({0})...",
     voiceInputUnsupported = "이 기기에서는 음성 입력을 지원하지 않습니다.",
     voiceInputFailed = "음성 입력에 실패했습니다.",
+    voiceInputMicBlocked = "마이크 접근이 차단되었습니다. 브라우저 설정에서 허용하세요.",
+    voiceInputNoMicrophone = "마이크를 찾지 못했습니다.",
+    voiceInputNoNetwork = "음성 입력에는 네트워크 연결이 필요합니다.",
+    voiceInputLanguageUnsupported =
+        "이 브라우저에서는 음성 입력이 이 언어를 지원하지 않습니다.",
+    voiceInputFailedWithCode = "음성 입력에 실패했습니다 ({0}).",
 
     aiEnhancedTurnedOn = "AI 향상을 켰습니다 — 톤과 상황에 필요합니다.",
     translateFirstToDetect = "언어를 감지하려면 먼저 무언가를 번역하세요.",
@@ -206,6 +212,8 @@ internal val korean = Strings(
     validationFailed = "검증에 실패했습니다: {0}",
     validationUnavailable = "문화적 확인을 완료하지 못했습니다.",
     imageReadFailed = "이미지를 읽지 못했습니다",
+    imageInputUnavailable = "사진을 제공할 수 있는 앱이 없습니다.",
+    shareTranslationTitle = "번역 공유",
     rewriteFailed = "메시지를 다시 쓰지 못했습니다",
     conversationTranslationFailed = "번역 단계에서 실패했습니다",
 )

@@ -201,6 +201,12 @@ internal val dutch = Strings(
     voiceInputPrompt = "Spreek nu ({0})...",
     voiceInputUnsupported = "Spraakinvoer wordt niet ondersteund op dit apparaat.",
     voiceInputFailed = "Spraakinvoer is mislukt.",
+    voiceInputMicBlocked = "Toegang tot de microfoon is geblokkeerd. Sta die toe in de browserinstellingen.",
+    voiceInputNoMicrophone = "Er is geen microfoon gevonden.",
+    voiceInputNoNetwork = "Spraakinvoer heeft een netwerkverbinding nodig.",
+    voiceInputLanguageUnsupported =
+        "Spraakinvoer ondersteunt deze taal niet in deze browser.",
+    voiceInputFailedWithCode = "Spraakinvoer is mislukt ({0}).",
 
     aiEnhancedTurnedOn = "AI-verbetering ingeschakeld — toon en situatie hebben die nodig.",
     translateFirstToDetect = "Vertaal eerst iets, dan kan de taal herkend worden.",
@@ -209,6 +215,8 @@ internal val dutch = Strings(
     validationFailed = "Validatie mislukt: {0}",
     validationUnavailable = "De culturele controle kon niet worden voltooid.",
     imageReadFailed = "Kan de afbeelding niet lezen",
+    imageInputUnavailable = "Geen app beschikbaar die een foto kan leveren.",
+    shareTranslationTitle = "Vertaling delen",
     rewriteFailed = "Kan het bericht niet herschrijven",
     conversationTranslationFailed = "Mislukt in de vertaalfase",
 )

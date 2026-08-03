@@ -198,6 +198,12 @@ internal val romanian = Strings(
     voiceInputPrompt = "Vorbește acum ({0})...",
     voiceInputUnsupported = "Introducerea vocală nu este acceptată pe acest dispozitiv.",
     voiceInputFailed = "Introducerea vocală a eșuat.",
+    voiceInputMicBlocked = "Accesul la microfon este blocat. Permite-l din setările browserului.",
+    voiceInputNoMicrophone = "Nu a fost găsit niciun microfon.",
+    voiceInputNoNetwork = "Introducerea vocală are nevoie de conexiune la rețea.",
+    voiceInputLanguageUnsupported =
+        "Introducerea vocală nu acceptă această limbă în acest browser.",
+    voiceInputFailedWithCode = "Introducerea vocală a eșuat ({0}).",
 
     aiEnhancedTurnedOn = "AI Îmbunătățit activat — tonul și situația au nevoie de el.",
     translateFirstToDetect = "Tradu ceva mai întâi ca limba să poată fi detectată.",
@@ -206,6 +212,8 @@ internal val romanian = Strings(
     validationFailed = "Validarea a eșuat: {0}",
     validationUnavailable = "Verificarea culturală nu a putut fi finalizată.",
     imageReadFailed = "Imaginea nu a putut fi citită",
+    imageInputUnavailable = "Nicio aplicație disponibilă nu poate furniza o fotografie.",
+    shareTranslationTitle = "Distribuie traducerea",
     rewriteFailed = "Mesajul nu a putut fi rescris",
     conversationTranslationFailed = "A eșuat în etapa de traducere",
 )

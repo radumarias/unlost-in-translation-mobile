@@ -198,6 +198,12 @@ internal val portuguese = Strings(
     voiceInputPrompt = "Fale agora ({0})...",
     voiceInputUnsupported = "A entrada por voz não é suportada neste dispositivo.",
     voiceInputFailed = "A entrada por voz falhou.",
+    voiceInputMicBlocked = "O acesso ao microfone está bloqueado. Permita-o nas definições do navegador.",
+    voiceInputNoMicrophone = "Não foi encontrado nenhum microfone.",
+    voiceInputNoNetwork = "A entrada por voz precisa de ligação à rede.",
+    voiceInputLanguageUnsupported =
+        "A entrada por voz não suporta este idioma neste navegador.",
+    voiceInputFailedWithCode = "A entrada por voz falhou ({0}).",
 
     aiEnhancedTurnedOn = "IA Avançada ativada — o tom e a situação precisam dela.",
     translateFirstToDetect = "Traduza algo primeiro para que o idioma possa ser detetado.",
@@ -206,6 +212,8 @@ internal val portuguese = Strings(
     validationFailed = "A validação falhou: {0}",
     validationUnavailable = "Não foi possível concluir a verificação cultural.",
     imageReadFailed = "Não foi possível ler a imagem",
+    imageInputUnavailable = "Nenhuma aplicação disponível consegue fornecer uma fotografia.",
+    shareTranslationTitle = "Partilhar a tradução",
     rewriteFailed = "Não foi possível reescrever a mensagem",
     conversationTranslationFailed = "Falhou na fase de tradução",
 )
