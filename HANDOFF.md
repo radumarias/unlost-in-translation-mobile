@@ -204,8 +204,8 @@ Windows: `.\gradlew.bat` with the same arguments.
 
 | Task | What it proves | Expected |
 |---|---|---|
-| `:shared:testAndroidHostTest` | `commonTest` on the JVM — parsers, `KtorTranslationApi` with MockEngine, `TranslateViewModel` with fakes, the string catalogue — **plus** `androidHostTest`, which is where the conversation link is driven against a real WebSocket server | **224 tests, 0 failures** |
-| `:shared:wasmJsTest` | the same `commonTest` **plus** `wasmJsTest` in headless Chrome | **219 tests, 0 failures** |
+| `:shared:testAndroidHostTest` | `commonTest` on the JVM — parsers, `KtorTranslationApi` with MockEngine, `TranslateViewModel` with fakes, the string catalogue — **plus** `androidHostTest`, which is where the conversation link is driven against a real WebSocket server | **230 tests, 0 failures** |
+| `:shared:wasmJsTest` | the same `commonTest` **plus** `wasmJsTest` in headless Chrome | **225 tests, 0 failures** |
 | `:app:testDebugUnitTest` | Robolectric + Roborazzi | **3 tests, 0 failures** |
 | `:app:verifyRoborazziDebug` | Android UI is pixel-identical to the committed baselines | green |
 | `:app:assembleDebug` | the Android app still builds | green |

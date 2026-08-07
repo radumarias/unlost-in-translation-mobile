@@ -1,0 +1,217 @@
+package com.example.ui.components
+
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material3.AlertDialog
+import com.example.link.LinkState
+import com.example.link.SessionTicket
+import com.example.ui.i18n.LocalStrings
+import com.example.ui.i18n.withArg
+import io.github.alexzhirkevich.qrose.rememberQrCodePainter
+
+/**
+ * Pairs this phone with the one the other person is holding (issue #33 Phase 5).
+ *
+ * Both halves are in one dialog because pairing is one decision with two sides:
+ * whoever opens it first shows a code, whoever opens it second reads one. The
+ * dialog does not decide which — [ticket] being non-null is what makes this the
+ * hosting side.
+ *
+ * The QR is drawn from the ticket's compact form rather than its URL form: the URL
+ * exists for the deferred web-guest path and is roughly twice as long, which pushes
+ * the symbol into a denser version for nothing when both ends are this app.
+ */
+@Composable
+fun PairingDialog(
+    ticket: SessionTicket?,
+    linkState: LinkState,
+    canScan: Boolean,
+    onStartHosting: () -> Unit,
+    onStartHostingWithCode: () -> Unit,
+    onJoin: (String) -> Boolean,
+    onScan: () -> Unit,
+    onLeave: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val strings = LocalStrings.current
+    var typed by remember { mutableStateOf("") }
+    var rejected by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(strings.pairingTitle, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = strings.pairingBlurb,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(16.dp))
+
+                if (ticket != null) {
+                    HostingSide(ticket, linkState)
+                } else {
+                    JoiningSide(
+                        typed = typed,
+                        rejected = rejected,
+                        canScan = canScan,
+                        onTypedChange = {
+                            typed = it
+                            rejected = false
+                        },
+                        onScan = onScan,
+                        onJoin = { rejected = !onJoin(typed) },
+                        onStartHosting = onStartHosting,
+                        onStartHostingWithCode = onStartHostingWithCode,
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            if (ticket != null) {
+                TextButton(onClick = onLeave) { Text(strings.pairingLeave) }
+            } else {
+                TextButton(onClick = onDismiss) { Text(strings.cancel) }
+            }
+        },
+    )
+}
+
+@Composable
+private fun HostingSide(ticket: SessionTicket, linkState: LinkState) {
+    val strings = LocalStrings.current
+    val code = ticket.manualCode
+    if (code == null) {
+        Text(strings.pairingShowThisCode, fontSize = 14.sp)
+        Spacer(Modifier.height(12.dp))
+        // A white quiet zone around the symbol: on a dark theme the surface behind
+        // it is dark, and a QR drawn straight onto that does not scan.
+        Box(
+            modifier = Modifier
+                .background(Color.White, RoundedCornerShape(8.dp))
+                .padding(12.dp)
+        ) {
+            Image(
+                painter = rememberQrCodePainter(ticket.encodeCompact()),
+                contentDescription = strings.pairingScanQr,
+                modifier = Modifier.size(200.dp),
+            )
+        }
+    } else {
+        Text(strings.pairingCodeIs, fontSize = 14.sp)
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = code,
+            fontSize = 34.sp,
+            fontWeight = FontWeight.Bold,
+            // Wide letter spacing: this is read out loud across a table, and the
+            // gaps are what stop "8" and "B" running together.
+            letterSpacing = 6.sp,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+
+    Spacer(Modifier.height(16.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (linkState is LinkState.Connected && linkState.peerPresent) {
+            Text(
+                text = strings.linkConnectedWith.withArg(linkState.peerLang.orEmpty()),
+                fontSize = 13.sp,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        } else {
+            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+            Spacer(Modifier.size(8.dp))
+            Text(strings.pairingWaiting, fontSize = 13.sp)
+        }
+    }
+}
+
+@Composable
+private fun JoiningSide(
+    typed: String,
+    rejected: Boolean,
+    canScan: Boolean,
+    onTypedChange: (String) -> Unit,
+    onScan: () -> Unit,
+    onJoin: () -> Unit,
+    onStartHosting: () -> Unit,
+    onStartHostingWithCode: () -> Unit,
+) {
+    val strings = LocalStrings.current
+
+    if (canScan) {
+        Button(onClick = onScan, modifier = Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.QrCodeScanner, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.size(8.dp))
+            Text(strings.pairingScanQr)
+        }
+        Spacer(Modifier.height(12.dp))
+    }
+
+    OutlinedTextField(
+        value = typed,
+        onValueChange = onTypedChange,
+        label = { Text(strings.pairingEnterCode) },
+        placeholder = { Text(strings.pairingCodePlaceholder) },
+        singleLine = true,
+        isError = rejected,
+        supportingText = if (rejected) {
+            { Text(strings.pairingNotACode, color = MaterialTheme.colorScheme.error) }
+        } else {
+            null
+        },
+        modifier = Modifier.fillMaxWidth(),
+    )
+    Spacer(Modifier.height(8.dp))
+    Button(
+        onClick = onJoin,
+        enabled = typed.isNotBlank(),
+        modifier = Modifier.fillMaxWidth(),
+    ) { Text(strings.pairingJoin) }
+
+    Spacer(Modifier.height(16.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        TextButton(onClick = onStartHosting) { Text(strings.pairingShowThisCode) }
+    }
+    // The typed-code path is offered second and named honestly: it is the weaker
+    // one, and issue #34 makes the difference visible to the user rather than
+    // leaving it as an implementation detail.
+    TextButton(onClick = onStartHostingWithCode) { Text(strings.pairingTypeCodeInstead) }
+}

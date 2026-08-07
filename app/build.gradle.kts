@@ -72,6 +72,10 @@ dependencies {
   implementation(platform(libs.androidx.compose.bom))
   implementation(libs.androidx.activity.compose)
   implementation(libs.play.services.wearable)
+  // Pairing QR scanner (issue #33). Google supplies the scanning UI and — the
+  // reason it was chosen over CameraX + ML Kit — it needs no CAMERA permission,
+  // so the app keeps its zero-runtime-permission posture.
+  implementation(libs.play.services.code.scanner)
   implementation(libs.androidx.compose.material3)
   implementation(libs.androidx.compose.ui)
   implementation(libs.androidx.compose.ui.graphics)

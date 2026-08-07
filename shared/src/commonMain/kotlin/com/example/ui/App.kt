@@ -93,6 +93,13 @@ fun App(
     container: AppContainer,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
     launchImageInput: (source: ImageSource) -> Unit = {},
+    /**
+     * Issue #33: opens the platform QR scanner for pairing. Same shape and the
+     * same reason as [launchVoiceInput] — the GMS Code Scanner needs an Activity,
+     * so the caller owns it. Defaulted to a no-op for the web build, which has
+     * `remoteConversation = false` and never shows the affordance anyway.
+     */
+    launchQrScan: () -> Unit = {},
 ) {
     // The device language chooses the string catalogue; an untranslated language
     // — or an untranslated string inside a translated one — falls back to
@@ -101,7 +108,7 @@ fun App(
     val languageTag = Locale.current.language
     val strings = remember(languageTag) { stringsFor(languageTag) }
     CompositionLocalProvider(LocalStrings provides strings) {
-        AppContent(container, launchVoiceInput, launchImageInput)
+        AppContent(container, launchVoiceInput, launchImageInput, launchQrScan)
     }
 }
 
@@ -111,6 +118,7 @@ private fun AppContent(
     container: AppContainer,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
     launchImageInput: (source: ImageSource) -> Unit,
+    launchQrScan: () -> Unit,
 ) {
     MyApplicationTheme {
         val keyboardController = LocalSoftwareKeyboardController.current
@@ -184,6 +192,8 @@ private fun AppContent(
                             extendedGlyphs = container.capabilities.extendedGlyphs,
                             launchVoiceInput = launchVoiceInput,
                             onShowFullScreen = { fullScreenText = it },
+                            showRemoteConversation = container.capabilities.remoteConversation,
+                            launchQrScan = launchQrScan,
                         )
                     } else {
                         // --- High Density Google Translate Screen ---

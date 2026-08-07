@@ -17,11 +17,14 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 import com.example.model.Language
 import com.example.platform.AndroidAppContainer
 import com.example.platform.AndroidImageLoading
+import com.example.platform.AndroidQrScanner
 import com.example.platform.AppContainer
 import com.example.platform.CameraCapture
 import com.example.platform.ImageSource
@@ -158,9 +161,29 @@ private fun AndroidApp() {
         }
     }
 
+    // Pairing QR scanner (issue #33). Activity-scoped for the same reason as the
+    // launchers above: the GMS Code Scanner takes an Activity. It is a suspending
+    // call rather than a result launcher, so it needs a scope rather than a
+    // `rememberLauncherForActivityResult`.
+    val scope = rememberCoroutineScope()
+    val qrScanner = remember(context) {
+        (context as? Activity)?.let { AndroidQrScanner(it, container.log) }
+    }
+
+    fun launchQrScan() {
+        val scanner = qrScanner ?: return
+        scope.launch {
+            val payload = scanner.scan() ?: return@launch // cancelled, or no scanner
+            if (!viewModel.joinRemoteSession(payload)) {
+                viewModel.showMessage(viewModel.strings.pairingNotACode)
+            }
+        }
+    }
+
     App(
         container = container,
         launchVoiceInput = ::launchVoiceInput,
         launchImageInput = ::launchImageInput,
+        launchQrScan = ::launchQrScan,
     )
 }
