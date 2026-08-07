@@ -10,7 +10,12 @@ android {
 
   defaultConfig {
     applicationId = "com.aistudio.translate.vqxwmn"
-    minSdk = 24
+    // 26, not 24, since issue #34: `AlgorithmParameters "EC"` is API 26+, and
+    // cryptography-kotlin constructs it eagerly in the public-key decoder's
+    // constructor *and* re-checks the curve through it on every decode, so on API
+    // 24-25 a P-256 public key cannot be decoded in any format — DER does not dodge
+    // it. That is both sides of every handshake. Costs 0.5pp of active devices.
+    minSdk = 26
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"

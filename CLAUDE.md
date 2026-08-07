@@ -31,7 +31,7 @@ The Gradle wrapper (`gradlew`, pinned via `distributionSha256Sum`) is committed 
 
 **Test matrix:** `shared/src/commonTest` (parsers, `KtorTranslationApi` with MockEngine, `TranslateViewModel` with fakes from `commonTest/.../fakes/`) runs on BOTH the JVM host and ChromeHeadless; `shared/src/wasmJsTest` (localStorage repository) runs in ChromeHeadless; `:app` keeps Robolectric + Roborazzi (baselines in `app/src/test/screenshots/` — Android must stay pixel-identical unless a change is deliberate).
 
-- Toolchain: Gradle 9.5 (wrapper), AGP 9.3, Kotlin 2.3.20, Compose Multiplatform 1.11.1, KSP2 (Room), Java 11, compileSdk/targetSdk 36, minSdk 24. Versions are centralized in `gradle/libs.versions.toml`.
+- Toolchain: Gradle 9.5 (wrapper), AGP 9.3, Kotlin 2.3.20, Compose Multiplatform 1.11.1, KSP2 (Room), Java 11, compileSdk/targetSdk 36, minSdk 26. Versions are centralized in `gradle/libs.versions.toml`.
 
 ## Local Setup (from README)
 

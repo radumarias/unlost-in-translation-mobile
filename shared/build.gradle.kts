@@ -81,7 +81,8 @@ kotlin {
   android {
     namespace = "com.example.shared"
     compileSdk = 36
-    minSdk = 24
+    // See app/build.gradle.kts: raised to 26 by issue #34's P-256 key decoding.
+    minSdk = 26
     // Opt into the host-side (JVM) unit-test compilation so commonTest is wired
     // to a real target and runs via :shared:testAndroidHostTest.
     withHostTest {}
@@ -118,18 +119,22 @@ kotlin {
         implementation(libs.androidx.lifecycle.viewmodel.compose.kmp)
         // Issue #33: session ids are bearer credentials, so they come from a CSPRNG.
         // No provider artifact is needed for this one — see the catalog comment.
-        implementation(libs.cryptography.random)
+        // cryptography-core re-exports cryptography-random, so the CSPRNG that
+        // issue #33 pulled in is the same artifact and not a second copy.
+        implementation(libs.cryptography.core)
         // Draws the pairing QR. Compose Multiplatform, wasmJs klib included, so the
         // pairing dialog is common code like everything else in the feature.
         implementation(libs.qrose)
       }
     }
     androidMain.dependencies {
+      implementation(libs.cryptography.provider.jdk)
       implementation(libs.ktor.client.okhttp)
       implementation(libs.androidx.room.runtime)
       implementation(libs.androidx.room.ktx)
     }
     wasmJsMain.dependencies {
+      implementation(libs.cryptography.provider.webcrypto)
       implementation(libs.ktor.client.js)
       implementation(libs.kotlinx.browser)
     }
