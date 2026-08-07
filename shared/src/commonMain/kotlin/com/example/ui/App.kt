@@ -64,6 +64,7 @@ fun rememberTranslateViewModel(container: AppContainer): TranslateViewModel {
             broadcaster = container.broadcaster,
             log = container.log,
             strings = strings,
+            link = container.conversationLink,
         )
     }
 }

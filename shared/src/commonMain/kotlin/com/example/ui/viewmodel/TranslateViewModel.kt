@@ -3,12 +3,19 @@ package com.example.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.TranslationHistoryRepository
+import com.example.link.ConversationLink
+import com.example.link.LinkMessage
+import com.example.link.LinkState
+import com.example.link.OfflineConversationLink
+import com.example.link.SessionTicket
 import com.example.model.ContextTurn
+import com.example.model.ConversationItem
 import com.example.model.Language
 import com.example.model.Situation
 import com.example.model.Tone
 import com.example.model.Translation
 import com.example.model.TranslationContext
+import com.example.model.TurnOrigin
 import com.example.network.KtorTranslationApi
 import com.example.network.TranslationApi
 import com.example.platform.AppLog
@@ -16,6 +23,7 @@ import com.example.ui.i18n.Strings
 import com.example.ui.i18n.withArg
 import com.example.wear.TranslationBroadcaster
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -38,6 +46,12 @@ class TranslateViewModel(
      * they show outside the composition (the recognizer prompt, its failures).
      */
     val strings: Strings = Strings(),
+    /**
+     * Two-device conversation transport (issue #33). Defaulted so every existing
+     * construction — the tests especially — keeps compiling; the container passes
+     * a real one on Android and `OfflineConversationLink` on the web.
+     */
+    private val link: ConversationLink = OfflineConversationLink,
 ) : ViewModel() {
     companion object {
         private const val TAG = "TranslateViewModel"
@@ -170,7 +184,12 @@ class TranslateViewModel(
     private fun conversationTurns(): List<ContextTurn> =
         _conversationHistory.value.takeLast(CONVERSATION_CONTEXT_TURNS).map { item ->
             ContextTurn(
-                speakerLangName = if (item.speakA) _sourceLanguage.value.name else _targetLanguage.value.name,
+                // The turn's own recorded language, not the current picker state.
+                // Labelling history by the live selection meant that changing a
+                // picker mid-conversation retroactively mislabelled everything
+                // already said, and with a peer that announces its own language
+                // that stopped being theoretical (issue #33, finding #3).
+                speakerLangName = Language.getByCode(item.srcLangCode).name,
                 text = item.text,
             )
         }
@@ -212,14 +231,6 @@ class TranslateViewModel(
 
     private val _conversationHistory = MutableStateFlow<List<ConversationItem>>(emptyList())
     val conversationHistory = _conversationHistory.asStateFlow()
-
-    data class ConversationItem(
-        val text: String,
-        val translated: String,
-        val speakA: Boolean, // if true, spoken by Language A. Else Language B.
-        @OptIn(ExperimentalTime::class)
-        val timestamp: Long = Clock.System.now().toEpochMilliseconds()
-    )
 
     fun setSourceText(text: String) {
         _sourceText.value = text
@@ -711,6 +722,8 @@ class TranslateViewModel(
         }
         _isConversationMode.value = enabled
         if (!enabled) {
+            // Tell the other phone before the history it refers to is wiped.
+            endRemoteSession()
             _conversationHistory.value = emptyList()
             _partnerAText.value = ""
             _partnerBText.value = ""
@@ -719,13 +732,15 @@ class TranslateViewModel(
 
     fun prepareConversationPart(text: String, isLanguageA: Boolean) {
         if (text.isBlank()) return
-        
-        _conversationDraft.value = ConversationDraft(
+
+        val draft = ConversationDraft(
             isLanguageA = isLanguageA,
             sourceText = text,
             isTranslating = true,
             validationState = ValidationState.Loading
         )
+        _conversationDraft.value = draft
+        val draftId = draft.id
 
         viewModelScope.launch {
             try {
@@ -742,16 +757,15 @@ class TranslateViewModel(
                     api.translateGoogle(text, sourceLangCode, targetLangCode)
                 }
 
-                _conversationDraft.value = _conversationDraft.value?.copy(
-                    translatedText = translation,
-                    isTranslating = false
-                )
+                patchDraft(draftId) {
+                    it.copy(translatedText = translation, isTranslating = false)
+                }
 
                 // Parallel: round trip and cultural validation
                 launch {
                     try {
                         val roundTrip = api.translateGoogle(translation, targetLangCode, sourceLangCode)
-                        _conversationDraft.value = _conversationDraft.value?.copy(roundTripText = roundTrip)
+                        patchDraft(draftId) { it.copy(roundTripText = roundTrip) }
                     } catch (e: Exception) {
                         log.e(TAG, "Draft round trip exception", e)
                     }
@@ -759,15 +773,17 @@ class TranslateViewModel(
 
                 launch {
                     val validation = runValidation(text, translation, sourceLangName, targetLangName, context)
-                    _conversationDraft.value = _conversationDraft.value?.copy(validationState = validation)
+                    patchDraft(draftId) { it.copy(validationState = validation) }
                 }
 
             } catch (e: Exception) {
                 log.e(TAG, "Conversation mode translation failed: ", e)
-                _conversationDraft.value = _conversationDraft.value?.copy(
-                    isTranslating = false,
-                    validationState = ValidationState.Error(e.message ?: strings.conversationTranslationFailed)
-                )
+                patchDraft(draftId) {
+                    it.copy(
+                        isTranslating = false,
+                        validationState = ValidationState.Error(e.message ?: strings.conversationTranslationFailed)
+                    )
+                }
             }
         }
     }
@@ -778,16 +794,23 @@ class TranslateViewModel(
             val item = ConversationItem(
                 text = draft.sourceText,
                 translated = draft.translatedText,
-                speakA = draft.isLanguageA
+                speakA = draft.isLanguageA,
+                srcLangCode = if (draft.isLanguageA) _sourceLanguage.value.code else _targetLanguage.value.code,
+                tgtLangCode = if (draft.isLanguageA) _targetLanguage.value.code else _sourceLanguage.value.code,
             )
             _conversationHistory.value = _conversationHistory.value + item
-            
+
             if (draft.isLanguageA) {
                 _partnerAText.value = draft.sourceText
             } else {
                 _partnerBText.value = draft.sourceText
             }
-            
+
+            // The turn is already translated, so the peer spends nothing to receive
+            // it — no API call on the receiving side, which is what keeps the free
+            // tier's per-day budget intact with two devices in play.
+            sendTurnToPeer(item)
+
             onTranslationDone(draft.translatedText, draft.isLanguageA)
         }
         _conversationDraft.value = null
@@ -795,5 +818,160 @@ class TranslateViewModel(
 
     fun cancelConversationDraft() {
         _conversationDraft.value = null
+    }
+
+    /** Applies [patch] only if [draftId] is still the draft on screen. */
+    private fun patchDraft(draftId: Long, patch: (ConversationDraft) -> ConversationDraft) {
+        val current = _conversationDraft.value ?: return
+        if (current.id != draftId) return
+        _conversationDraft.value = patch(current)
+    }
+
+    // --- Two-device conversation (issue #33) ---
+
+    /** The session this device is hosting, if any — what the pairing QR encodes. */
+    private val _remoteTicket = MutableStateFlow<SessionTicket?>(null)
+    val remoteTicket = _remoteTicket.asStateFlow()
+
+    /** Connection state of the paired device; drives the banner, never a snackbar. */
+    val linkState: StateFlow<LinkState> = link.state
+
+    private val _isRemoteSession = MutableStateFlow(false)
+    val isRemoteSession = _isRemoteSession.asStateFlow()
+
+    /** Turn ids already applied, so the relay's reconnect replay cannot double up. */
+    private val seenRemoteTurnIds = mutableSetOf<String>()
+
+    private var inboundJob: Job? = null
+
+    /**
+     * Hosts a session the other phone joins by scanning. 128 random bits of session
+     * id, and deliberately no manual code: a session that can also be typed into has
+     * to derive its id from those six characters and inherits their 30 bits (see
+     * [startRemoteSessionWithCode]).
+     */
+    fun startRemoteSession() {
+        beginRemoteSession(
+            SessionTicket(
+                sessionId = SessionTicket.newSessionId(),
+                hostLang = _sourceLanguage.value.code,
+            )
+        )
+    }
+
+    /**
+     * Hosts a session the other phone joins by typing six characters, for when a
+     * camera is not an option. Weaker by construction — see [SessionTicket] — and
+     * issue #34 answers that with a code both people compare out loud.
+     */
+    fun startRemoteSessionWithCode() {
+        val ticket = SessionTicket.forManualCode(
+            SessionTicket.newManualCode(),
+            hostLang = _sourceLanguage.value.code,
+        ) ?: return
+        beginRemoteSession(ticket)
+    }
+
+    /**
+     * Joins whatever the camera decoded or the user typed. Returns false — without
+     * touching the session — when it is not a pairing payload at all.
+     */
+    fun joinRemoteSession(payload: String): Boolean {
+        val ticket = SessionTicket.parse(payload) ?: return false
+        // The guest does not publish a ticket of its own; there is nothing to scan.
+        beginRemoteSession(ticket, publish = false)
+        ticket.hostLang?.let(::adoptPeerLanguage)
+        return true
+    }
+
+    /** Ends the session, telling the other phone rather than just going quiet. */
+    fun endRemoteSession() {
+        if (!_isRemoteSession.value) return
+        _isRemoteSession.value = false
+        _remoteTicket.value = null
+        inboundJob?.cancel()
+        inboundJob = null
+        seenRemoteTurnIds.clear()
+        viewModelScope.launch { link.disconnect() }
+    }
+
+    private fun beginRemoteSession(ticket: SessionTicket, publish: Boolean = true) {
+        // One phone, two people and two phones, one person each are different
+        // products; running both at once would route a remote turn to a local
+        // headset assignment that means nothing.
+        if (_dualHeadsetState.value.isDualHeadsetModeEnabled) {
+            setDualHeadsetModeEnabled(false)
+        }
+        seenRemoteTurnIds.clear()
+        _remoteTicket.value = if (publish) ticket else null
+        _isRemoteSession.value = true
+        inboundJob?.cancel()
+        inboundJob = viewModelScope.launch {
+            link.inbound.collect(::onInboundLinkMessage)
+        }
+        viewModelScope.launch {
+            link.connect(ticket, myLang = _sourceLanguage.value.code)
+        }
+    }
+
+    private fun onInboundLinkMessage(message: LinkMessage) {
+        when (message.type) {
+            LinkMessage.TYPE_HELLO -> message.lang?.let(::adoptPeerLanguage)
+            LinkMessage.TYPE_TURN -> applyRemoteTurn(message)
+            LinkMessage.TYPE_BYE -> endRemoteSession()
+        }
+    }
+
+    /**
+     * The peer's language becomes this device's target, so what it says is spoken
+     * here in a language this user reads. Ignored when the peer names a language
+     * this build does not support, and when it collides with the local source —
+     * `setTargetLanguage` would swap the pickers and silently change what this user
+     * is speaking.
+     */
+    private fun adoptPeerLanguage(code: String) {
+        val language = Language.findByCode(code) ?: return
+        if (language.code == Language.AUTO_CODE) return
+        if (language.code == _sourceLanguage.value.code) return
+        _targetLanguage.value = language
+    }
+
+    private fun applyRemoteTurn(message: LinkMessage) {
+        val id = message.id ?: return
+        // The relay replays what a reconnecting device missed, so the same frame can
+        // arrive twice by design. De-duplication is the client's job.
+        if (!seenRemoteTurnIds.add(id)) return
+        val original = message.original ?: return
+        val translated = message.translated ?: return
+        val peerLang = message.lang ?: _targetLanguage.value.code
+        _conversationHistory.value = _conversationHistory.value + ConversationItem(
+            id = id,
+            text = original,
+            translated = translated,
+            // The peer is the other side of the conversation, so its turns take the
+            // B bubble on this screen, whichever side it thinks it is on.
+            speakA = false,
+            srcLangCode = peerLang,
+            tgtLangCode = _sourceLanguage.value.code,
+            origin = TurnOrigin.REMOTE,
+        )
+        _partnerBText.value = original
+    }
+
+    private fun sendTurnToPeer(item: ConversationItem) {
+        if (!_isRemoteSession.value) return
+        if (item.origin == TurnOrigin.REMOTE) return
+        viewModelScope.launch {
+            link.send(
+                LinkMessage.turn(
+                    from = link.memberId,
+                    id = item.id,
+                    lang = item.srcLangCode,
+                    original = item.text,
+                    translated = item.translated,
+                    ts = item.timestamp,
+                )
+            )
+        }
     }
 }

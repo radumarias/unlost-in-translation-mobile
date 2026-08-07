@@ -1,6 +1,7 @@
 package com.example.platform
 
 import com.example.data.TranslationHistoryRepository
+import com.example.link.ConversationLink
 import com.example.network.TranslationApi
 import com.example.wear.TranslationBroadcaster
 
@@ -18,6 +19,13 @@ interface AppContainer {
     val imagePicker: ImagePicker
     val audioOutputCatalog: AudioOutputCatalog
     val broadcaster: TranslationBroadcaster
+
+    /** Two-device conversation transport (issue #33); `OfflineConversationLink` where unsupported. */
+    val conversationLink: ConversationLink
+
+    /** Pairing-QR reader; `UnavailableQrScanner` where the entry point owns the real one. */
+    val qrScanner: QrScanner
+
     val log: AppLog
     val platformActions: PlatformActions
     val capabilities: PlatformCapabilities
