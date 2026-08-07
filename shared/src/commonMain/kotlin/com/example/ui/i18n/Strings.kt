@@ -204,6 +204,16 @@ data class Strings(
     val linkFailedProtocol: String = "The other phone is speaking a version this app does not understand.",
     val linkThisPhone: String = "This phone",
     val linkOtherPhone: String = "Other phone",
+    // Verification (issue #34 §5). The two states are told apart honestly: the QR
+    // authenticated the other phone's key, a typed code cannot.
+    val linkVerifiedByQr: String = "Encrypted, verified by the QR code",
+    val linkNeedsSasCheck: String = "Encrypted — check the code matches",
+    val sasTitle: String = "Do both phones show this?",
+    val sasBlurb: String =
+        "You joined with a typed code, so the phones cannot verify each other on their own. " +
+            "If the other phone shows different digits, someone is in the middle — close the session.",
+    val sasMatches: String = "Yes, they match",
+    val sasDoesNotMatch: String = "No — close the session",
 
     // --- Dual headset ---
     val dualHeadsetSetup: String = "Dual Headset Setup",
@@ -267,6 +277,15 @@ data class Strings(
         "Conversation mode gives each side its own button and keeps the exchange on screen. Every " +
             "turn is shown to you for approval before it goes out, and the last few turns are used " +
             "as context so pronouns and short answers still make sense.",
+    val helpTwoPhonesTitle: String = "Two phones",
+    val helpTwoPhonesShort: String = "Each of you holds your own.",
+    val helpTwoPhonesBody: String =
+        "Pair by showing the QR code to the other phone, or by reading out a six-character code. " +
+            "What you say is translated here and appears there. The messages between the two " +
+            "phones are end-to-end encrypted, so the server that carries them cannot read them — " +
+            "but the translation itself is done by Google or Gemini before it is sent, exactly as " +
+            "it is everywhere else in this app. Encryption hides the hop between the phones, not " +
+            "the translation.",
     val helpDualHeadsetTitle: String = "Two headsets",
     val helpDualHeadsetShort: String = "Each person hears only their own side.",
     val helpDualHeadsetBody: String =

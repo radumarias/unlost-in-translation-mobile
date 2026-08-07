@@ -55,8 +55,10 @@ import com.example.platform.AudioOutputCatalog
 import com.example.platform.SpeechSynthesizer
 import com.example.link.LinkFailure
 import com.example.link.LinkState
+import com.example.link.Verification
 import com.example.ui.components.ConversationDraftDialog
 import com.example.ui.components.PairingDialog
+import com.example.ui.components.SasCheckDialog
 import com.example.ui.components.ToneSituationBar
 import com.example.ui.i18n.LocalStrings
 import com.example.ui.i18n.Strings
@@ -335,6 +337,21 @@ fun ConversationScreen(
         )
     }
 
+    // Issue #34 §5: on the typed-code path nothing is rendered or spoken until both
+    // people confirm the digits match. This sits above the pairing dialog on purpose
+    // — it is the last thing between an unverified peer and the screen.
+    val sasConfirmed by viewModel.sasConfirmed.collectAsState()
+    val pendingSas = (linkState as? LinkState.Connected)
+        ?.takeIf { it.verification == Verification.NEEDS_SAS_CHECK && !sasConfirmed }
+        ?.sas
+    if (isRemote && pendingSas != null) {
+        SasCheckDialog(
+            sas = pendingSas,
+            onMatches = { viewModel.confirmSasMatch() },
+            onDoesNotMatch = { viewModel.rejectSasMatch() },
+        )
+    }
+
     if (showPairing) {
         PairingDialog(
             ticket = remoteTicket,
@@ -388,7 +405,17 @@ internal fun linkBannerText(state: LinkState, strings: Strings): Pair<String, Bo
     is LinkState.KeyExchange, is LinkState.Confirming -> strings.linkSecuring to false
     is LinkState.Connected ->
         if (state.peerPresent) {
-            strings.linkConnectedWith.withArg(peerLanguageLabel(state.peerLang)) to false
+            val who = strings.linkConnectedWith.withArg(peerLanguageLabel(state.peerLang))
+            // The two verification states are named apart, honestly: the QR
+            // authenticated the other phone's key, a typed code cannot.
+            val trust = when (state.verification) {
+                Verification.VERIFIED_BY_QR -> strings.linkVerifiedByQr
+                Verification.NEEDS_SAS_CHECK -> strings.linkNeedsSasCheck
+                Verification.NONE -> null
+            }
+            // Not a middle dot: the wasm canvas cannot draw one, which is the same
+            // constraint `StringsTest` enforces on every locale.
+            (if (trust == null) who else "$who — $trust") to false
         } else {
             strings.pairingWaiting to false
         }

@@ -119,6 +119,59 @@ fun PairingDialog(
     )
 }
 
+/**
+ * The five-digit short authentication string, on the manual-code path only
+ * (issue #34 §5).
+ *
+ * A typed code carries about 30 bits, so it cannot authenticate the other phone's
+ * key the way a scanned QR does. The two people are standing next to each other by
+ * definition of the product — "does yours say 41 908?" is free UX here in a way it
+ * never is in a real messenger — and it is the only thing standing between this path
+ * and a relay in the middle.
+ *
+ * Digits, never words or emoji: the wasm canvas has no emoji font, and digits read
+ * aloud across a table in any of the sixteen languages this app supports.
+ */
+@Composable
+fun SasCheckDialog(
+    sas: String,
+    onMatches: () -> Unit,
+    onDoesNotMatch: () -> Unit,
+) {
+    val strings = LocalStrings.current
+    AlertDialog(
+        // No dismiss: nothing is rendered until this is answered, so a stray tap
+        // outside must not leave the session in limbo.
+        onDismissRequest = {},
+        title = { Text(strings.sasTitle, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    // Grouped 2-3 the way a person reads a number out loud.
+                    text = sas.take(2) + " " + sas.drop(2),
+                    fontSize = 40.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 4.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = strings.sasBlurb,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        },
+        confirmButton = { TextButton(onClick = onMatches) { Text(strings.sasMatches) } },
+        dismissButton = {
+            TextButton(onClick = onDoesNotMatch) {
+                Text(strings.sasDoesNotMatch, color = MaterialTheme.colorScheme.error)
+            }
+        },
+    )
+}
+
 @Composable
 private fun HostingSide(ticket: SessionTicket, linkState: LinkState) {
     val strings = LocalStrings.current

@@ -2,7 +2,9 @@ package com.example.ui.viewmodel
 
 import com.example.link.ConversationLink
 import com.example.link.LinkMessage
+import com.example.link.LinkState
 import com.example.link.SessionTicket
+import com.example.link.Verification
 import com.example.model.Language
 import com.example.model.TurnOrigin
 import com.example.ui.viewmodel.fakes.FakeHistoryRepository
@@ -342,6 +344,100 @@ class TranslateViewModelRemoteTest {
         assertEquals(listOf(vm.strings.linkFailedNetwork), seen)
         collector.cancel()
     }
+
+    // --- the SAS gate (issue #34 §5): nothing is rendered before the check ---
+
+    @Test
+    fun onTheTypedCodePathATurnIsHeldBackUntilTheCodeIsConfirmed() = runTest {
+        val link = RecordingConversationLink()
+        val vm = viewModel(link)
+        vm.startRemoteSession()
+        link.setState(needsSasCheck())
+
+        link.deliver(LinkMessage.turn("peer", "t-1", "ro", "Bună", "Hello"))
+
+        // Held, not dropped: the peer may speak while the user is still reading the
+        // digits, and losing what they said would be its own kind of wrong.
+        assertTrue(vm.conversationHistory.value.isEmpty(), "nothing may render before the check")
+        assertEquals("", vm.partnerBText.value)
+
+        vm.confirmSasMatch()
+
+        assertEquals("Bună", vm.conversationHistory.value.single().text)
+        assertEquals("Bună", vm.partnerBText.value)
+    }
+
+    @Test
+    fun heldTurnsAreReleasedInTheOrderTheyArrived() = runTest {
+        val link = RecordingConversationLink()
+        val vm = viewModel(link)
+        vm.startRemoteSession()
+        link.setState(needsSasCheck())
+
+        link.deliver(LinkMessage.turn("peer", "t-1", "ro", "one", "one"))
+        link.deliver(LinkMessage.turn("peer", "t-2", "ro", "two", "two"))
+        vm.confirmSasMatch()
+
+        assertEquals(listOf("one", "two"), vm.conversationHistory.value.map { it.text })
+    }
+
+    @Test
+    fun sayingTheCodesDoNotMatchEndsTheSessionAndShowsNothing() = runTest {
+        val link = RecordingConversationLink()
+        val vm = viewModel(link)
+        vm.startRemoteSession()
+        link.setState(needsSasCheck())
+        link.deliver(LinkMessage.turn("peer", "t-1", "ro", "Bună", "Hello"))
+
+        vm.rejectSasMatch()
+
+        // Discarded rather than shown: it did not come from the person the user
+        // thinks they are talking to.
+        assertTrue(vm.conversationHistory.value.isEmpty())
+        assertFalse(vm.isRemoteSession.value)
+        assertEquals(1, link.disconnects)
+    }
+
+    @Test
+    fun theQrPathNeverAsksAndNeverHoldsAnythingBack() = runTest {
+        val link = RecordingConversationLink()
+        val vm = viewModel(link)
+        vm.startRemoteSession()
+        link.setState(
+            LinkState.Connected(peerPresent = true, peerLang = "ro", verification = Verification.VERIFIED_BY_QR)
+        )
+
+        link.deliver(LinkMessage.turn("peer", "t-1", "ro", "Bună", "Hello"))
+
+        // The QR already authenticated the other phone's key, so there is nothing to
+        // ask the user and no reason to make them wait.
+        assertEquals("Bună", vm.conversationHistory.value.single().text)
+        assertFalse(vm.sasConfirmed.value)
+    }
+
+    @Test
+    fun aNewSessionAsksAgain() = runTest {
+        val link = RecordingConversationLink()
+        val vm = viewModel(link)
+        vm.startRemoteSession()
+        link.setState(needsSasCheck())
+        vm.confirmSasMatch()
+        assertTrue(vm.sasConfirmed.value)
+
+        vm.endRemoteSession()
+        vm.startRemoteSession()
+
+        // A confirmation belongs to the session it was given in; carrying it over
+        // would silently skip the check on the next pairing.
+        assertFalse(vm.sasConfirmed.value)
+    }
+
+    private fun needsSasCheck() = LinkState.Connected(
+        peerPresent = true,
+        peerLang = "ro",
+        verification = Verification.NEEDS_SAS_CHECK,
+        sas = "41908",
+    )
 
     // --- the two latent defects two devices turn real (issue #33, findings #3 and #5) ---
 
