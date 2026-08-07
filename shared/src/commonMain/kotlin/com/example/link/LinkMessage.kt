@@ -89,6 +89,16 @@ data class LinkMessage(
 
         fun bye(from: String, ts: Long? = null) =
             LinkMessage(type = TYPE_BYE, from = from, ts = ts)
+
+        // --- issue #34. `kex` and `cfm` are the only frames ever sent in the clear;
+        // everything else, `hello` included, travels inside `enc`. ---
+
+        fun kex(from: String, pub: String) = LinkMessage(type = TYPE_KEX, from = from, pub = pub)
+
+        fun cfm(from: String, mac: String) = LinkMessage(type = TYPE_CFM, from = from, mac = mac)
+
+        fun enc(from: String, n: Long, ct: String) =
+            LinkMessage(type = TYPE_ENC, from = from, n = n, ct = ct)
     }
 }
 
@@ -118,11 +128,8 @@ object LinkCodec {
      * than in the serializer so that the serializer stays a pure JSON mapping and the
      * per-type contract lives next to the factories that produce it.
      *
-     * A version mismatch fails: the peer speaks a protocol this build does not.
-     * An unrecognised *type* also fails — including issue #34's, which is the point.
-     * A #33-only build that received a `kex` and shrugged would carry on in plaintext
-     * with a peer that believes the session is encrypted, which is worse than
-     * dropping the frame and letting the session time out.
+     * A version mismatch fails: the peer speaks a protocol this build does not. An
+     * unrecognised *type* also fails — a frame nobody can act on is not a frame.
      */
     private fun LinkMessage.isWellFormed(): Boolean {
         if (v != SessionTicket.PROTOCOL_VERSION) return false
@@ -132,6 +139,12 @@ object LinkCodec {
             LinkMessage.TYPE_TURN ->
                 !id.isNullOrEmpty() && !lang.isNullOrEmpty() && original != null && translated != null
             LinkMessage.TYPE_BYE -> true
+            // Issue #34. These three carry no application data of their own: `kex`
+            // and `cfm` are the handshake, and `enc` is a sealed envelope whose
+            // contents are one of the three above.
+            LinkMessage.TYPE_KEX -> !pub.isNullOrEmpty()
+            LinkMessage.TYPE_CFM -> !mac.isNullOrEmpty()
+            LinkMessage.TYPE_ENC -> n != null && !ct.isNullOrEmpty()
             else -> false
         }
     }

@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.data.TranslationHistoryRepository
 import com.example.link.ConversationLink
 import com.example.link.LinkMessage
+import com.example.link.crypto.LinkRole
 import com.example.link.LinkState
 import com.example.link.OfflineConversationLink
 import com.example.link.SessionTicket
@@ -851,12 +852,7 @@ class TranslateViewModel(
      * [startRemoteSessionWithCode]).
      */
     fun startRemoteSession() {
-        beginRemoteSession(
-            SessionTicket(
-                sessionId = SessionTicket.newSessionId(),
-                hostLang = _sourceLanguage.value.code,
-            )
-        )
+        beginHostedSession(useManualCode = false)
     }
 
     /**
@@ -865,11 +861,7 @@ class TranslateViewModel(
      * issue #34 answers that with a code both people compare out loud.
      */
     fun startRemoteSessionWithCode() {
-        val ticket = SessionTicket.forManualCode(
-            SessionTicket.newManualCode(),
-            hostLang = _sourceLanguage.value.code,
-        ) ?: return
-        beginRemoteSession(ticket)
+        beginHostedSession(useManualCode = true)
     }
 
     /**
@@ -879,7 +871,7 @@ class TranslateViewModel(
     fun joinRemoteSession(payload: String): Boolean {
         val ticket = SessionTicket.parse(payload) ?: return false
         // The guest does not publish a ticket of its own; there is nothing to scan.
-        beginRemoteSession(ticket, publish = false)
+        beginRemoteSession(ticket, LinkRole.GUEST, publish = false)
         ticket.hostLang?.let(::adoptPeerLanguage)
         return true
     }
@@ -893,7 +885,26 @@ class TranslateViewModel(
         viewModelScope.launch { link.disconnect() }
     }
 
-    private fun beginRemoteSession(ticket: SessionTicket, publish: Boolean = true) {
+    /**
+     * Mints a host ticket and connects to it. The ticket comes from the link because
+     * issue #34 puts an ephemeral private key behind it, and that key must never
+     * leave the link — so this is asynchronous where the #33 version was not.
+     */
+    private fun beginHostedSession(useManualCode: Boolean) {
+        viewModelScope.launch {
+            val ticket = link.createHostTicket(
+                hostLang = _sourceLanguage.value.code,
+                useManualCode = useManualCode,
+            )
+            beginRemoteSession(ticket, LinkRole.HOST)
+        }
+    }
+
+    private fun beginRemoteSession(
+        ticket: SessionTicket,
+        role: LinkRole,
+        publish: Boolean = true,
+    ) {
         // One phone, two people and two phones, one person each are different
         // products; running both at once would route a remote turn to a local
         // headset assignment that means nothing.
@@ -916,11 +927,12 @@ class TranslateViewModel(
             // The link reports its own failures through `state`; this catch is for
             // the ones it cannot, so that a throw ends up on the banner rather than
             // on the default handler, which on Android means a crash.
-            runCatching { link.connect(ticket, myLang = _sourceLanguage.value.code) }
-                .onFailure { failure ->
-                    log.e(TAG, "could not start the remote session", failure)
-                    showMessage(strings.linkFailedNetwork)
-                }
+            runCatching {
+                link.connect(ticket, myLang = _sourceLanguage.value.code, role = role)
+            }.onFailure { failure ->
+                log.e(TAG, "could not start the remote session", failure)
+                showMessage(strings.linkFailedNetwork)
+            }
         }
     }
 

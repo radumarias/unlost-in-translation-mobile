@@ -1,5 +1,6 @@
 package com.example.link
 
+import com.example.link.crypto.LinkRole
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,11 +30,28 @@ interface ConversationLink {
     val memberId: String
 
     /**
-     * Joins [ticket]'s session and announces this device with a `hello`. Returns as
-     * soon as the attempt is under way; progress and failure arrive on [state]. Safe
-     * to call when already connected — the previous session is torn down first.
+     * Mints the ticket this device will publish as host (issue #34): a fresh
+     * session id, a 256-bit QR secret and an ephemeral P-256 public key, or — when
+     * [useManualCode] — a six-character code in place of the first two.
+     *
+     * On the link rather than on the view model because the private half of that
+     * key pair must never leave this object. The link remembers it for the
+     * [connect] that follows.
      */
-    suspend fun connect(ticket: SessionTicket, myLang: String, myName: String? = null)
+    suspend fun createHostTicket(hostLang: String?, useManualCode: Boolean = false): SessionTicket
+
+    /**
+     * Joins [ticket]'s session as [role] and, once the handshake succeeds,
+     * announces this device with an encrypted `hello`. Returns as soon as the
+     * attempt is under way; progress and failure arrive on [state]. Safe to call
+     * when already connected — the previous session is torn down first.
+     */
+    suspend fun connect(
+        ticket: SessionTicket,
+        myLang: String,
+        myName: String? = null,
+        role: LinkRole = LinkRole.GUEST,
+    )
 
     /**
      * Queues [message] for the peer. The link stamps `from` with its own [memberId],
@@ -54,6 +72,12 @@ sealed interface LinkState {
 
     /** Opening the socket, or reopening it after a drop. */
     data object Connecting : LinkState
+
+    /** Socket open, ephemeral public keys being exchanged (issue #34 §3.3). */
+    data object KeyExchange : LinkState
+
+    /** Keys derived; each side is proving to the other that it derived the same ones (§3.5). */
+    data object Confirming : LinkState
 
     /**
      * The socket is open. [peerPresent] only turns true once the other device has
@@ -114,6 +138,12 @@ enum class LinkFailure {
 
     /** The peer left. */
     PEER_LEFT,
+
+    /**
+     * The handshake failed, or a frame did not authenticate (issue #34 §3.7).
+     * There is no plaintext fallback: this ends the session.
+     */
+    ENCRYPTION_FAILED,
 }
 
 /**
@@ -126,7 +156,15 @@ object OfflineConversationLink : ConversationLink {
     override val state: StateFlow<LinkState> = MutableStateFlow(LinkState.Idle)
     override val inbound: Flow<LinkMessage> = emptyFlow()
     override val memberId: String = ""
-    override suspend fun connect(ticket: SessionTicket, myLang: String, myName: String?) = Unit
+    override suspend fun createHostTicket(hostLang: String?, useManualCode: Boolean): SessionTicket =
+        SessionTicket(sessionId = SessionTicket.newSessionId(), hostLang = hostLang)
+
+    override suspend fun connect(
+        ticket: SessionTicket,
+        myLang: String,
+        myName: String?,
+        role: LinkRole,
+    ) = Unit
     override suspend fun send(message: LinkMessage) = Unit
     override suspend fun disconnect() = Unit
 }

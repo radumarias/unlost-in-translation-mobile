@@ -101,10 +101,36 @@ class LinkMessageTest {
     }
 
     @Test
-    fun anEncryptedFrameIsRejectedByThisBuild() {
-        // Deliberate: a #33-only build that shrugged at #34's frames would carry on in
-        // plaintext with a peer that believes the session is encrypted.
-        assertNull(LinkCodec.decode("""{"v":1,"type":"enc","from":"dev-a","n":1,"ct":"AAAA"}"""))
+    fun theEncryptedFrameTypesRoundTrip() {
+        // Issue #34's three: `kex` and `cfm` are the handshake and are the only
+        // frames ever sent in the clear; `enc` is the sealed envelope everything
+        // else — `hello` included — travels inside.
+        assertEquals(
+            LinkMessage.kex("dev-a", "BFxu"),
+            LinkCodec.decode(LinkCodec.encode(LinkMessage.kex("dev-a", "BFxu"))),
+        )
+        assertEquals(
+            LinkMessage.cfm("dev-a", "q1w2"),
+            LinkCodec.decode(LinkCodec.encode(LinkMessage.cfm("dev-a", "q1w2"))),
+        )
+        assertEquals(
+            LinkMessage.enc("dev-a", 7, "ZGVhZGJlZWY"),
+            LinkCodec.decode(LinkCodec.encode(LinkMessage.enc("dev-a", 7, "ZGVhZGJlZWY"))),
+        )
+    }
+
+    @Test
+    fun anEncryptedFrameMissingItsPartsIsRejected() {
+        // A `kex` with no key, a `cfm` with no mac and an `enc` with no counter are
+        // all frames nobody can act on, and the handshake fails closed on them.
+        assertNull(LinkCodec.decode("""{"v":1,"type":"kex","from":"dev-a"}"""))
+        assertNull(LinkCodec.decode("""{"v":1,"type":"cfm","from":"dev-a"}"""))
+        assertNull(LinkCodec.decode("""{"v":1,"type":"enc","from":"dev-a","ct":"AAAA"}"""))
+    }
+
+    @Test
+    fun anUnknownFrameTypeIsStillRejected() {
+        assertNull(LinkCodec.decode("""{"v":1,"type":"whatever","from":"dev-a"}"""))
     }
 
     @Test
