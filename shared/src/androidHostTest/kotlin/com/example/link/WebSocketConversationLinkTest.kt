@@ -139,6 +139,29 @@ class WebSocketConversationLinkTest {
     }
 
     @Test
+    fun aTurnWrittenIntoADyingSocketIsResentRatherThanLost() = runBlocking {
+        val host = link("host-1")
+        val guest = link("guest-1")
+        val guestInbox = guest.collectInbound()
+        host.connect(ticket, myLang = "ro")
+        guest.connect(ticket, myLang = "en")
+        guest.awaitConnectedPeer()
+
+        // The nastiest case, and the one an outbox alone does not cover: the frame
+        // leaves the queue and is written to a socket that is already gone, which
+        // looks like a successful write. Racing the drop is the point.
+        repeat(6) { i ->
+            host.send(LinkMessage.turn("host-1", "r-$i", "ro", "line $i", "line $i"))
+            if (i == 2) relay.drop("host-1")
+        }
+
+        val last = guestInbox.awaitFirst(timeoutMs = 10_000) { it.id == "r-5" }
+        assertEquals("line 5", last.translated)
+        val ids = guestInbox.filter { it.type == LinkMessage.TYPE_TURN }.map { it.id }.toSet()
+        assertEquals((0..5).map { "r-$it" }.toSet(), ids, "no turn may be dropped by a blip")
+    }
+
+    @Test
     fun disconnectTellsThePeerRatherThanJustVanishing() = runBlocking {
         val host = link("host-1")
         val guest = link("guest-1")

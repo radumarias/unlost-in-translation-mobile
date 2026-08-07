@@ -71,6 +71,21 @@ class WebSocketConversationLink(
     private var outbox: Channel<LinkMessage>? = null
     private var sessionJob: Job? = null
 
+    /**
+     * The last few frames written, re-sent at the top of every new connection.
+     *
+     * Taking a message off the queue and writing it are two steps, and a socket can
+     * die between them — or accept the write into a connection the far end has
+     * already closed, which looks like success and is not. Either way the frame is
+     * gone, and it is precisely the frame the user spoke as the signal dropped.
+     *
+     * The relay solves the receive direction with its own ring; this is the send
+     * direction. Re-sending costs a few duplicate frames per reconnect, and
+     * duplicates are already free: every turn carries an id and the receiver
+     * de-duplicates on it, because the relay's replay makes that necessary anyway.
+     */
+    private val unconfirmed = ArrayDeque<LinkMessage>()
+
     override suspend fun connect(ticket: SessionTicket, myLang: String, myName: String?) {
         disconnect()
         if (relayBaseUrl.isBlank()) {
@@ -78,6 +93,9 @@ class WebSocketConversationLink(
             return
         }
         memberId = newMemberId()
+        // Per session, like the queue: the previous conversation's last turns must
+        // not be re-sent into the next one.
+        unconfirmed.clear()
         val queue = Channel<LinkMessage>(capacity = OUTBOX_CAPACITY)
         outbox = queue
         _state.value = LinkState.Connecting
@@ -129,9 +147,15 @@ class WebSocketConversationLink(
                     // the peer may have restarted and no longer know our language.
                     outgoing.send(Frame.Text(LinkCodec.encode(LinkMessage.hello(memberId, myLang, myName))))
                     val writer = launch {
+                        // Anything that may not have made it across the socket that
+                        // just died goes first, before whatever is newly queued.
+                        for (message in unconfirmed.toList()) {
+                            outgoing.send(Frame.Text(LinkCodec.encode(message)))
+                        }
                         // Ends when disconnect() closes the queue, having drained the
                         // `bye` it queued first.
                         for (message in queue) {
+                            remember(message)
                             outgoing.send(Frame.Text(LinkCodec.encode(message)))
                         }
                         close(CloseReason(CloseReason.Codes.NORMAL, "bye"))
@@ -195,6 +219,12 @@ class WebSocketConversationLink(
         _inbound.emit(message)
     }
 
+    /** Records [message] as possibly-not-delivered, keeping the window bounded. */
+    private fun remember(message: LinkMessage) {
+        unconfirmed.addLast(message)
+        while (unconfirmed.size > RESEND_WINDOW) unconfirmed.removeFirst()
+    }
+
     /** `wss://<relay>/s/<sid>?m=<memberId>` — the QR secret appears in neither. */
     private fun sessionUrl(sessionId: String, member: String): String =
         "${relayBaseUrl.trimEnd('/')}/s/$sessionId?m=$member"
@@ -206,6 +236,13 @@ class WebSocketConversationLink(
         const val MAX_ATTEMPTS = 5
         const val RETRY_BASE_DELAY_MS = 500L
         const val SHUTDOWN_TIMEOUT_MS = 1000L
+
+        /**
+         * How many recent frames are re-sent on reconnect. Small on purpose: the
+         * relay caps a session at 40 frames per 10 seconds, and a conversation
+         * turn takes seconds to speak, so a handful covers any realistic blip.
+         */
+        const val RESEND_WINDOW = 5
 
         /**
          * The relay's own rejections: 1003 non-text frame, 1008 rate cap, 1009 frame
