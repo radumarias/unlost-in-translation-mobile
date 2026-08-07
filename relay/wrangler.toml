@@ -1,0 +1,19 @@
+name = "uitr-relay"
+main = "src/worker.ts"
+compatibility_date = "2026-08-01"
+
+# Every message on a Durable Object WebSocket counts as a request, so hibernation is
+# what keeps this on the free plan: an idle paired session accrues no duration at all.
+[[durable_objects.bindings]]
+name = "SESSIONS"
+class_name = "SessionRelay"
+
+# SQLite-backed, which is the ONLY Durable Object storage backend available on the
+# Workers Free plan — and it is also what the replay ring needs, since hibernation
+# resets in-memory state.
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SessionRelay"]
+
+[observability]
+enabled = true

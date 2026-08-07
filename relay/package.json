@@ -1,0 +1,16 @@
+{
+  "name": "uitr-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "WebSocket fan-out relay for two-device conversation mode (issue #33)",
+  "scripts": {
+    "check": "wrangler deploy --dry-run",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260801.1",
+    "typescript": "^5.6.3",
+    "wrangler": "^4.28.0"
+  }
+}
