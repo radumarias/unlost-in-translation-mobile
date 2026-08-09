@@ -127,6 +127,7 @@ internal val japanese = Strings(
     pairingEnterCode = "もう一方のスマホのコードを入力",
     pairingCodePlaceholder = "6文字のコード",
     pairingScanQr = "QRコードを読み取る",
+    pairingScanUnavailable = "この端末ではスキャナーを開けません。",
     pairingJoin = "参加",
     pairingWaiting = "もう一方のスマホを待っています…",
     pairingNotACode = "これはペアリングコードではありません。",

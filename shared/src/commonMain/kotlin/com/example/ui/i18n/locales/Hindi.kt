@@ -130,6 +130,7 @@ internal val hindi = Strings(
     pairingEnterCode = "दूसरे फ़ोन का कोड डालें",
     pairingCodePlaceholder = "6 अक्षरों का कोड",
     pairingScanQr = "QR कोड स्कैन करें",
+    pairingScanUnavailable = "इस फ़ोन पर स्कैनर नहीं खुल सकता।",
     pairingJoin = "जुड़ें",
     pairingWaiting = "दूसरे फ़ोन का इंतज़ार…",
     pairingNotACode = "यह पेयरिंग कोड नहीं है।",

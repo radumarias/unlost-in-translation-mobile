@@ -127,6 +127,7 @@ internal val korean = Strings(
     pairingEnterCode = "상대방 휴대폰의 코드를 입력하세요",
     pairingCodePlaceholder = "6자리 코드",
     pairingScanQr = "QR 코드 스캔",
+    pairingScanUnavailable = "이 휴대전화에서는 스캐너를 열 수 없습니다.",
     pairingJoin = "참여",
     pairingWaiting = "상대방 휴대폰을 기다리는 중…",
     pairingNotACode = "페어링 코드가 아닙니다.",

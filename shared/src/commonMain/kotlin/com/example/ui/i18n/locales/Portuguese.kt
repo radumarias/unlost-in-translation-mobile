@@ -127,6 +127,7 @@ internal val portuguese = Strings(
     pairingEnterCode = "Escreve o código do outro telemóvel",
     pairingCodePlaceholder = "código de 6 caracteres",
     pairingScanQr = "Lê o código QR",
+    pairingScanUnavailable = "Não é possível abrir o leitor neste telemóvel.",
     pairingJoin = "Entrar",
     pairingWaiting = "À espera do outro telemóvel…",
     pairingNotACode = "Isto não é um código de emparelhamento.",

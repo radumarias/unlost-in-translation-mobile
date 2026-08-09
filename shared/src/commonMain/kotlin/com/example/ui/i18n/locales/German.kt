@@ -127,6 +127,7 @@ internal val german = Strings(
     pairingEnterCode = "Gib den Code vom anderen Handy ein",
     pairingCodePlaceholder = "6-stelliger Code",
     pairingScanQr = "QR-Code scannen",
+    pairingScanUnavailable = "Der Scanner lässt sich auf diesem Telefon nicht öffnen.",
     pairingJoin = "Beitreten",
     pairingWaiting = "Warte auf das andere Handy…",
     pairingNotACode = "Das ist kein Kopplungscode.",

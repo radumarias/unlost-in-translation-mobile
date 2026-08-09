@@ -127,6 +127,7 @@ internal val thai = Strings(
     pairingEnterCode = "ใส่รหัสจากอีกเครื่องหนึ่ง",
     pairingCodePlaceholder = "รหัส 6 ตัวอักษร",
     pairingScanQr = "สแกนรหัส QR",
+    pairingScanUnavailable = "ไม่สามารถเปิดตัวสแกนบนโทรศัพท์นี้ได้",
     pairingJoin = "เข้าร่วม",
     pairingWaiting = "กำลังรออีกเครื่องหนึ่ง…",
     pairingNotACode = "นี่ไม่ใช่รหัสจับคู่",

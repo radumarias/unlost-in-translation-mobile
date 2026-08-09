@@ -127,6 +127,7 @@ internal val russian = Strings(
     pairingEnterCode = "Введите код с другого телефона",
     pairingCodePlaceholder = "код из 6 символов",
     pairingScanQr = "Отсканируйте QR-код",
+    pairingScanUnavailable = "Не удаётся открыть сканер на этом телефоне.",
     pairingJoin = "Присоединиться",
     pairingWaiting = "Ожидание другого телефона…",
     pairingNotACode = "Это не код подключения.",

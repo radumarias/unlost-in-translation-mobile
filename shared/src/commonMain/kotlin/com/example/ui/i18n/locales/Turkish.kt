@@ -130,6 +130,7 @@ internal val turkish = Strings(
     pairingEnterCode = "Diğer telefondaki kodu girin",
     pairingCodePlaceholder = "6 karakterli kod",
     pairingScanQr = "QR kodunu tarayın",
+    pairingScanUnavailable = "Tarayıcı bu telefonda açılamıyor.",
     pairingJoin = "Katıl",
     pairingWaiting = "Diğer telefon bekleniyor…",
     pairingNotACode = "Bu bir eşleştirme kodu değil.",

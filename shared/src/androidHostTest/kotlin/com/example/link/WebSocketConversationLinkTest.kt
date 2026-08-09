@@ -7,6 +7,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -193,6 +194,40 @@ class WebSocketConversationLinkTest {
     }
 
     @Test
+    fun aRelayThatAcceptsAndHangsUpDoesNotRetryForEver() = runBlocking {
+        // The upgrade succeeding is not the same as the session working. An expired
+        // session accepts and hangs up, and a client that treats "the socket opened"
+        // as progress resets its attempt counter every time round — so it never
+        // reaches the cap, and reconnects until the battery is gone.
+        relay.hangUpImmediately = true
+        val link = link("host-1")
+        link.connect(ticket, myLang = "ro")
+
+        link.awaitState(timeoutMs = 10_000) {
+            it is LinkState.Failed && it.reason == LinkFailure.NETWORK
+        }
+    }
+
+    @Test
+    fun whatThePeerSaidAboutItselfSurvivesAReconnect() = runBlocking {
+        val host = link("host-1")
+        val guest = link("guest-1")
+        host.connect(ticket, myLang = "ro", myName = "Radu")
+        guest.connect(ticket, myLang = "en")
+        guest.awaitConnectedPeer()
+
+        relay.drop("guest-1")
+
+        // Rebuilding the state from defaults on reconnect would say "waiting for the
+        // other phone" about a peer that never went anywhere — and once the frames
+        // are encrypted the peer's replayed `hello` is refused as a replay, so there
+        // is no second chance to learn this.
+        val state = guest.awaitConnectedPeer(timeoutMs = 10_000)
+        assertEquals("ro", state.peerLang)
+        assertEquals("Radu", state.peerName)
+    }
+
+    @Test
     fun anUnparseableFrameCostsTheFrameAndNotTheSession() = runBlocking {
         val host = link("host-1")
         val guest = link("guest-1")
@@ -223,8 +258,14 @@ class WebSocketConversationLinkTest {
         relay.injectFrom(from, text)
     }
 
+    /**
+     * Copy-on-write, not `mutableListOf`: the collector runs on `Dispatchers.Default`
+     * while the test thread iterates the same list in `awaitFirst`, `filter` and
+     * `none`. A plain list makes every one of these tests intermittently throw
+     * `ConcurrentModificationException`, and the flake would read as a transport bug.
+     */
     private fun ConversationLink.collectInbound(): MutableList<LinkMessage> {
-        val received = mutableListOf<LinkMessage>()
+        val received = CopyOnWriteArrayList<LinkMessage>()
         val scope = CoroutineScope(SupervisorJob())
         scopes += scope
         scope.launch { inbound.collect { received += it } }

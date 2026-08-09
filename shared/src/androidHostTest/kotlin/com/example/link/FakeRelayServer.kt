@@ -11,6 +11,7 @@ import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.close
 import io.ktor.websocket.readText
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import io.ktor.server.websocket.WebSockets as ServerWebSockets
@@ -35,6 +36,14 @@ class FakeRelayServer {
         private set
 
     val baseUrl: String get() = "ws://127.0.0.1:$port"
+
+    /**
+     * Accept every upgrade and hang up at once, the way the real relay behaves for a
+     * session whose TTL has passed. The upgrade succeeding is what makes this
+     * different from an unreachable relay, and it is the case a client can retry
+     * for ever without noticing.
+     */
+    var hangUpImmediately: Boolean = false
 
     suspend fun start() {
         val engine = embeddedServer(CIO, port = 0) {
@@ -78,6 +87,13 @@ class FakeRelayServer {
         val member = session.call.request.queryParameters["m"]
         if (member.isNullOrEmpty()) {
             session.close(CloseReason(CloseReason.Codes.CANNOT_ACCEPT, "no member id"))
+            return
+        }
+        if (hangUpImmediately) {
+            // A beat before hanging up, so the close races nothing in the client's
+            // own upgrade; the real relay's TTL check happens after the accept too.
+            delay(100)
+            session.close(CloseReason(CloseReason.Codes.NORMAL, "session is over"))
             return
         }
         val replay = mutex.withLock {

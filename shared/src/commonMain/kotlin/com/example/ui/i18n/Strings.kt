@@ -185,6 +185,7 @@ data class Strings(
     val pairingEnterCode: String = "Enter the code from the other phone",
     val pairingCodePlaceholder: String = "6-character code",
     val pairingScanQr: String = "Scan the QR code",
+    val pairingScanUnavailable: String = "The scanner cannot be opened on this phone.",
     val pairingJoin: String = "Join",
     val pairingWaiting: String = "Waiting for the other phone…",
     val pairingNotACode: String = "That is not a pairing code.",

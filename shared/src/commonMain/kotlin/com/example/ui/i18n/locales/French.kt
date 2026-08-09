@@ -127,6 +127,7 @@ internal val french = Strings(
     pairingEnterCode = "Saisissez le code de l'autre téléphone",
     pairingCodePlaceholder = "code à 6 caractères",
     pairingScanQr = "Scannez le code QR",
+    pairingScanUnavailable = "Impossible d'ouvrir le scanner sur ce téléphone.",
     pairingJoin = "Rejoindre",
     pairingWaiting = "En attente de l'autre téléphone…",
     pairingNotACode = "Ce n'est pas un code d'appairage.",

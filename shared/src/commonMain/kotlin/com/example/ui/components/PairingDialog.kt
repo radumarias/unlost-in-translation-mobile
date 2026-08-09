@@ -38,6 +38,7 @@ import com.example.link.LinkState
 import com.example.link.SessionTicket
 import com.example.ui.i18n.LocalStrings
 import com.example.ui.i18n.withArg
+import com.example.ui.screens.peerLanguageLabel
 import io.github.alexzhirkevich.qrose.rememberQrCodePainter
 
 /**
@@ -46,7 +47,8 @@ import io.github.alexzhirkevich.qrose.rememberQrCodePainter
  * Both halves are in one dialog because pairing is one decision with two sides:
  * whoever opens it first shows a code, whoever opens it second reads one. The
  * dialog does not decide which — [ticket] being non-null is what makes this the
- * hosting side.
+ * hosting side. A guest has no ticket of its own, so [isRemote] is what tells the
+ * two "no ticket" cases apart: not paired yet, versus paired as the guest.
  *
  * The QR is drawn from the ticket's compact form rather than its URL form: the URL
  * exists for the deferred web-guest path and is roughly twice as long, which pushes
@@ -57,6 +59,7 @@ fun PairingDialog(
     ticket: SessionTicket?,
     linkState: LinkState,
     canScan: Boolean,
+    isRemote: Boolean,
     onStartHosting: () -> Unit,
     onStartHostingWithCode: () -> Unit,
     onJoin: (String) -> Boolean,
@@ -83,6 +86,12 @@ fun PairingDialog(
 
                 if (ticket != null) {
                     HostingSide(ticket, linkState)
+                } else if (isRemote) {
+                    // A guest publishes no ticket, so there is nothing to show it —
+                    // but it is in a session, and offering it the join form again
+                    // (with a button that re-hosts) is how someone ends up leaving
+                    // by turning conversation mode off and losing the history.
+                    ConnectedSide(linkState)
                 } else {
                     JoiningSide(
                         typed = typed,
@@ -101,7 +110,7 @@ fun PairingDialog(
             }
         },
         confirmButton = {
-            if (ticket != null) {
+            if (ticket != null || isRemote) {
                 TextButton(onClick = onLeave) { Text(strings.pairingLeave) }
             } else {
                 TextButton(onClick = onDismiss) { Text(strings.cancel) }
@@ -145,10 +154,34 @@ private fun HostingSide(ticket: SessionTicket, linkState: LinkState) {
     }
 
     Spacer(Modifier.height(16.dp))
+    PairingStatus(linkState)
+}
+
+/**
+ * What a guest sees when it reopens the dialog mid-session: the same status line the
+ * host gets, and the Leave button beside it.
+ */
+@Composable
+private fun ConnectedSide(linkState: LinkState) {
+    Text(
+        text = LocalStrings.current.linkThisPhone,
+        fontSize = 14.sp,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
+    Spacer(Modifier.height(12.dp))
+    PairingStatus(linkState)
+}
+
+@Composable
+private fun PairingStatus(linkState: LinkState) {
+    val strings = LocalStrings.current
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (linkState is LinkState.Connected && linkState.peerPresent) {
             Text(
-                text = strings.linkConnectedWith.withArg(linkState.peerLang.orEmpty()),
+                // The language *name*, matching the banner under the header — the
+                // same peer described two different ways in two adjacent surfaces
+                // reads as two different peers.
+                text = strings.linkConnectedWith.withArg(peerLanguageLabel(linkState.peerLang)),
                 fontSize = 13.sp,
                 color = MaterialTheme.colorScheme.primary,
             )
@@ -180,6 +213,15 @@ private fun JoiningSide(
             Text(strings.pairingScanQr)
         }
         Spacer(Modifier.height(12.dp))
+        // Names the fallback rather than leaving a bare field under the scan button:
+        // the typed code is for a camera that will not focus, a cracked lens, or a
+        // phone held by someone who cannot aim it.
+        Text(
+            text = strings.pairingCantScan,
+            fontSize = 13.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
     }
 
     OutlinedTextField(

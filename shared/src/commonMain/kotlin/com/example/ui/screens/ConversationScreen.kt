@@ -34,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.DualHeadsetEntry
 import com.example.model.Language
+import com.example.model.TurnOrigin
 import com.example.model.flagLabel
 import com.example.platform.AudioOutputCatalog
 import com.example.platform.SpeechSynthesizer
@@ -94,6 +96,31 @@ fun ConversationScreen(
     val remoteTicket by viewModel.remoteTicket.collectAsState()
     val linkState by viewModel.linkState.collectAsState()
     var showPairing by remember { mutableStateOf(false) }
+
+    // A turn from the paired phone arrives as text and nothing else. A local turn is
+    // spoken by the draft-confirmation callback further down; without the same here,
+    // the peer's translation lands silently and the user has to notice a new bubble
+    // and press play — which is not a conversation.
+    //
+    // Seeded with whatever is already on screen so re-entering the tab does not
+    // replay the whole exchange, and the ids that have been spoken are kept rather
+    // than the last one alone, because the SAS gate releases several turns at once.
+    val spokenRemoteTurns = remember {
+        conversationHistory.filter { it.origin == TurnOrigin.REMOTE }.map { it.id }.toMutableSet()
+    }
+    LaunchedEffect(conversationHistory) {
+        conversationHistory
+            .filter { it.origin == TurnOrigin.REMOTE && spokenRemoteTurns.add(it.id) }
+            .forEach { item ->
+                // No headset device: remote mode and dual-headset mode are mutually
+                // exclusive, so there is never an assignment to honour here.
+                speechSynthesizer.speak(
+                    item.translated,
+                    Language.getByCode(item.tgtLangCode).languageTag,
+                    null,
+                )
+            }
+    }
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -313,6 +340,7 @@ fun ConversationScreen(
             ticket = remoteTicket,
             linkState = linkState,
             canScan = showRemoteConversation,
+            isRemote = isRemote,
             onStartHosting = { viewModel.startRemoteSession() },
             onStartHostingWithCode = { viewModel.startRemoteSessionWithCode() },
             onJoin = { payload ->
@@ -342,14 +370,22 @@ fun ConversationScreen(
  * exhaustive `when` catches a *new* reason at compile time; only a test catches
  * one that compiles because it was wired to a blank string.
  */
+/**
+ * The peer's language as a person would say it, not as the wire carries it.
+ *
+ * Shared with the pairing dialog so the same peer is not described as "Romanian"
+ * under the header and "ro" inside the dialog above it. An unknown tag falls back
+ * to the tag: a peer on a language this build does not list is still worth naming.
+ */
+internal fun peerLanguageLabel(code: String?): String =
+    Language.findByCode(code.orEmpty())?.name ?: code.orEmpty()
+
 internal fun linkBannerText(state: LinkState, strings: Strings): Pair<String, Boolean>? = when (state) {
     is LinkState.Idle -> null
     is LinkState.Connecting -> strings.linkConnecting to false
     is LinkState.Connected ->
         if (state.peerPresent) {
-            strings.linkConnectedWith.withArg(
-                Language.findByCode(state.peerLang.orEmpty())?.name ?: state.peerLang.orEmpty()
-            ) to false
+            strings.linkConnectedWith.withArg(peerLanguageLabel(state.peerLang)) to false
         } else {
             strings.pairingWaiting to false
         }

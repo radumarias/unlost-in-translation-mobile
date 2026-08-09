@@ -127,6 +127,7 @@ internal val romanian = Strings(
     pairingEnterCode = "Scrie codul de pe celălalt telefon",
     pairingCodePlaceholder = "cod din 6 caractere",
     pairingScanQr = "Scanează codul QR",
+    pairingScanUnavailable = "Scanerul nu poate fi deschis pe acest telefon.",
     pairingJoin = "Intră",
     pairingWaiting = "Se așteaptă celălalt telefon…",
     pairingNotACode = "Acesta nu este un cod de asociere.",

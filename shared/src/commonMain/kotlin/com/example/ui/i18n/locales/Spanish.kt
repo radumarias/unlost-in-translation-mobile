@@ -131,6 +131,7 @@ internal val spanish = Strings(
     pairingEnterCode = "Escribe el código del otro teléfono",
     pairingCodePlaceholder = "código de 6 caracteres",
     pairingScanQr = "Escanea el código QR",
+    pairingScanUnavailable = "No se puede abrir el escáner en este teléfono.",
     pairingJoin = "Unirse",
     pairingWaiting = "Esperando al otro teléfono…",
     pairingNotACode = "Eso no es un código de emparejamiento.",

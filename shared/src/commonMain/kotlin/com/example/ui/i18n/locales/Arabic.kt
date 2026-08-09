@@ -127,6 +127,7 @@ internal val arabic = Strings(
     pairingEnterCode = "أدخل الرمز الظاهر على الهاتف الآخر",
     pairingCodePlaceholder = "رمز من 6 أحرف",
     pairingScanQr = "امسح رمز QR",
+    pairingScanUnavailable = "لا يمكن فتح الماسح على هذا الهاتف.",
     pairingJoin = "انضمام",
     pairingWaiting = "في انتظار الهاتف الآخر…",
     pairingNotACode = "هذا ليس رمز اقتران.",

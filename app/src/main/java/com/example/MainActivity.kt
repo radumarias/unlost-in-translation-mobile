@@ -1,6 +1,8 @@
 package com.example
 
 import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -167,11 +169,20 @@ private fun AndroidApp() {
     // `rememberLauncherForActivityResult`.
     val scope = rememberCoroutineScope()
     val qrScanner = remember(context) {
-        (context as? Activity)?.let { AndroidQrScanner(it, container.log) }
+        // Unwrapped rather than cast: `LocalContext.current` is a ContextWrapper
+        // under a themed context and under Robolectric, and a bare `as?` there
+        // turns the scan button into a control that does nothing at all.
+        context.findActivity()?.let { AndroidQrScanner(it, container.log) }
     }
 
     fun launchQrScan() {
-        val scanner = qrScanner ?: return
+        val scanner = qrScanner
+        if (scanner == null) {
+            // Every other launcher here says why it did not run; this one used to
+            // return in silence.
+            viewModel.showMessage(viewModel.strings.pairingScanUnavailable)
+            return
+        }
         scope.launch {
             val payload = scanner.scan() ?: return@launch // cancelled, or no scanner
             if (!viewModel.joinRemoteSession(payload)) {
@@ -186,4 +197,11 @@ private fun AndroidApp() {
         launchImageInput = ::launchImageInput,
         launchQrScan = ::launchQrScan,
     )
+}
+
+/** Walks the ContextWrapper chain; `LocalContext.current` is not always the Activity. */
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

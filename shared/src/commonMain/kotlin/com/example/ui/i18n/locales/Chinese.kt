@@ -130,6 +130,7 @@ internal val chinese = Strings(
     pairingEnterCode = "输入另一部手机上的代码",
     pairingCodePlaceholder = "6 位代码",
     pairingScanQr = "扫描二维码",
+    pairingScanUnavailable = "此手机无法打开扫描器。",
     pairingJoin = "加入",
     pairingWaiting = "正在等待另一部手机…",
     pairingNotACode = "这不是配对代码。",

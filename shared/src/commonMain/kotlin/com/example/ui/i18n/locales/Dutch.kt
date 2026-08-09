@@ -130,6 +130,7 @@ internal val dutch = Strings(
     pairingEnterCode = "Voer de code van de andere telefoon in",
     pairingCodePlaceholder = "code van 6 tekens",
     pairingScanQr = "Scan de QR-code",
+    pairingScanUnavailable = "De scanner kan op deze telefoon niet worden geopend.",
     pairingJoin = "Deelnemen",
     pairingWaiting = "Wachten op de andere telefoon…",
     pairingNotACode = "Dat is geen koppelcode.",
