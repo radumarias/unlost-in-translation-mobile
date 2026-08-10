@@ -1,9 +1,11 @@
 package com.example.ui.viewmodel.fakes
 
+import com.example.link.Base64Url
 import com.example.link.ConversationLink
 import com.example.link.LinkMessage
 import com.example.link.LinkState
 import com.example.link.SessionTicket
+import com.example.link.crypto.LinkRole
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +30,7 @@ class RecordingConversationLink(override val memberId: String = "me") : Conversa
 
     val sent = mutableListOf<LinkMessage>()
     val connects = mutableListOf<SessionTicket>()
+    val roles = mutableListOf<LinkRole>()
     var disconnects = 0
         private set
 
@@ -38,8 +41,28 @@ class RecordingConversationLink(override val memberId: String = "me") : Conversa
      */
     var connectFailure: Throwable? = null
 
-    override suspend fun connect(ticket: SessionTicket, myLang: String, myName: String?) {
+    override suspend fun createHostTicket(hostLang: String?, useManualCode: Boolean): SessionTicket =
+        if (useManualCode) {
+            SessionTicket.forManualCode(SessionTicket.newManualCode(), hostLang)!!
+        } else {
+            SessionTicket(
+                sessionId = SessionTicket.newSessionId(),
+                hostLang = hostLang,
+                // Shaped like the real thing so ticket validation is exercised, but
+                // no crypto is performed: this fake tests the view model, not #34.
+                qrSecret = Base64Url.encode(ByteArray(32) { it.toByte() }),
+                hostPublicKey = Base64Url.encode(ByteArray(65) { if (it == 0) 0x04 else it.toByte() }),
+            )
+        }
+
+    override suspend fun connect(
+        ticket: SessionTicket,
+        myLang: String,
+        myName: String?,
+        role: LinkRole,
+    ) {
         connects += ticket
+        roles += role
         connectFailure?.let { throw it }
         _state.value = LinkState.Connected()
     }
@@ -82,7 +105,15 @@ class LoopbackConversationLink(override val memberId: String) : ConversationLink
 
     val sent = mutableListOf<LinkMessage>()
 
-    override suspend fun connect(ticket: SessionTicket, myLang: String, myName: String?) {
+    override suspend fun createHostTicket(hostLang: String?, useManualCode: Boolean): SessionTicket =
+        SessionTicket(sessionId = SessionTicket.newSessionId(), hostLang = hostLang)
+
+    override suspend fun connect(
+        ticket: SessionTicket,
+        myLang: String,
+        myName: String?,
+        role: LinkRole,
+    ) {
         _state.value = LinkState.Connected()
         // The real link announces itself on connect; the peer's view model needs
         // that `hello` to learn which language to translate into.

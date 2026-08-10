@@ -192,6 +192,10 @@ data class Strings(
     val pairingLeave: String = "Leave",
     // Connection banner, driven by the link's state.
     val linkConnecting: String = "Connecting…",
+    /** Shown while the two phones exchange keys and confirm them (issue #34). */
+    val linkSecuring: String = "Securing the connection…",
+    val linkFailedEncryption: String =
+        "The connection could not be secured, so the session was closed.",
     /** `{0}` is the peer's language. */
     val linkConnectedWith: String = "Connected — the other phone speaks {0}",
     val linkPeerLeft: String = "The other phone left the conversation.",

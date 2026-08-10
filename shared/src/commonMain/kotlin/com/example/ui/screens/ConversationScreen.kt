@@ -383,6 +383,9 @@ internal fun peerLanguageLabel(code: String?): String =
 internal fun linkBannerText(state: LinkState, strings: Strings): Pair<String, Boolean>? = when (state) {
     is LinkState.Idle -> null
     is LinkState.Connecting -> strings.linkConnecting to false
+    // The handshake is fast, but naming it is worth a string: if it stalls, the
+    // user is looking at a screen that would otherwise say nothing at all.
+    is LinkState.KeyExchange, is LinkState.Confirming -> strings.linkSecuring to false
     is LinkState.Connected ->
         if (state.peerPresent) {
             strings.linkConnectedWith.withArg(peerLanguageLabel(state.peerLang)) to false
@@ -391,6 +394,9 @@ internal fun linkBannerText(state: LinkState, strings: Strings): Pair<String, Bo
         }
     is LinkState.Failed -> when (state.reason) {
         LinkFailure.PEER_LEFT -> strings.linkPeerLeft to true
+        // Issue #34 §3.7: there is no plaintext fallback, so this is terminal and
+        // the user is told rather than quietly downgraded.
+        LinkFailure.ENCRYPTION_FAILED -> strings.linkFailedEncryption to true
         LinkFailure.NOT_CONFIGURED -> strings.linkFailedUnconfigured to true
         LinkFailure.PROTOCOL -> strings.linkFailedProtocol to true
         // "Session full" arrives as a failed WebSocket upgrade, and neither the

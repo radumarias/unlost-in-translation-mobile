@@ -295,6 +295,15 @@ A second, separate network path, in `commonMain/link/`. It is **not** part of `T
 - **A committed known-answer vector** (`SessionKeyScheduleVectorTest`) pins the schedule's exact bytes as source literals, so the JVM run and the ChromeHeadless run are each checked against the same constant rather than against each other. Two phones in one session may be different platforms. Changing those literals is a **wire-format break**: two app versions would no longer pair.
 - **Recorded finding:** the two providers reject an off-curve point at *different* steps — the JDK decodes it happily and throws from the *agreement* — so `SessionKeyExchange.agree` wraps both the decode and the agreement. Caught by a test that failed exactly that way.
 
+The handshake in `WebSocketConversationLink` (issue #34b):
+
+- `ConversationLink` gained `createHostTicket(hostLang, useManualCode)`. The ticket now has an ephemeral private key behind it, and that key must never leave the link — so minting it belongs to the link, not the view model, and `startRemoteSession()` became asynchronous as a result. `connect` gained a `role`.
+- **Both sides always send `kex`.** The guest also holds the host's key from the QR and checks the one that arrives against it; a mismatch is an attack, not a discrepancy to reconcile. On the manual-code path there is no QR key at all, which is exactly why that path needs the SAS.
+- **`hello` is encrypted**, so the relay never learns which languages are being spoken. Only `kex` and `cfm` are ever plaintext, and a test asserts the relay's ring contains neither the word `hello` nor either language code.
+- **Reconnect does not redo the handshake** (§4). Keys and counters survive the socket; the relay's replayed `kex`/`cfm` frames are ignored once confirmed.
+- **Resolved contradiction in #34.** §3.6 says a replayed counter is *dropped* (it is how the relay's reconnect ring is absorbed); §3.7 lists "a counter violation" among the things that terminate the session. They cannot both hold. Implemented as §3.6: a replay is dropped, a **tag failure** terminates. Dropping is also strictly safer — terminating would let anyone kill a conversation by echoing one frame back into it. A GCM failure still fails closed.
+- **Recorded finding:** the `expectedHostKey` check must apply to the *guest only*. The host holds the same field in its own ticket — that is its own key — and comparing the guest's `kex` against it rejects every genuine session. Caught by the first end-to-end handshake test.
+
 ## 6. Secrets (D6)
 
 Gradle task in `:shared` (registered as a commonMain generated source dir, wired into `compileKotlinMetadata`/source-set model):
