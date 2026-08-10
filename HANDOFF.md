@@ -17,13 +17,13 @@ If this file disagrees with the code, **the code is right and this file is stale
 
 | | |
 |---|---|
-| `main` | `0dc0e19` — `origin/main` identical, nothing unpushed |
+| `main` | `485b605` — `origin/main` identical, nothing unpushed |
 | Working tree | clean |
 | In flight | **#31** (test: raise the floor) and **#32** (i18n: platform strings), both open since 2026-08-03 and both now *behind* Arc 6 — see the trap in §11 before merging either |
 | CI | **none**. "Green" always means the local gate suite in §5 |
 | Open issues | **#1** (KMP restructure — code complete, owner keeps it open), **#15** (Ray-Ban spike — not started), **#33** / **#34** (two-device conversation — code complete and merged, left open for the owner's two-phone check in §8), **#35** (iOS target — not started) |
-| Last work | two phones, one conversation: PRs #36–#42, merged 2026-08-10 |
-| Gate on `main` | 270 JVM / 256 wasm / 3 `:app`, 0 failures; Roborazzi byte-identical |
+| Last work | two phones, one conversation: PRs #36–#42, then #44 (the SAS banner bug the browser run found), merged 2026-08-10 |
+| Gate on `main` | 273 JVM / 259 wasm / 3 `:app`, 0 failures; Roborazzi byte-identical |
 
 Every merged feature branch still exists on `origin`. They are merged; deleting them is housekeeping,
 not work.
@@ -346,6 +346,14 @@ Each was a decision with a reason. They look like bugs to a fresh reader.
   and the image path reuses it, but `prepareConversationPart` keeps its own orchestration because it
   drives the draft flow. Recorded in `02-design.md` §4.
 
+**Open, seen with your own eyes, unfixed:** when Gemini's cultural-validation response does not
+parse, the raw kotlinx-serialization message is rendered to the user inside the Confirm Translation
+dialog — `Validation failed: Unexpected JSON token at offset 758: Expected end of the object or comma
+at path: $` followed by a slice of the JSON. Observed 2026-08-10 in the browser, on a perfectly good
+translation (the translation itself was correct and the dialog still worked). It is the translation
+pipeline's error surface, not the link's, and no test asserts on what that string looks like. The fix
+is a user-facing string in `Strings` plus keeping the parser detail in the log.
+
 **Pre-existing findings, reviewed and left alone** (not regressions — they predate all of the above):
 stale `_validationState` write without a staleness guard · `messages` SharedFlow `tryEmit` drops with
 no collector · dead `_partnerAText`/`_partnerBText` · dual-headset routing expression duplicated ×5 ·
@@ -385,6 +393,24 @@ None of these can be exercised by the test suite. They are the real remaining ve
    rendered until both people press "It matches".
 3e. **Kill the network on one phone mid-conversation**, speak on the other, then restore it: the turn
    must arrive, once, and the banner must not fall back to "waiting for the other phone".
+
+**The two-tab substitute — no phones required, and it has already earned its keep.** 3c–3e need two
+Android devices, but most of the flow can be driven in two browser tabs on this machine, because the
+transport *and* the crypto are `commonMain` and `wasmJsMain` already carries the WebCrypto provider
+and Ktor's Js engine with WebSockets. What stops the web build is a decision, not a limitation:
+`WebAppContainer` installs `OfflineConversationLink` because a web guest-join needs `:webApp` deployed
+publicly (issue #1's gate).
+
+To run it, temporarily point `WebAppContainer.conversationLink` at `WebSocketConversationLink` with a
+`ws://127.0.0.1:8787` relay and set `remoteConversation = true`, then `npx wrangler dev` in one
+terminal and `:webApp:wasmJsBrowserDevelopmentRun` in another. Drive it with Playwright: the UI is a
+single canvas with no DOM to query, so steps are coordinate clicks and the assertions are screenshots.
+Delete `SpeechRecognition` in an init script — otherwise voice input feature-detects as available and
+conversation mode offers mic buttons a script cannot press, instead of typed fields. **Revert the
+container patch afterwards; it must not be committed.**
+
+This found the `sasConfirmed` banner bug (PR #44), which no test could have caught: the fake link
+never leaves `NEEDS_SAS_CHECK` either, so every assertion agreed with the bug.
 
 **Older, still outstanding:**
 
