@@ -204,6 +204,7 @@ internal val thai = Strings(
     pickLanguageBeforeConversation = "เลือกภาษาสำหรับฝั่งของคุณก่อนเริ่มการสนทนา",
     translationFailed = "แปลไม่สำเร็จ",
     validationFailed = "การตรวจสอบล้มเหลว: {0}",
+    validationUnavailable = "ไม่สามารถตรวจสอบเชิงวัฒนธรรมให้เสร็จได้",
     imageReadFailed = "อ่านรูปภาพไม่ได้",
     rewriteFailed = "เขียนข้อความใหม่ไม่สำเร็จ",
     conversationTranslationFailed = "ล้มเหลวในขั้นตอนการแปล",

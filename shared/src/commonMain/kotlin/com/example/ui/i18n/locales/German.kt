@@ -204,6 +204,7 @@ internal val german = Strings(
     pickLanguageBeforeConversation = "Wähle eine Sprache für deine Seite, bevor du ein Gespräch beginnst.",
     translationFailed = "Übersetzung fehlgeschlagen",
     validationFailed = "Validierung fehlgeschlagen: {0}",
+    validationUnavailable = "Die kulturelle Prüfung konnte nicht abgeschlossen werden.",
     imageReadFailed = "Bild konnte nicht gelesen werden",
     rewriteFailed = "Nachricht konnte nicht neu formuliert werden",
     conversationTranslationFailed = "In der Übersetzungsphase fehlgeschlagen",

@@ -314,6 +314,8 @@ data class Strings(
     val translationFailed: String = "Failed to perform translation",
     /** `{0}` is the underlying error. Quota errors bypass this and speak for themselves. */
     val validationFailed: String = "Validation failed: {0}",
+    /** When the failure has no message written for a user — a parse error, say. */
+    val validationUnavailable: String = "The cultural check could not be completed.",
     val imageReadFailed: String = "Failed to read the image",
     val rewriteFailed: String = "Failed to rewrite the message",
     val conversationTranslationFailed: String = "Failed at translation stage",

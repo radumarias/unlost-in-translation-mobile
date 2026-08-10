@@ -204,6 +204,7 @@ internal val arabic = Strings(
     pickLanguageBeforeConversation = "اختر لغة لجانبك قبل بدء المحادثة.",
     translationFailed = "تعذّر تنفيذ الترجمة",
     validationFailed = "فشل التحقق: {0}",
+    validationUnavailable = "تعذّر إكمال الفحص الثقافي.",
     imageReadFailed = "تعذّرت قراءة الصورة",
     rewriteFailed = "تعذّرت إعادة صياغة الرسالة",
     conversationTranslationFailed = "فشل في مرحلة الترجمة",

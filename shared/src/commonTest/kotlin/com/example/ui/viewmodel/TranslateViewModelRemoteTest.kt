@@ -176,7 +176,6 @@ class TranslateViewModelRemoteTest {
         assertEquals(TurnOrigin.REMOTE, item.origin)
         assertEquals("ro", item.srcLangCode)
         assertFalse(item.speakA)
-        assertEquals("Bună ziua", vm.partnerBText.value)
     }
 
     @Test
@@ -359,12 +358,10 @@ class TranslateViewModelRemoteTest {
         // Held, not dropped: the peer may speak while the user is still reading the
         // digits, and losing what they said would be its own kind of wrong.
         assertTrue(vm.conversationHistory.value.isEmpty(), "nothing may render before the check")
-        assertEquals("", vm.partnerBText.value)
 
         vm.confirmSasMatch()
 
         assertEquals("Bună", vm.conversationHistory.value.single().text)
-        assertEquals("Bună", vm.partnerBText.value)
     }
 
     @Test

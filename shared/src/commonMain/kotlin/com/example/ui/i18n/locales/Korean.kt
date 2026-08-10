@@ -204,6 +204,7 @@ internal val korean = Strings(
     pickLanguageBeforeConversation = "대화를 시작하기 전에 내 쪽 언어를 고르세요.",
     translationFailed = "번역에 실패했습니다",
     validationFailed = "검증에 실패했습니다: {0}",
+    validationUnavailable = "문화적 확인을 완료하지 못했습니다.",
     imageReadFailed = "이미지를 읽지 못했습니다",
     rewriteFailed = "메시지를 다시 쓰지 못했습니다",
     conversationTranslationFailed = "번역 단계에서 실패했습니다",

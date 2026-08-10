@@ -293,6 +293,53 @@ class NetworkParsersTest {
         }
     }
 
+    @Test
+    fun validation_survives_a_stray_bracket_after_the_object() {
+        // Seen in the browser on 2026-08-10 on a perfectly good translation: the
+        // object was valid and complete, and one character of trailing punctuation
+        // cost the user their cultural check.
+        val result = GeminiParser.parseValidation(
+            """{"isWarning":false,"explanation":"Reads naturally.","sanityCheck":"Good morning."} ]""",
+        )
+        assertFalse(result.isWarning)
+        assertEquals("Reads naturally.", result.explanation)
+        assertEquals("Good morning.", result.sanityCheck)
+    }
+
+    @Test
+    fun validation_survives_prose_around_the_object() {
+        val result = GeminiParser.parseValidation(
+            """Here is the JSON you asked for: {"isWarning":true,"explanation":"Too blunt."} Hope that helps!""",
+        )
+        assertTrue(result.isWarning)
+        assertEquals("Too blunt.", result.explanation)
+    }
+
+    @Test
+    fun carving_the_object_out_is_string_aware() {
+        // A brace inside the explanation must not end the object early — the
+        // explanation is free text, and a model quoting code is not far-fetched.
+        val result = GeminiParser.parseValidation(
+            """{"isWarning":false,"explanation":"Use {0} for the name \"here\"."} trailing""",
+        )
+        assertEquals("""Use {0} for the name "here".""", result.explanation)
+    }
+
+    @Test
+    fun a_clean_response_still_parses_without_carving() {
+        assertNull(GeminiParser.firstJsonObject("no object here"))
+        val result = GeminiParser.parseValidation(VALIDATION_FENCED)
+        assertTrue(result.explanation.isNotBlank())
+    }
+
+    @Test
+    fun text_with_no_object_at_all_is_still_a_parse_error() {
+        // Carving is a second chance, not a licence to invent a result.
+        assertFailsWith<SerializationException> {
+            GeminiParser.parseValidation("the model apologised and said nothing else")
+        }
+    }
+
     private companion object {
         const val GOOGLE_SINGLE_SENTENCE =
             "[[[\"Hola\",\"Hello\",null,null,10]],null,\"en\",null,null,null,null,[]]"

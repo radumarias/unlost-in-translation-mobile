@@ -35,9 +35,12 @@ class LocalStorageHistoryRepositoryTest {
         isStarred = starred,
     )
 
+    private val nextIdKey = "translation_history_next_id_v1"
+
     @BeforeTest
     fun clearStorage() {
         localStorage.removeItem(storageKey)
+        localStorage.removeItem(nextIdKey)
     }
 
     @Test
@@ -106,6 +109,46 @@ class LocalStorageHistoryRepositoryTest {
             listOf("fresh"),
             LocalStorageHistoryRepository(log).allTranslations().first().map { it.sourceText },
         )
+    }
+
+    @Test
+    fun anIdIsNeverHandedOutTwice_evenAfterTheRowIsDeleted() = runTest {
+        val repository = LocalStorageHistoryRepository(RecordingLog())
+        val first = repository.insert(translation("one", timestamp = 1_000L))
+
+        repository.deleteById(first)
+        val second = repository.insert(translation("two", timestamp = 2_000L))
+
+        // `max(id) + 1` over the surviving rows handed the deleted row's id to the
+        // next one, so anything still holding it — an open card, a pending star —
+        // pointed at a different translation.
+        assertTrue(second > first, "id $second was reused after $first was deleted")
+    }
+
+    @Test
+    fun theIdCounterSurvivesAReload() = runTest {
+        val log = RecordingLog()
+        val first = LocalStorageHistoryRepository(log).insert(translation("one", timestamp = 1_000L))
+        LocalStorageHistoryRepository(log).deleteById(first)
+
+        val second = LocalStorageHistoryRepository(log).insert(translation("two", timestamp = 2_000L))
+
+        assertTrue(second > first, "id $second was reused across a reload")
+    }
+
+    @Test
+    fun anExistingInstallWithNoCounterStillMovesForward() = runTest {
+        // Upgrading into this: rows exist, the counter key does not. The first id
+        // afterwards still has to clear everything already stored.
+        val log = RecordingLog()
+        val seeded = LocalStorageHistoryRepository(log)
+        seeded.insert(translation("one", timestamp = 1_000L))
+        val highest = seeded.allTranslations().first().maxOf { it.id }
+        localStorage.removeItem(nextIdKey)
+
+        val next = LocalStorageHistoryRepository(log).insert(translation("two", timestamp = 2_000L))
+
+        assertTrue(next > highest, "id $next collides with the stored $highest")
     }
 
     @Test

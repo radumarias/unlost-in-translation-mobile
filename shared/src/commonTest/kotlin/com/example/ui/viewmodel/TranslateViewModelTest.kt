@@ -6,6 +6,8 @@ import com.example.model.Situation
 import com.example.model.Tone
 import com.example.network.DetectedTranslation
 import com.example.network.ImageTranslationResult
+import com.example.network.KtorTranslationApi
+import com.example.network.UserVisibleException
 import com.example.network.ValidationResult
 import com.example.ui.i18n.Strings
 import com.example.ui.viewmodel.fakes.FakeHistoryRepository
@@ -17,9 +19,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.serialization.SerializationException
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -158,7 +162,7 @@ class TranslateViewModelTest {
 
     @Test
     fun anUnreadableImage_surfacesAnError_ratherThanAnEmptyCard() = runTest {
-        api.onImage = { _ -> throw Exception("Gemini found no text to translate in the image.") }
+        api.onImage = { _ -> throw UserVisibleException("Gemini found no text to translate in the image.") }
         val vm = viewModel()
 
         vm.onImageInputResult("QkFTRTY0", "image/jpeg")
@@ -497,15 +501,18 @@ class TranslateViewModelTest {
 
     @Test
     fun primaryFailure_surfacesErrorState() = runTest {
+        // "boom" is a log line, not a sentence, so the card shows the app's own
+        // wording and the exception goes to the log.
         api.onGoogle = { _, _, _ -> throw Exception("boom") }
         val vm = viewModel()
         vm.setSourceText("hello")
 
         vm.triggerTranslation()
 
-        assertEquals(TranslationState.Error("boom"), vm.translationState.value)
+        assertEquals(TranslationState.Error(vm.strings.translationFailed), vm.translationState.value)
         assertTrue(repository.rows.isEmpty())
         assertTrue(broadcaster.broadcasts.isEmpty())
+        assertTrue(log.errorThrowables.any { it?.message == "boom" }, "the detail must reach the log")
     }
 
     @Test
@@ -726,6 +733,8 @@ class TranslateViewModelTest {
 
     @Test
     fun conversationDraft_translationFailure_reportsErrorInDraft() = runTest {
+        // A plain Exception's message was written for a log, not a person, so the
+        // draft shows the app's own sentence instead.
         api.onGoogle = { _, _, _ -> throw Exception("offline") }
         val vm = viewModel()
 
@@ -733,7 +742,70 @@ class TranslateViewModelTest {
 
         val draft = vm.conversationDraft.value
         assertEquals(false, draft?.isTranslating)
-        assertEquals(ValidationState.Error("offline"), draft?.validationState)
+        assertEquals(ValidationState.Error(vm.strings.conversationTranslationFailed), draft?.validationState)
+    }
+
+    @Test
+    fun conversationDraft_showsAMessageThatWasWrittenForAUser() = runTest {
+        api.onGoogle = { _, _, _ -> throw UserVisibleException("Gemini is over its quota for today.") }
+        val vm = viewModel()
+
+        vm.prepareConversationPart("hi", isLanguageA = true)
+
+        assertEquals(
+            ValidationState.Error("Gemini is over its quota for today."),
+            vm.conversationDraft.value?.validationState,
+        )
+    }
+
+    @Test
+    fun aParserFailureNeverReachesTheScreen() = runTest {
+        // The defect this pins, seen in a browser on 2026-08-10: a malformed
+        // validation payload put `Unexpected JSON token at offset 758: Expected
+        // end of the object or comma at path: $` plus a slice of the JSON in front
+        // of the user, inside the Confirm Translation dialog.
+        val leak = "Unexpected JSON token at offset 758: Expected end of the object or comma at path: \$"
+        api.onValidate = { _, _ -> throw SerializationException(leak) }
+        val vm = viewModel()
+
+        vm.setSourceText("hello")
+        vm.triggerTranslation()
+        advanceUntilIdle()
+
+        val state = assertIs<ValidationState.Error>(vm.validationState.value)
+        assertEquals(vm.strings.validationUnavailable, state.message)
+        assertFalse("offset" in state.message, "the parser's words must not be on screen: ${state.message}")
+    }
+
+    @Test
+    fun theQuotaExplanationIsStillShownBare() = runTest {
+        // It already reads as a plain sentence; the "Validation failed: …" prefix
+        // would only muddy it.
+        api.onValidate = { _, _ -> throw UserVisibleException(KtorTranslationApi.GEMINI_QUOTA_MESSAGE) }
+        val vm = viewModel()
+
+        vm.setSourceText("hello")
+        vm.triggerTranslation()
+        advanceUntilIdle()
+
+        val state = assertIs<ValidationState.Error>(vm.validationState.value)
+        assertEquals(KtorTranslationApi.GEMINI_QUOTA_MESSAGE, state.message)
+    }
+
+    @Test
+    fun aMessageSaidBeforeAnyoneIsListeningIsStillDelivered() = runTest {
+        // The view model outlives the composition, so there are real gaps with no
+        // collector. `tryEmit` on a no-replay SharedFlow dropped those on the
+        // floor; the snackbar simply never appeared.
+        val vm = viewModel()
+        vm.showMessage("said to nobody")
+
+        val seen = mutableListOf<String>()
+        val collector = launch { vm.messages.collect { seen += it } }
+        advanceUntilIdle()
+        collector.cancel()
+
+        assertEquals(listOf("said to nobody"), seen)
     }
 
     @Test

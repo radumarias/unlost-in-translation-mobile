@@ -207,6 +207,7 @@ internal val chinese = Strings(
     pickLanguageBeforeConversation = "开始对话前，请先选择你这一方的语言。",
     translationFailed = "翻译失败",
     validationFailed = "校验失败: {0}",
+    validationUnavailable = "无法完成文化校验。",
     imageReadFailed = "无法读取图像",
     rewriteFailed = "无法改写这条消息",
     conversationTranslationFailed = "在翻译阶段失败",

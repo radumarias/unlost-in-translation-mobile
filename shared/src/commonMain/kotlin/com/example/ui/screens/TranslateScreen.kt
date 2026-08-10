@@ -55,6 +55,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -207,8 +208,9 @@ fun TranslateScreen(
 
                         IconButton(
                             onClick = {
-                                val dualState = viewModel.dualHeadsetState.value
-                                val targetDevice = if (dualState.isDualHeadsetModeEnabled) dualState.deviceA else null
+                                // The source line is what the person holding the
+                                // phone typed, so it plays in their own ear.
+                                val targetDevice = viewModel.dualHeadsetState.value.deviceFor(forSideA = true)
                                 speechSynthesizer.speak(sourceText, sourceLang.languageTag, targetDevice)
                             },
                             // An unresolved Auto-detect source has no BCP-47
@@ -306,8 +308,17 @@ fun TranslateScreen(
                                         },
                                         modifier = Modifier.size(24.dp)
                                     ) {
-                                        val starredList = starred.map { it.sourceText to it.translatedText }
-                                        val isStarred = starredList.contains(state.originalText to state.translatedText)
+                                        // Rebuilt only when the saved list or this
+                                        // card changes, not on every recomposition
+                                        // of a screen that recomposes on every
+                                        // keystroke. A set, because `contains` on
+                                        // a list is what made it worth noticing.
+                                        val starredPairs = remember(starred) {
+                                            starred.mapTo(HashSet()) { it.sourceText to it.translatedText }
+                                        }
+                                        val isStarred = starredPairs.contains(
+                                            state.originalText to state.translatedText
+                                        )
                                         Icon(
                                             imageVector = if (isStarred) Icons.Default.Star else Icons.Default.StarBorder,
                                             contentDescription = strings.favorite,
@@ -466,8 +477,8 @@ fun TranslateScreen(
                                     // Speaker tool
                                     IconButton(
                                         onClick = {
-                                            val dualState = viewModel.dualHeadsetState.value
-                                            val targetDevice = if (dualState.isDualHeadsetModeEnabled) dualState.deviceB else null
+                                            val targetDevice =
+                                                viewModel.dualHeadsetState.value.deviceFor(forSideA = false)
                                             speechSynthesizer.speak(state.translatedText, targetLang.languageTag, targetDevice)
                                         },
                                         modifier = Modifier

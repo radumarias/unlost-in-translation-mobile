@@ -204,6 +204,7 @@ internal val romanian = Strings(
     pickLanguageBeforeConversation = "Alege o limbă pentru partea ta înainte de a începe o conversație.",
     translationFailed = "Traducerea nu a reușit",
     validationFailed = "Validarea a eșuat: {0}",
+    validationUnavailable = "Verificarea culturală nu a putut fi finalizată.",
     imageReadFailed = "Imaginea nu a putut fi citită",
     rewriteFailed = "Mesajul nu a putut fi rescris",
     conversationTranslationFailed = "A eșuat în etapa de traducere",

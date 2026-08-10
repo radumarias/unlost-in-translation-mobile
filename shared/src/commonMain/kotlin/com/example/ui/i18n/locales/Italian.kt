@@ -204,6 +204,7 @@ internal val italian = Strings(
     pickLanguageBeforeConversation = "Scegli una lingua per la tua parte prima di iniziare una conversazione.",
     translationFailed = "Traduzione non riuscita",
     validationFailed = "Convalida non riuscita: {0}",
+    validationUnavailable = "Non è stato possibile completare il controllo culturale.",
     imageReadFailed = "Impossibile leggere l'immagine",
     rewriteFailed = "Impossibile riscrivere il messaggio",
     conversationTranslationFailed = "Non riuscito nella fase di traduzione",

@@ -17,13 +17,13 @@ If this file disagrees with the code, **the code is right and this file is stale
 
 | | |
 |---|---|
-| `main` | `485b605` — `origin/main` identical, nothing unpushed |
+| `main` | `8672ab4` — `origin/main` identical, nothing unpushed |
 | Working tree | clean |
-| In flight | **#31** (test: raise the floor) and **#32** (i18n: platform strings), both open since 2026-08-03 and both now *behind* Arc 6 — see the trap in §11 before merging either |
+| In flight | **#31** (test: raise the floor) and **#32** (i18n: platform strings), both open since 2026-08-03 and both now well behind `main`. Rebase before merging; #31's dead-flow deletion has already landed separately |
 | CI | **none**. "Green" always means the local gate suite in §5 |
 | Open issues | **#1** (KMP restructure — code complete, owner keeps it open), **#15** (Ray-Ban spike — not started), **#33** / **#34** (two-device conversation — code complete and merged, left open for the owner's two-phone check in §8), **#35** (iOS target — not started) |
-| Last work | two phones, one conversation: PRs #36–#42, then #44 (the SAS banner bug the browser run found), merged 2026-08-10 |
-| Gate on `main` | 273 JVM / 259 wasm / 3 `:app`, 0 failures; Roborazzi byte-identical |
+| Last work | two phones, one conversation: PRs #36–#42; then #44 (the SAS banner bug the browser run found) and #46 (the long-standing findings list, closed), merged 2026-08-10 |
+| Gate on `main` | 286 JVM / 275 wasm / 3 `:app`, 0 failures; Roborazzi byte-identical |
 
 Every merged feature branch still exists on `origin`. They are merged; deleting them is housekeeping,
 not work.
@@ -346,19 +346,18 @@ Each was a decision with a reason. They look like bugs to a fresh reader.
   and the image path reuses it, but `prepareConversationPart` keeps its own orchestration because it
   drives the draft flow. Recorded in `02-design.md` §4.
 
-**Open, seen with your own eyes, unfixed:** when Gemini's cultural-validation response does not
-parse, the raw kotlinx-serialization message is rendered to the user inside the Confirm Translation
-dialog — `Validation failed: Unexpected JSON token at offset 758: Expected end of the object or comma
-at path: $` followed by a slice of the JSON. Observed 2026-08-10 in the browser, on a perfectly good
-translation (the translation itself was correct and the dialog still worked). It is the translation
-pipeline's error surface, not the link's, and no test asserts on what that string looks like. The fix
-is a user-facing string in `Strings` plus keeping the parser detail in the log.
+**The long-standing findings list is closed** — all of it was fixed 2026-08-10 (PR #46), each with a
+test. For the record, since the entries are gone rather than merely ticked off:
 
-**Pre-existing findings, reviewed and left alone** (not regressions — they predate all of the above):
-stale `_validationState` write without a staleness guard · `messages` SharedFlow `tryEmit` drops with
-no collector · dead `_partnerAText`/`_partnerBText` · dual-headset routing expression duplicated ×5 ·
-`starred.map` + `contains` rebuilt per recomposition · `conversationHistory.reversed()` redundant with
-`reverseLayout` · localStorage id = max+1 reuses ids after delete (cosmetic, single-user; owner's call).
+| Was | Now |
+|---|---|
+| A failed validation parse printed kotlinx-serialization's message at the user, offsets and JSON slice included | `UserVisibleException` marks the messages the app wrote *for a user*; everything else shows a plain sentence and logs the detail. `GeminiParser` also carves the JSON object out of surrounding junk, so the case that started this now succeeds instead of failing politely |
+| `messages` was a no-replay `SharedFlow` + `tryEmit`, so anything said while the UI was being rebuilt was said to nobody | a buffered `Channel`: held until the collector is back, delivered once |
+| `_partnerAText`/`_partnerBText` written by four places, read by none | deleted (this is what made #31 auto-merge into a tree that does not compile — that trap is gone) |
+| the dual-headset routing expression written out longhand at five call sites, each free to invert the sides on its own | `DualHeadsetModel.deviceFor(forSideA)`, with the inversion explained once |
+| `starred.map { … }` + `List.contains` rebuilt on every recomposition of a screen that recomposes per keystroke | `remember(starred)` over a `HashSet` |
+| `conversationHistory.reversed()` allocated per recomposition | `remember(conversationHistory)` (the reversal itself is load-bearing — `reverseLayout` draws item 0 at the bottom) |
+| localStorage `max(id) + 1` handed a deleted row's id to the next insert | a persisted monotonic counter, seeded from the rows for installs that predate it |
 
 **Already investigated and rejected — do not re-chase:** prompt injection into the validation prompt
 (constrained server-side by `responseMimeType=application/json`, parser coerces to inert primitives,
@@ -438,7 +437,7 @@ validation sheet shows the sanity check and idiom sections and that the rewrite 
 |---|---|
 | **Tier C features** | Theme toggle, version badge, PWA, language endonyms. Same |
 | **Design §4 consolidation** | Behaviour-preserving refactor of `prepareConversationPart`; §10 tests pin both pipelines |
-| **PRs #31 / #32** | Open, both behind Arc 6. Neither can be merged as-is — see the trap in §11 |
+| **PRs #31 / #32** | Open, both behind Arc 6. #31's `_partnerAText`/`_partnerBText` deletion has since been done on `main`, so that half is already merged in spirit — rebase and keep the rest |
 | **Issue #15** | Ray-Ban Display spike via the Meta Wearables Device Access Toolkit — opened by the owner 2026-07-27, not started. Read the issue body; the SDK situation changed since the first write-up |
 | **Issue #35** | iOS target (`:shared` iosArm64 + `:iosApp`) — opened by the owner, not started. Needs a Mac; every platform seam already has an interface waiting |
 | **Relay deploy** | `cd relay && npm install && npx wrangler deploy`, then `RELAY_BASE_URL` in `.env`. **Owner-only** — remote conversation mode does nothing until this happens |
@@ -483,13 +482,10 @@ validation sheet shows the sanity check and idiom sections and that the rewrite 
 - **PowerShell 5.1**: no `&&`; multiline strings to `git`/`gh` need a file plus `-F`/`--body-file`;
   the working directory drifts, so set it explicitly.
 - **Long subagent runs can stall or die.** Relaunch narrower rather than waiting.
-- **PR #31 and Arc 6 auto-merge into a tree that does not compile, with no conflict.** #31 deletes
-  `_partnerAText`/`_partnerBText` (verified dead on 2026-08-03); Arc 6 then added a *fourth* writer,
-  `TranslateViewModel.publishRemoteTurn`, plus three assertions in `TranslateViewModelRemoteTest`.
-  Git merges both sides cleanly because they touch different lines, and the result is an unresolved
-  reference. The flow is still dead — nothing reads it — so the fix is to finish the deletion: drop
-  the write in `publishRemoteTurn` and the three `vm.partnerBText` assertions. **Run the gate on the
-  merge result, not on either branch.** The same applies to #32.
+- **A dead flow can still break a merge.** #31 deleted `_partnerAText`/`_partnerBText`; Arc 6 then
+  added a fourth writer to the latter, on different lines, so git merged both sides cleanly into a
+  tree with an unresolved reference. The flows are gone from `main` now, but the shape recurs: when a
+  branch deletes something, **run the gate on the merge result, not on either side.**
 
 ---
 

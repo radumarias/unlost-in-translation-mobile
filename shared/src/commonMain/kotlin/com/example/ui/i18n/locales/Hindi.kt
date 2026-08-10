@@ -207,6 +207,7 @@ internal val hindi = Strings(
     pickLanguageBeforeConversation = "बातचीत शुरू करने से पहले अपनी तरफ़ की भाषा चुनें।",
     translationFailed = "अनुवाद नहीं हो सका",
     validationFailed = "सत्यापन विफल: {0}",
+    validationUnavailable = "सांस्कृतिक जाँच पूरी नहीं हो सकी।",
     imageReadFailed = "छवि पढ़ी नहीं जा सकी",
     rewriteFailed = "संदेश दोबारा नहीं लिखा जा सका",
     conversationTranslationFailed = "अनुवाद चरण में विफल",
