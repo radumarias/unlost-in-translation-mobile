@@ -186,6 +186,11 @@ fun ConversationScreen(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         )
 
+        // `reverseLayout` draws the first item at the bottom, so the list has to be
+        // newest-first for the newest turn to land there. Remembered rather than
+        // rebuilt: this screen recomposes while someone is typing.
+        val newestFirst = remember(conversationHistory) { conversationHistory.reversed() }
+
         // Conversational History Message Flow
         LazyColumn(
             modifier = Modifier
@@ -194,7 +199,7 @@ fun ConversationScreen(
                 .padding(horizontal = 16.dp),
             reverseLayout = true
         ) {
-            items(conversationHistory.reversed()) { item ->
+            items(newestFirst) { item ->
                 val bubbleColor = if (item.speakA) {
                     MaterialTheme.colorScheme.primaryContainer
                 } else {
@@ -245,9 +250,9 @@ fun ConversationScreen(
                                 IconButton(
                                     onClick = {
                                         val l = if (item.speakA) targetLang else sourceLang
-                                        val d = if (viewModel.dualHeadsetState.value.isDualHeadsetModeEnabled) {
-                                            if (item.speakA) viewModel.dualHeadsetState.value.deviceB else viewModel.dualHeadsetState.value.deviceA
-                                        } else null
+                                        // A speaks, B listens: the translation goes
+                                        // to the other person's ear.
+                                        val d = viewModel.dualHeadsetState.value.deviceFor(!item.speakA)
                                         speechSynthesizer.speak(item.translated, l.languageTag, d)
                                     },
                                     modifier = Modifier.size(24.dp)
@@ -324,10 +329,7 @@ fun ConversationScreen(
                         viewModel.showMessage(strings.playingTranslationToHeadset.withArg(userStr))
                     }
                     val targetLanguageTag = if (isA) targetLang.languageTag else sourceLang.languageTag
-                    val targetDevice = if (dualState.isDualHeadsetModeEnabled) {
-                        if (isA) dualState.deviceB else dualState.deviceA
-                    } else null
-                    speechSynthesizer.speak(translated, targetLanguageTag, targetDevice)
+                    speechSynthesizer.speak(translated, targetLanguageTag, dualState.deviceFor(!isA))
                 }
             },
             onCancel = { viewModel.cancelConversationDraft() },

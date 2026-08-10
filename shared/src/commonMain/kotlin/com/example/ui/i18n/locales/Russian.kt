@@ -204,6 +204,7 @@ internal val russian = Strings(
     pickLanguageBeforeConversation = "Выберите язык для своей стороны, прежде чем начинать разговор.",
     translationFailed = "Не удалось выполнить перевод",
     validationFailed = "Проверка не удалась: {0}",
+    validationUnavailable = "Не удалось выполнить культурную проверку.",
     imageReadFailed = "Не удалось прочитать изображение",
     rewriteFailed = "Не удалось переписать сообщение",
     conversationTranslationFailed = "Сбой на этапе перевода",

@@ -204,6 +204,7 @@ internal val japanese = Strings(
     pickLanguageBeforeConversation = "会話を始める前に、自分の側の言語を選んでください。",
     translationFailed = "翻訳に失敗しました",
     validationFailed = "検証に失敗しました: {0}",
+    validationUnavailable = "文化的なチェックを完了できませんでした。",
     imageReadFailed = "画像を読み取れませんでした",
     rewriteFailed = "メッセージを書き直せませんでした",
     conversationTranslationFailed = "翻訳段階で失敗しました",

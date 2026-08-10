@@ -207,6 +207,7 @@ internal val turkish = Strings(
     pickLanguageBeforeConversation = "Konuşmaya başlamadan önce kendi tarafınız için bir dil seçin.",
     translationFailed = "Çeviri yapılamadı",
     validationFailed = "Doğrulama başarısız: {0}",
+    validationUnavailable = "Kültürel kontrol tamamlanamadı.",
     imageReadFailed = "Görsel okunamadı",
     rewriteFailed = "Mesaj yeniden yazılamadı",
     conversationTranslationFailed = "Çeviri aşamasında başarısız oldu",

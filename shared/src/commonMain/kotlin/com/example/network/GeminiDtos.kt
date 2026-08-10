@@ -404,10 +404,53 @@ object GeminiParser {
         return text.trim()
     }
 
+    /**
+     * The first balanced JSON object in [text], or null if there is none.
+     *
+     * `responseMimeType=application/json` asks for a bare object and usually gets
+     * one, but not always: observed in the browser on 2026-08-10, a good
+     * translation came back with a valid object followed by a stray `]`, which
+     * `parseToJsonElement` rejects wholesale ("Expected end of the object or
+     * comma"). The cultural check was lost over trailing punctuation.
+     *
+     * String-aware — a `{`, `}` or `\"` inside a value must not move the depth
+     * count, and the explanation field is free text a model may well put braces in.
+     */
+    internal fun firstJsonObject(text: String): String? {
+        val start = text.indexOf('{')
+        if (start < 0) return null
+        var depth = 0
+        var inString = false
+        var escaped = false
+        for (i in start until text.length) {
+            val c = text[i]
+            when {
+                escaped -> escaped = false
+                inString && c == '\\' -> escaped = true
+                c == '"' -> inString = !inString
+                inString -> Unit
+                c == '{' -> depth++
+                c == '}' -> {
+                    depth--
+                    if (depth == 0) return text.substring(start, i + 1)
+                }
+            }
+        }
+        return null
+    }
+
     /** Parses the fenced-or-bare validation text into a [ValidationResult]. */
     fun parseValidation(rawText: String): ValidationResult {
         val inner = stripJsonFences(rawText)
-        val root = LenientJson.parseToJsonElement(inner).jsonObject
+        val root = runCatching { LenientJson.parseToJsonElement(inner).jsonObject }
+            // Second chance before giving up: carve out the object and ignore
+            // whatever the model wrapped it in. Only on failure, so a clean
+            // response still takes the direct path.
+            .recoverCatching {
+                val carved = firstJsonObject(inner) ?: throw it
+                LenientJson.parseToJsonElement(carved).jsonObject
+            }
+            .getOrThrow()
         return parseValidationObject(root)
     }
 

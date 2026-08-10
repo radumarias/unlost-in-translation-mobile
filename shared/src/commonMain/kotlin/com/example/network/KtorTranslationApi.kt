@@ -119,6 +119,10 @@ class KtorTranslationApi(
          * and every other failure carries Google's own human-readable
          * `error.message` where the body has one (issue #3 — a bare status code
          * reads like a broken app).
+         *
+         * Everything this returns is thrown as [UserVisibleException]; that is
+         * what marks it as fit to put on screen, as opposed to a parser or
+         * transport message, which is not.
          */
         private fun geminiErrorMessage(status: HttpStatusCode, body: String): String = when {
             status == HttpStatusCode.TooManyRequests && body.contains(GEMINI_QUOTA_EXHAUSTED_STATUS) ->
@@ -230,7 +234,7 @@ class KtorTranslationApi(
         return apiCall {
             val result = postGemini(request)
             if (!result.isSuccess) {
-                throw Exception(result.errorMessage())
+                throw UserVisibleException(result.errorMessage())
             }
             val parsed = result.response.body<GeminiResponse>()
             extractGeminiText(parsed).trim()
@@ -269,7 +273,7 @@ class KtorTranslationApi(
         return apiCall {
             val result = postGemini(request)
             if (!result.isSuccess) {
-                throw Exception(result.errorMessage())
+                throw UserVisibleException(result.errorMessage())
             }
             GeminiDetectionParser.parseDetection(extractGeminiText(result.response.body<GeminiResponse>()))
         }
@@ -322,7 +326,7 @@ class KtorTranslationApi(
         return apiCall {
             val result = postGemini(request)
             if (!result.isSuccess) {
-                throw Exception(result.errorMessage())
+                throw UserVisibleException(result.errorMessage())
             }
             val parsed = result.response.body<GeminiResponse>()
             GeminiParser.parseValidation(extractGeminiText(parsed))
@@ -343,7 +347,7 @@ class KtorTranslationApi(
         otherLangName: String,
         isSourceAutoDetect: Boolean,
     ): ImageTranslationResult {
-        if (imageBase64.isBlank()) throw Exception("The image could not be read.")
+        if (imageBase64.isBlank()) throw UserVisibleException("The image could not be read.")
         requireApiKey()
 
         val supported = Language.supportedLanguages.joinToString(", ") { it.name }
@@ -391,7 +395,7 @@ class KtorTranslationApi(
         return apiCall {
             val result = postGemini(request)
             if (!result.isSuccess) {
-                throw Exception(result.errorMessage())
+                throw UserVisibleException(result.errorMessage())
             }
             GeminiVisionParser.parseImageTranslation(extractGeminiText(result.response.body<GeminiResponse>()))
         }
@@ -412,7 +416,7 @@ class KtorTranslationApi(
         direction: String?,
         context: TranslationContext,
     ): RewriteResult {
-        if (originalText.isBlank()) throw Exception("There is nothing to rewrite.")
+        if (originalText.isBlank()) throw UserVisibleException("There is nothing to rewrite.")
         requireApiKey()
 
         val task = if (direction == null) {
@@ -465,7 +469,7 @@ class KtorTranslationApi(
         return apiCall {
             val result = postGemini(request)
             if (!result.isSuccess) {
-                throw Exception(result.errorMessage())
+                throw UserVisibleException(result.errorMessage())
             }
             val parsed = result.response.body<GeminiResponse>()
             GeminiRewriteParser.parseRewrite(extractGeminiText(parsed))
@@ -484,9 +488,9 @@ class KtorTranslationApi(
      */
     private fun extractGeminiText(response: GeminiResponse): String {
         val candidate = response.candidates.firstOrNull()
-            ?: throw Exception("Gemini returned no result (the request may have been blocked by a content filter).")
+            ?: throw UserVisibleException("Gemini returned no result (the request may have been blocked by a content filter).")
         return candidate.content.parts.firstOrNull()?.text
-            ?: throw Exception("Gemini returned an empty result (the response may have been cut off).")
+            ?: throw UserVisibleException("Gemini returned an empty result (the response may have been cut off).")
     }
 
     /**
@@ -583,7 +587,7 @@ class KtorTranslationApi(
 
     private fun requireApiKey() {
         if (apiKey.isBlank() || apiKey == GEMINI_PLACEHOLDER_KEY) {
-            throw Exception("Gemini API key is not configured in the Secrets panel.")
+            throw UserVisibleException("Gemini API key is not configured in the Secrets panel.")
         }
     }
 }

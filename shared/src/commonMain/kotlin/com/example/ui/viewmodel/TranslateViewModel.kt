@@ -20,18 +20,21 @@ import com.example.model.TranslationContext
 import com.example.model.TurnOrigin
 import com.example.network.KtorTranslationApi
 import com.example.network.TranslationApi
+import com.example.network.userVisibleMessage
 import com.example.platform.AppLog
 import com.example.ui.i18n.Strings
 import com.example.ui.i18n.withArg
 import com.example.wear.TranslationBroadcaster
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlin.time.Clock
@@ -88,11 +91,19 @@ class TranslateViewModel(
 
     // One-shot user messages (voice-input status/errors) surfaced as snackbars by
     // the UI; replaces the Toast calls that used to live in the composable.
-    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 8)
-    val messages = _messages.asSharedFlow()
+    //
+    // A Channel rather than a SharedFlow: `tryEmit` on a flow with no replay drops
+    // the message when nobody is collecting, and there are real gaps — the view
+    // model outlives the composition, so anything said while the UI is being
+    // rebuilt was said to no one. A buffered channel holds it until the collector
+    // is back and then delivers it exactly once, which is what a snackbar wants.
+    // Single-consumer by construction, and there is exactly one consumer: the
+    // snackbar host in `App`.
+    private val _messages = Channel<String>(capacity = 8, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+    val messages: Flow<String> = _messages.receiveAsFlow()
 
     fun showMessage(message: String) {
-        _messages.tryEmit(message)
+        _messages.trySend(message)
     }
 
     // Text inputs and outputs
@@ -224,12 +235,6 @@ class TranslateViewModel(
     fun setHeadsetForB(deviceId: Int?) {
         _dualHeadsetState.value = _dualHeadsetState.value.copy(deviceB = deviceId)
     }
-
-    private val _partnerAText = MutableStateFlow("")
-    val partnerAText = _partnerAText.asStateFlow()
-
-    private val _partnerBText = MutableStateFlow("")
-    val partnerBText = _partnerBText.asStateFlow()
 
     private val _conversationHistory = MutableStateFlow<List<ConversationItem>>(emptyList())
     val conversationHistory = _conversationHistory.asStateFlow()
@@ -374,7 +379,9 @@ class TranslateViewModel(
                 publishTranslation(text, primary, trg, context)
 
             } catch (e: Exception) {
-                _translationState.value = TranslationState.Error(e.message ?: strings.translationFailed)
+                log.e(TAG, "Translation failed", e)
+                _translationState.value =
+                    TranslationState.Error(e.userVisibleMessage(strings.translationFailed))
             }
         }
     }
@@ -492,10 +499,13 @@ class TranslateViewModel(
 
     /**
      * Cultural validation shared by the translate and conversation-draft pipelines.
-     * Returns [ValidationState.Success] or, on failure, [ValidationState.Error]
-     * with the same "Validation failed: …" message as before — except for the
-     * exhausted-quota case, whose message already reads as a plain sentence and
-     * would only be muddied by the prefix.
+     * Returns [ValidationState.Success] or, on failure, [ValidationState.Error].
+     *
+     * Only a message the app wrote for a user is shown, and the quota explanation
+     * is shown bare because it already reads as a plain sentence that the
+     * "Validation failed: …" prefix would only muddy. A parse failure — the model
+     * returning something this build cannot read — is not the user's business and
+     * used to be printed at them verbatim, offsets and all; it goes to the log now.
      */
     private suspend fun runValidation(
         originalText: String,
@@ -514,11 +524,11 @@ class TranslateViewModel(
         )
     } catch (e: Exception) {
         log.e(TAG, "Validation exception", e)
-        val message = e.message
-        if (message == KtorTranslationApi.GEMINI_QUOTA_MESSAGE) {
-            ValidationState.Error(message)
-        } else {
-            ValidationState.Error(strings.validationFailed.withArg(message.orEmpty()))
+        val message = e.userVisibleMessage(strings.validationUnavailable)
+        when (message) {
+            KtorTranslationApi.GEMINI_QUOTA_MESSAGE -> ValidationState.Error(message)
+            strings.validationUnavailable -> ValidationState.Error(message)
+            else -> ValidationState.Error(strings.validationFailed.withArg(message))
         }
     }
 
@@ -593,7 +603,8 @@ class TranslateViewModel(
             } catch (e: Exception) {
                 log.e(TAG, "Image translation failed", e)
                 _isReadingImage.value = false
-                _translationState.value = TranslationState.Error(e.message ?: strings.imageReadFailed)
+                _translationState.value =
+                    TranslationState.Error(e.userVisibleMessage(strings.imageReadFailed))
                 _validationState.value = ValidationState.Idle
             }
         }
@@ -727,8 +738,6 @@ class TranslateViewModel(
             // Tell the other phone before the history it refers to is wiped.
             endRemoteSession()
             _conversationHistory.value = emptyList()
-            _partnerAText.value = ""
-            _partnerBText.value = ""
         }
     }
 
@@ -783,7 +792,9 @@ class TranslateViewModel(
                 patchDraft(draftId) {
                     it.copy(
                         isTranslating = false,
-                        validationState = ValidationState.Error(e.message ?: strings.conversationTranslationFailed)
+                        validationState = ValidationState.Error(
+                            e.userVisibleMessage(strings.conversationTranslationFailed)
+                        )
                     )
                 }
             }
@@ -801,12 +812,6 @@ class TranslateViewModel(
                 tgtLangCode = if (draft.isLanguageA) _targetLanguage.value.code else _sourceLanguage.value.code,
             )
             _conversationHistory.value = _conversationHistory.value + item
-
-            if (draft.isLanguageA) {
-                _partnerAText.value = draft.sourceText
-            } else {
-                _partnerBText.value = draft.sourceText
-            }
 
             // The turn is already translated, so the peer spends nothing to receive
             // it — no API call on the receiving side, which is what keeps the free
@@ -1010,7 +1015,6 @@ class TranslateViewModel(
 
     private fun publishRemoteTurn(item: ConversationItem) {
         _conversationHistory.value = _conversationHistory.value + item
-        _partnerBText.value = item.text
     }
 
     private fun needsSasCheck(): Boolean {

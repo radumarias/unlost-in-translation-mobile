@@ -31,6 +31,16 @@ class LocalStorageHistoryRepository(
 
     private companion object {
         const val STORAGE_KEY = "translation_history_v1"
+
+        /**
+         * Highest id ever handed out, so ids are not reused after a delete.
+         * Separate from the rows because the whole point is to outlive them:
+         * `max(id) + 1` over the surviving rows hands the newest row's id to the
+         * next one as soon as it is deleted, and anything still holding the old id
+         * — an open card, a pending star — then points at a different translation.
+         * Room's autoincrement never does this; the web store should not either.
+         */
+        const val NEXT_ID_KEY = "translation_history_next_id_v1"
         const val TAG = "LocalStorageHistory"
     }
 
@@ -39,6 +49,15 @@ class LocalStorageHistoryRepository(
 
     // Source of truth. Kept sorted newest-first so the flows can map directly.
     private val state = MutableStateFlow(load())
+
+    // Seeded from the rows when the counter is absent — an existing install
+    // upgrading into this, or a browser that dropped the key — so the first id
+    // after the upgrade is still higher than everything already stored.
+    private var nextId: Long =
+        maxOf(
+            localStorage[NEXT_ID_KEY]?.toLongOrNull() ?: 0L,
+            (state.value.maxOfOrNull { it.id } ?: 0L) + 1L,
+        )
 
     private fun load(): List<Translation> {
         val raw = localStorage[STORAGE_KEY] ?: return emptyList()
@@ -66,6 +85,22 @@ class LocalStorageHistoryRepository(
         state.value = list
     }
 
+    /**
+     * The next id, advanced and persisted before it is used. A failed write is not
+     * fatal here — worst case the counter is re-seeded from the rows on the next
+     * load, which is exactly where it started.
+     */
+    private fun claimId(): Long {
+        val id = nextId
+        nextId = id + 1
+        try {
+            localStorage[NEXT_ID_KEY] = nextId.toString()
+        } catch (e: Exception) {
+            log.e(TAG, "Failed writing the id counter to localStorage", e)
+        }
+        return id
+    }
+
     override fun allTranslations(): Flow<List<Translation>> = state
 
     override fun starredTranslations(): Flow<List<Translation>> =
@@ -73,7 +108,7 @@ class LocalStorageHistoryRepository(
 
     override suspend fun insert(translation: Translation): Long {
         val current = state.value
-        val id = if (translation.id != 0L) translation.id else (current.maxOfOrNull { it.id } ?: 0L) + 1L
+        val id = if (translation.id != 0L) translation.id else claimId()
         val timestamp = if (translation.timestamp == 0L) nowMillis() else translation.timestamp
         val row = translation.copy(id = id, timestamp = timestamp)
         // Newest first; replace any existing row with the same id.

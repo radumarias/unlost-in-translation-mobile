@@ -207,6 +207,7 @@ internal val dutch = Strings(
     pickLanguageBeforeConversation = "Kies een taal voor jouw kant voordat je een gesprek begint.",
     translationFailed = "Vertalen is mislukt",
     validationFailed = "Validatie mislukt: {0}",
+    validationUnavailable = "De culturele controle kon niet worden voltooid.",
     imageReadFailed = "Kan de afbeelding niet lezen",
     rewriteFailed = "Kan het bericht niet herschrijven",
     conversationTranslationFailed = "Mislukt in de vertaalfase",

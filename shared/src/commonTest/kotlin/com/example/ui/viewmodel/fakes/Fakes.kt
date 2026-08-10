@@ -199,11 +199,20 @@ class RecordingLog : AppLog {
     val debugs = mutableListOf<String>()
     val errors = mutableListOf<String>()
 
+    /**
+     * The throwables handed to [e], kept apart from [errors] so the existing
+     * message assertions are unaffected. Recorded because the error paths now
+     * show the user a plain sentence — the detail only exists here, and a test
+     * that cannot see it cannot prove the detail was not simply dropped.
+     */
+    val errorThrowables = mutableListOf<Throwable?>()
+
     override fun d(tag: String, message: String) {
         debugs += "$tag: $message"
     }
 
     override fun e(tag: String, message: String, throwable: Throwable?) {
         errors += "$tag: $message"
+        errorThrowables += throwable
     }
 }
