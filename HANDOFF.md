@@ -1,6 +1,7 @@
 # HANDOFF — read this first
 
-Entry point for anyone (human or agent) picking this repo up cold. Written 2026-08-01.
+Entry point for anyone (human or agent) picking this repo up cold. Written 2026-08-01, §1/§9/§11
+refreshed 2026-08-10.
 
 **How much to trust each part of the code — and what is left to do, ranked — is in
 [`STATUS.md`](STATUS.md).** Read this file to work in the repo; read that one before changing
@@ -16,15 +17,16 @@ If this file disagrees with the code, **the code is right and this file is stale
 
 | | |
 |---|---|
-| `main` | `68c6974` — `origin/main` identical, nothing unpushed |
+| `main` | `0dc0e19` — `origin/main` identical, nothing unpushed |
 | Working tree | clean |
-| In flight | nothing — no open PR, no half-done branch |
+| In flight | **#31** (test: raise the floor) and **#32** (i18n: platform strings), both open since 2026-08-03 and both now *behind* Arc 6 — see the trap in §11 before merging either |
 | CI | **none**. "Green" always means the local gate suite in §5 |
-| Open issues | **#1** (KMP restructure — code complete, owner keeps it open), **#15** (Ray-Ban Display spike — not started) |
-| Last work | web→mobile AI feature port, PRs #16–#22, merged 2026-07-27 |
+| Open issues | **#1** (KMP restructure — code complete, owner keeps it open), **#15** (Ray-Ban spike — not started), **#33** / **#34** (two-device conversation — code complete and merged, left open for the owner's two-phone check in §8), **#35** (iOS target — not started) |
+| Last work | two phones, one conversation: PRs #36–#42, merged 2026-08-10 |
+| Gate on `main` | 270 JVM / 256 wasm / 3 `:app`, 0 failures; Roborazzi byte-identical |
 
-The seven merged feature branches (`feature/web-port-*`, `docs/web-feature-port`) still exist on
-`origin`. They are merged; deleting them is housekeeping, not work.
+Every merged feature branch still exists on `origin`. They are merged; deleting them is housekeeping,
+not work.
 
 ---
 
@@ -409,10 +411,12 @@ validation sheet shows the sanity check and idiom sections and that the rewrite 
 | Item | Notes |
 |---|---|
 | **Tier C features** | Theme toggle, version badge, PWA, language endonyms. Same |
-| **Tier C features** | Theme toggle, version badge, PWA, language endonyms. Same |
 | **Design §4 consolidation** | Behaviour-preserving refactor of `prepareConversationPart`; §10 tests pin both pipelines |
+| **PRs #31 / #32** | Open, both behind Arc 6. Neither can be merged as-is — see the trap in §11 |
 | **Issue #15** | Ray-Ban Display spike via the Meta Wearables Device Access Toolkit — opened by the owner 2026-07-27, not started. Read the issue body; the SDK situation changed since the first write-up |
-| **Issue #1 close-out** | Code is complete. Closing is the owner's call — **do not close it yourself** |
+| **Issue #35** | iOS target (`:shared` iosArm64 + `:iosApp`) — opened by the owner, not started. Needs a Mac; every platform seam already has an interface waiting |
+| **Relay deploy** | `cd relay && npm install && npx wrangler deploy`, then `RELAY_BASE_URL` in `.env`. **Owner-only** — remote conversation mode does nothing until this happens |
+| **Issue #1 / #33 / #34 close-out** | Code is complete for all three. Closing is the owner's call — **do not close them yourself** |
 | **Web polish candidates** | TTS unsupported-language fallback (Android falls back to `Locale.US`, browsers vary) · `release()` vs `stop()` semantics · `share()` silent clipboard fallback needs user feedback · i18n-ready error codes for `VoiceInputException` · localStorage size cap · `user-scalable=no` in `index.html` (a11y) · `WearSyncManager` could use `flagLabel` |
 | **Deploy** | Only after owner sign-off. Consider a key proxy first |
 
@@ -453,6 +457,13 @@ validation sheet shows the sanity check and idiom sections and that the rewrite 
 - **PowerShell 5.1**: no `&&`; multiline strings to `git`/`gh` need a file plus `-F`/`--body-file`;
   the working directory drifts, so set it explicitly.
 - **Long subagent runs can stall or die.** Relaunch narrower rather than waiting.
+- **PR #31 and Arc 6 auto-merge into a tree that does not compile, with no conflict.** #31 deletes
+  `_partnerAText`/`_partnerBText` (verified dead on 2026-08-03); Arc 6 then added a *fourth* writer,
+  `TranslateViewModel.publishRemoteTurn`, plus three assertions in `TranslateViewModelRemoteTest`.
+  Git merges both sides cleanly because they touch different lines, and the result is an unresolved
+  reference. The flow is still dead — nothing reads it — so the fix is to finish the deletion: drop
+  the write in `publishRemoteTurn` and the three `vm.partnerBText` assertions. **Run the gate on the
+  merge result, not on either branch.** The same applies to #32.
 
 ---
 
