@@ -60,5 +60,17 @@ data class ConversationDraft(
     val translatedText: String = "",
     val roundTripText: String? = null,
     val isTranslating: Boolean = false,
-    val validationState: ValidationState = ValidationState.Idle
+    val validationState: ValidationState = ValidationState.Idle,
+    /**
+     * Identifies *this* draft so a slow round-trip or validation result cannot land
+     * on a later one. The patches used to be `_conversationDraft.value?.copy(...)`,
+     * which patches whatever draft happens to be current — harmless while a person
+     * could only speak one turn at a time, not harmless once turns also arrive from
+     * a peer (issue #33, finding #5).
+     */
+    val id: Long = nextDraftId(),
 )
+
+private var draftCounter = 0L
+
+private fun nextDraftId(): Long = ++draftCounter

@@ -3,6 +3,8 @@ package com.example.platform
 import com.example.AppSecrets
 import com.example.data.LocalStorageHistoryRepository
 import com.example.data.TranslationHistoryRepository
+import com.example.link.ConversationLink
+import com.example.link.OfflineConversationLink
 import com.example.network.KtorTranslationApi
 import com.example.network.TranslationApi
 import com.example.network.translationHttpClient
@@ -43,6 +45,15 @@ class WebAppContainer : AppContainer {
     override val audioOutputCatalog: AudioOutputCatalog = WebAudioOutputCatalog
 
     override val broadcaster: TranslationBroadcaster = WebTranslationBroadcaster
+
+    /**
+     * Web guest-join is designed for and deferred, not dropped: it needs `:webApp`
+     * deployed publicly, and the Gemini key is compiled into the wasm bundle and
+     * extractable from it. That gate belongs to issue #1 and is not crossed.
+     */
+    override val conversationLink: ConversationLink = OfflineConversationLink
+
+    override val qrScanner: QrScanner = UnavailableQrScanner
 
     override val platformActions: PlatformActions = WebPlatformActions
 

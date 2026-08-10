@@ -54,6 +54,25 @@ object UnavailableImagePicker : ImagePicker {
     override suspend fun pick(source: ImageSource): PickedImage? = null
 }
 
+/**
+ * Reads a pairing QR code and hands back the raw payload for `SessionTicket.parse`
+ * (issue #33). It returns text rather than a parsed ticket on purpose: what a camera
+ * decoded is a string of unknown provenance, and deciding whether it is a ticket is
+ * the link layer's job, not the platform's.
+ *
+ * Android uses the GMS Code Scanner, which needs an **Activity** and therefore lives
+ * in the entry point beside the voice and image launchers — exactly like [VoiceInput]
+ * and [ImagePicker], the container there binds [UnavailableQrScanner].
+ */
+interface QrScanner {
+    suspend fun scan(): String?
+}
+
+/** [QrScanner] that always reports "nothing scanned"; see [UnavailableVoiceInput]. */
+object UnavailableQrScanner : QrScanner {
+    override suspend fun scan(): String? = null
+}
+
 /** An addressable audio output (headset/earbud) for dual-headset routing. */
 data class AudioOutputDevice(val id: Int, val label: String, val isBluetooth: Boolean)
 
@@ -95,4 +114,13 @@ data class PlatformCapabilities(
      * to plain-text stand-ins (Phase 4 decision, design §8).
      */
     val extendedGlyphs: Boolean,
+    /**
+     * True when this build can hold a conversation with a second device over the
+     * relay (issue #33). Android only in v1, and only when the build actually has a
+     * relay configured — a hostname is deployment config, so a fork that has not set
+     * `RELAY_BASE_URL` gets the feature switched off rather than a socket error.
+     * Web is false: the guest-join path needs `:webApp` deployed publicly, which is
+     * issue #1's gate and is not crossed.
+     */
+    val remoteConversation: Boolean = false,
 )

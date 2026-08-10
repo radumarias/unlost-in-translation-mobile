@@ -207,6 +207,19 @@ interface AppContainer {
 > Activity-scoped result launchers — so `App()` also gained a
 > `launchImageInput: (ImageSource) -> Unit` callback, defaulted to a no-op.
 
+> **Deviation (issue #33, recorded 2026-08-07):** `AppContainer` gained
+> `conversationLink: ConversationLink` and `qrScanner: QrScanner`, and
+> `PlatformCapabilities` gained `remoteConversation: Boolean` (defaulted false).
+> `remoteConversation` is true on Android **only when the build has a
+> `RELAY_BASE_URL`** — a hostname is deployment config, so a clone without one
+> gets the feature switched off rather than a pairing screen that could only
+> fail. `qrScanner` follows the `voiceInput`/`imagePicker` precedent exactly:
+> the GMS Code Scanner needs an Activity, so Android binds
+> `UnavailableQrScanner` and the live scanner is a launcher in the entry point.
+> The link is the opposite case — it is process-scoped rather than
+> Activity-scoped, so that a paired session survives the view model being
+> recreated on rotation.
+
 ## 4. ViewModel Refactor
 
 `TranslateViewModel` becomes a plain multiplatform `ViewModel` with constructor injection:
@@ -234,6 +247,16 @@ class TranslateViewModel(
 - Construction in shared UI: `viewModel { TranslateViewModel(container.api, container.historyRepository, container.broadcaster, container.log) }` (CMP lifecycle factory lambda — works on both targets).
 - Defect fixed (Phase 5, recorded): the §10 "language swap-on-conflict" test exposed that `setSourceLanguage`/`setTargetLanguage` assigned the new language *before* swapping, so picking the current target as the new source swapped two equal values and collapsed both pickers to the same language. Present verbatim since the initial AI-Studio import (all phases ported it faithfully); fixed to swap before assigning, matching this design's intended semantics.
 - `System.currentTimeMillis()` (entity timestamp, `ConversationItem`) → `kotlin.time.Clock.System.now().toEpochMilliseconds()` or `TimeSource` equivalent available in common.
+
+> **Extended for issue #33 (recorded 2026-08-07).** The constructor gained a sixth parameter, `link: ConversationLink`, **defaulted** to `OfflineConversationLink` so that every existing construction — the ~900-line view-model test suite above all — keeps compiling unchanged. Same pattern as `strings`.
+>
+> `ConversationItem` moved out of the view model into `model/ConversationItem.kt` and gained `id`, `origin` (`LOCAL`/`REMOTE`) and `srcLangCode`/`tgtLangCode`. It had to: a turn now travels over a wire, and the relay replays what a reconnecting device missed, so a turn without an id would be rendered twice.
+>
+> Two latent defects that two devices turn real, both fixed here rather than left for the feature to trip over:
+> - `conversationTurns()` labelled *historical* turns with the *current* language selection, so changing a picker mid-conversation retroactively mislabelled everything already said in the Gemini prompt context. It now reads each turn's own recorded code (issue #33, finding #3).
+> - The conversation draft had no staleness guard: `_conversationDraft.value?.copy(...)` patched whatever draft was current, so a slow round-trip or validation from a cancelled draft landed on its successor. `ConversationDraft` gained an `id` and the patches are now conditional (finding #5).
+>
+> **The budget rule holds with two devices**, and there is a test that says so: the sender translates once and puts `original` *and* `translated` on the wire, so the receiving device renders a turn for **zero** API calls. Receiving is free; that is what keeps a two-phone conversation inside the free tier's ~20 requests per day per model.
 
 ## 5. Networking Design (Ktor)
 
