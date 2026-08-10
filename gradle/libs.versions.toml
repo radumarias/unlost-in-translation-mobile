@@ -68,6 +68,14 @@ kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.re
 # credential and kotlin.random.Random is seeded and predictable. The ECDH/HKDF/AES-GCM
 # artifacts — and the minSdk 26 they force — arrive with issue #34.
 cryptography-random = { group = "dev.whyoleg.cryptography", name = "cryptography-random", version.ref = "cryptography" }
+# Issue #34: ECDH P-256 + HKDF-SHA256 + AES-256-GCM + HMAC-SHA256, all in commonMain.
+# The provider is per-source-set — JDK on Android, WebCrypto in the browser — which
+# is the only per-platform thing about the crypto, and it is dependency wiring
+# rather than code. The WebCrypto provider is suspend-only, so the whole crypto API
+# here is suspend by construction.
+cryptography-core = { group = "dev.whyoleg.cryptography", name = "cryptography-core", version.ref = "cryptography" }
+cryptography-provider-jdk = { group = "dev.whyoleg.cryptography", name = "cryptography-provider-jdk", version.ref = "cryptography" }
+cryptography-provider-webcrypto = { group = "dev.whyoleg.cryptography", name = "cryptography-provider-webcrypto", version.ref = "cryptography" }
 # QR *generation*, Compose Multiplatform, with a real wasmJs klib — so the pairing
 # code is drawn by common code and needs no platform seam. Reading a QR is the one
 # per-platform piece in the feature (GMS Code Scanner, Android only).
