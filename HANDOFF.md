@@ -204,8 +204,8 @@ Windows: `.\gradlew.bat` with the same arguments.
 
 | Task | What it proves | Expected |
 |---|---|---|
-| `:shared:testAndroidHostTest` | `commonTest` on the JVM — parsers, `KtorTranslationApi` with MockEngine, `TranslateViewModel` with fakes, the string catalogue | **148 tests, 0 failures** |
-| `:shared:wasmJsTest` | the same `commonTest` **plus** `wasmJsTest` in headless Chrome | **153 tests, 0 failures** |
+| `:shared:testAndroidHostTest` | `commonTest` on the JVM — parsers, `KtorTranslationApi` with MockEngine, `TranslateViewModel` with fakes, the string catalogue — **plus** `androidHostTest`, which is where the conversation link is driven against a real WebSocket server | **206 tests, 0 failures** |
+| `:shared:wasmJsTest` | the same `commonTest` **plus** `wasmJsTest` in headless Chrome | **202 tests, 0 failures** |
 | `:app:testDebugUnitTest` | Robolectric + Roborazzi | **3 tests, 0 failures** |
 | `:app:verifyRoborazziDebug` | Android UI is pixel-identical to the committed baselines | green |
 | `:app:assembleDebug` | the Android app still builds | green |
@@ -213,6 +213,10 @@ Windows: `.\gradlew.bat` with the same arguments.
 
 Counts come from `*/build/test-results/*/*.xml` (`tests="…"` attributes). Note the `:shared` host task
 is **`testAndroidHostTest`**, not `testDebugUnitTest` — that is the KMP library plugin's name.
+
+The host count is the higher of the two since issue #33: `androidHostTest` holds nine transport tests
+that need a real WebSocket **server**, and Ktor's server is JVM-only. The code they drive is
+`commonMain` and identical on wasm.
 
 ### `--rerun-tasks` is not optional when it matters
 

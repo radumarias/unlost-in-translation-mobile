@@ -15,6 +15,16 @@ plugins {
 // `com.example.Secrets` into commonMain. Replaces the AGP Secrets plugin +
 // BuildConfig.GEMINI_API_KEY so the key is reachable from common code. .env stays
 // gitignored and is only ever read here.
+//
+// Each entry is name -> fallback used when .env does not define it. Issue #33 added
+// RELAY_BASE_URL: the relay hostname is deployment configuration, never a literal in
+// the code, so moving from a workers.dev subdomain to a production domain is a config
+// change rather than a release.
+val secretKeys = mapOf(
+  "GEMINI_API_KEY" to "MY_GEMINI_API_KEY",
+  "RELAY_BASE_URL" to "",
+)
+
 val secretsOutputDir = layout.buildDirectory.dir("generated/secrets/commonMain/kotlin")
 
 val generateSecrets by tasks.registering {
@@ -25,6 +35,9 @@ val generateSecrets by tasks.registering {
   // could reuse a stale key. Only existing files can be declared as inputs.
   if (envFile.exists()) inputs.file(envFile)
   if (exampleFile.exists()) inputs.file(exampleFile)
+  val keys = secretKeys
+  // The fallbacks are part of the output, so a change to one has to invalidate the task.
+  inputs.property("secretKeys", keys.entries.sortedBy { it.key }.joinToString(",") { "${it.key}=${it.value}" })
   val outDir = secretsOutputDir
   outputs.dir(outDir)
   doLast {
@@ -32,32 +45,33 @@ val generateSecrets by tasks.registering {
     // it directly so backslashes/quotes are taken literally (Properties would
     // apply its own escaping and mangle some values).
     val sourceFile = if (envFile.exists()) envFile else exampleFile
-    val key = sourceFile.readLines()
-      .firstNotNullOfOrNull { line ->
-        val trimmed = line.trim()
-        if (trimmed.startsWith("#") || "=" !in trimmed) return@firstNotNullOfOrNull null
-        val (name, value) = trimmed.split("=", limit = 2)
-        if (name.trim() == "GEMINI_API_KEY") value.trim().trim('"') else null
-      }
-      ?: "MY_GEMINI_API_KEY"
-    // Escape so any character in the key is a valid Kotlin string literal.
-    val escaped = key
-      .replace("\\", "\\\\")
-      .replace("\"", "\\\"")
-      .replace("$", "\${'$'}")
-      .replace("\n", "\\n")
-      .replace("\r", "\\r")
+    val defined = sourceFile.readLines().mapNotNull { line ->
+      val trimmed = line.trim()
+      if (trimmed.startsWith("#") || "=" !in trimmed) return@mapNotNull null
+      val (name, value) = trimmed.split("=", limit = 2)
+      name.trim() to value.trim().trim('"')
+    }.toMap()
+    val constants = keys.entries.joinToString("\n") { (name, fallback) ->
+      // Escape so any character in the value is a valid Kotlin string literal.
+      val escaped = (defined[name]?.takeIf { it.isNotEmpty() } ?: fallback)
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+        .replace("$", "\${'$'}")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+      """    const val $name: String = "$escaped""""
+    }
     val pkgDir = outDir.get().dir("com/example").asFile
     pkgDir.mkdirs()
     pkgDir.resolve("Secrets.kt").writeText(
       """
-      package com.example
-
-      /** Generated from the root .env (or .env.example) by the :shared build. Do not edit. */
-      internal object Secrets {
-          const val GEMINI_API_KEY: String = "$escaped"
-      }
-      """.trimIndent() + "\n"
+      |package com.example
+      |
+      |/** Generated from the root .env (or .env.example) by the :shared build. Do not edit. */
+      |internal object Secrets {
+      |$constants
+      |}
+      """.trimMargin() + "\n"
     )
   }
 }
@@ -102,6 +116,9 @@ kotlin {
         // (no extra dependency).
         implementation(libs.androidx.lifecycle.viewmodel)
         implementation(libs.androidx.lifecycle.viewmodel.compose.kmp)
+        // Issue #33: session ids are bearer credentials, so they come from a CSPRNG.
+        // No provider artifact is needed for this one — see the catalog comment.
+        implementation(libs.cryptography.random)
       }
     }
     androidMain.dependencies {
@@ -117,6 +134,14 @@ kotlin {
       implementation(libs.kotlin.test)
       implementation(libs.kotlinx.coroutines.test)
       implementation(libs.ktor.client.mock)
+    }
+    // The link transport is common code, but MockEngine does not speak WebSocket, so
+    // proving it needs a real server. Ktor's CIO server is JVM-only and test-only; the
+    // browser half of the same code path is covered by the Phase 0 spike and, from
+    // issue #33 Phase 5 on, by the two-phone manual check.
+    getByName("androidHostTest").dependencies {
+      implementation(libs.ktor.server.cio)
+      implementation(libs.ktor.server.websockets)
     }
   }
 }

@@ -9,4 +9,14 @@ package com.example
  */
 object AppSecrets {
     val geminiApiKey: String get() = Secrets.GEMINI_API_KEY
+
+    /**
+     * Origin of the two-device conversation relay (issue #33), e.g.
+     * `wss://uitr-relay.<subdomain>.workers.dev`, or blank when `.env` does not set
+     * `RELAY_BASE_URL`. Unlike the Gemini key this is not a secret — it is
+     * deployment configuration, kept out of the source so that moving the relay to a
+     * production domain is a config change and not a release. Blank means remote
+     * conversation mode is unconfigured and stays off.
+     */
+    val relayBaseUrl: String get() = Secrets.RELAY_BASE_URL
 }

@@ -24,6 +24,7 @@ kotlinxSerialization = "1.7.3"
 composeMultiplatform = "1.11.1"
 lifecycleViewmodelKmp = "2.9.4"
 kotlinxBrowser = "0.3"
+cryptography = "0.6.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -60,6 +61,13 @@ ktor-serialization-kotlinx-json = { group = "io.ktor", name = "ktor-serializatio
 ktor-client-mock = { group = "io.ktor", name = "ktor-client-mock", version.ref = "ktor" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.ref = "kotlin" }
+# CSPRNG only (SecureRandom on the JVM, crypto.getRandomValues in the browser). This is
+# the `-random` artifact on its own, not the crypto suite: a session id is a bearer
+# credential and kotlin.random.Random is seeded and predictable. The ECDH/HKDF/AES-GCM
+# artifacts — and the minSdk 26 they force — arrive with issue #34.
+cryptography-random = { group = "dev.whyoleg.cryptography", name = "cryptography-random", version.ref = "cryptography" }
+ktor-server-cio = { group = "io.ktor", name = "ktor-server-cio", version.ref = "ktor" }
+ktor-server-websockets = { group = "io.ktor", name = "ktor-server-websockets", version.ref = "ktor" }
 androidx-lifecycle-viewmodel = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-viewmodel", version.ref = "lifecycleViewmodelKmp" }
 androidx-lifecycle-viewmodel-compose-kmp = { group = "org.jetbrains.androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelKmp" }
 kotlinx-browser = { group = "org.jetbrains.kotlinx", name = "kotlinx-browser", version.ref = "kotlinxBrowser" }
