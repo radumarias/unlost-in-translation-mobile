@@ -131,6 +131,26 @@ translation back until approved was not ported: the translate tab is a lookup su
 warning already arrives before you say anything, and conversation mode already has a real
 draft flow. Reasoning in `features/web-feature-port/01-feature-inventory.md`.
 
+### Arc 6 — two phones, one conversation (issues #33 + #34)
+
+| PR | What |
+|---|---|
+| #36 | `relay/` — a Cloudflare Worker plus one Durable Object per session. Fan-out and a 20-frame replay ring, nothing else. **Not a Gradle module** |
+| #37 | the wire format (`link/LinkMessage`, `LinkCodec`, `SessionTicket`) and the `ConversationLink` seam |
+| #38 | view model + container wiring: hosting, joining, remote turns, the budget rule |
+| #39 | pairing UI (QR + typed code) and the GMS scanner — **#33 complete** |
+| #40 | the crypto core: P-256 ECDH, HKDF, AES-256-GCM. Raised `minSdk` to 26 |
+| #41 | the handshake, run inline before any application frame, failing closed |
+| #42 | the verified/SAS UI and the real-relay harness — **#34 complete** |
+
+Conversation mode is still one phone by default; a paired session is opt-in from the conversation
+header. **Remote mode is Android-only** — `WebAppContainer` supplies `OfflineConversationLink`, so
+the web build shows no pairing entry point at all.
+
+The relay URL is build-time config (`.env` → `RELAY_BASE_URL` → `AppSecrets.relayBaseUrl`), blank by
+default, and blank means remote mode reports itself unconfigured instead of pretending. **Deploying
+the relay is the owner's** (`cd relay && npm install && npx wrangler deploy`).
+
 ---
 
 ## 4. Setting up a fresh clone
@@ -204,7 +224,7 @@ Windows: `.\gradlew.bat` with the same arguments.
 
 | Task | What it proves | Expected |
 |---|---|---|
-| `:shared:testAndroidHostTest` | `commonTest` on the JVM — parsers, `KtorTranslationApi` with MockEngine, `TranslateViewModel` with fakes, the string catalogue — **plus** `androidHostTest`, which is where the conversation link is driven against a real WebSocket server | **268 tests, 0 failures** |
+| `:shared:testAndroidHostTest` | `commonTest` on the JVM — parsers, `KtorTranslationApi` with MockEngine, `TranslateViewModel` with fakes, the string catalogue — **plus** `androidHostTest`, which is where the conversation link is driven against a real WebSocket server | **270 tests, 0 failures** |
 | `:shared:wasmJsTest` | the same `commonTest` **plus** `wasmJsTest` in headless Chrome | **256 tests, 0 failures** |
 | `:app:testDebugUnitTest` | Robolectric + Roborazzi | **3 tests, 0 failures** |
 | `:app:verifyRoborazziDebug` | Android UI is pixel-identical to the committed baselines | green |
@@ -214,9 +234,27 @@ Windows: `.\gradlew.bat` with the same arguments.
 Counts come from `*/build/test-results/*/*.xml` (`tests="…"` attributes). Note the `:shared` host task
 is **`testAndroidHostTest`**, not `testDebugUnitTest` — that is the KMP library plugin's name.
 
-The host count is the higher of the two since issue #33: `androidHostTest` holds nine transport tests
-that need a real WebSocket **server**, and Ktor's server is JVM-only. The code they drive is
-`commonMain` and identical on wasm.
+The host count is the higher of the two since issue #33: `androidHostTest` holds the transport tests
+(19 of them after #34), which need a real WebSocket **server**, and Ktor's server is JVM-only. The
+code they drive is `commonMain` and identical on wasm.
+
+### The relay harness — outside the gate, on purpose
+
+`RealRelayE2ETest` drives the real client against the **real** Worker (its Durable Object and its
+SQLite, in workerd), rather than against `FakeRelayServer`. It is excluded from the gate by
+`shared/build.gradle.kts`, because a test that only passes when someone remembered to start a server
+is not a gate:
+
+```bash
+cd relay && npm install && npx wrangler dev     # terminal 1
+./gradlew :shared:testAndroidHostTest -PrelayE2e
+```
+
+Four cases: the QR path end to end (handshake, `VERIFIED_BY_QR`, a turn each way, `bye`), the typed
+code path (both phones derive the same five digits), a turn replayed from the ring to a phone that
+joined late, and a third phone being refused. `RELAY_DEV_URL` points it at a deployed relay instead.
+`relay/scripts/smoke.mjs` is the relay's own dependency-free smoke test — 11 checks, same
+`wrangler dev`.
 
 ### `--rerun-tasks` is not optional when it matters
 
@@ -333,6 +371,18 @@ None of these can be exercised by the test suite. They are the real remaining ve
 2. **Android device — gallery OCR.** Camera button → Gallery → pick a photo with text → same check.
 3. **Browser, on `localhost` only.** Camera button → the file input opens; on a mobile browser confirm
    `capture=environment` opens the rear camera.
+
+**From the two-device arc (needs two Android phones and a deployed relay):**
+
+3b. **Deploy the relay** (`cd relay && npm install && npx wrangler deploy`), put the `wss://` origin in
+   `.env` as `RELAY_BASE_URL`, and rebuild. Everything below needs this; nothing else in the app does.
+3c. **Pair by QR.** Phone A: conversation mode → pair → the QR appears. Phone B: pair → scan. Confirm
+   the banner names A's language, that a turn spoken on A is shown *and spoken* on B, and the reverse.
+   The camera scanner is the one piece of this feature with no automated coverage at all.
+3d. **Pair by typed code**, and confirm both phones show the **same five digits** and that nothing is
+   rendered until both people press "It matches".
+3e. **Kill the network on one phone mid-conversation**, speak on the other, then restore it: the turn
+   must arrive, once, and the banner must not fall back to "waiting for the other phone".
 
 **Older, still outstanding:**
 

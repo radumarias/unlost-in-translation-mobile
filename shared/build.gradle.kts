@@ -158,6 +158,23 @@ dependencies {
   add("kspAndroid", libs.androidx.room.compiler)
 }
 
+// The two-device conversation harness that needs a relay actually running
+// (`relay/`, `npx wrangler dev`) is not part of the gate: with nothing listening
+// it would fail, and a test whose result depends on a server someone remembered
+// to start is not a gate. Run it deliberately:
+//
+//   ./gradlew :shared:testAndroidHostTest -PrelayE2e
+//
+// It is excluded rather than skipped so the documented test counts stay exact.
+val relayE2eEnabled = providers.gradleProperty("relayE2e").isPresent
+tasks.withType<Test>().configureEach {
+  if (relayE2eEnabled) return@configureEach
+  filter.excludeTestsMatching("com.example.link.RealRelayE2ETest")
+  // Otherwise `--tests "*RealRelay*"` without the flag fails as "no tests found"
+  // rather than saying nothing, which reads as a broken test class.
+  filter.isFailOnNoMatchingTests = false
+}
+
 // Ensure the generated Secrets.kt exists before anything reads the commonMain
 // source dir — Kotlin compilations and the KSP tasks (which are not
 // KotlinCompilationTask and so need to be wired explicitly).
