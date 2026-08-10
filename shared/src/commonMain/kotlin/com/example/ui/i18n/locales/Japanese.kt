@@ -144,6 +144,7 @@ internal val japanese = Strings(
     linkOtherPhone = "相手のスマホ",
     linkVerifiedByQr = "暗号化済み、QRコードで確認済み",
     linkNeedsSasCheck = "暗号化済み — コードが一致するか確認してください",
+    linkVerifiedBySas = "暗号化済み、コードを確認しました",
     sasTitle = "両方のスマホにこれが表示されていますか？",
     sasBlurb = "入力したコードで参加したため、スマホ同士では確認できません。相手のスマホの数字が違う場合、間に誰かがいます。セッションを閉じてください。",
     sasMatches = "はい、一致しています",

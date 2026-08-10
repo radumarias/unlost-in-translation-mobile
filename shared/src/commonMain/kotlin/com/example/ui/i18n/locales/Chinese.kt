@@ -147,6 +147,7 @@ internal val chinese = Strings(
     linkOtherPhone = "另一部手机",
     linkVerifiedByQr = "已加密，已通过二维码验证",
     linkNeedsSasCheck = "已加密 — 请核对代码是否一致",
+    linkVerifiedBySas = "已加密，你已核对代码",
     sasTitle = "两部手机都显示这个吗？",
     sasBlurb = "你是用输入的代码加入的，所以两部手机无法自行验证。如果另一部手机显示的数字不同，说明中间有人——请关闭会话。",
     sasMatches = "是，一致",

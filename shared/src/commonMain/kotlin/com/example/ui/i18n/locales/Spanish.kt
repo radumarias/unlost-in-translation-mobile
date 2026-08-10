@@ -148,6 +148,7 @@ internal val spanish = Strings(
     linkOtherPhone = "El otro teléfono",
     linkVerifiedByQr = "Cifrado, verificado por el código QR",
     linkNeedsSasCheck = "Cifrado: comprueba que el código coincide",
+    linkVerifiedBySas = "Cifrado, has comprobado el código",
     sasTitle = "¿Los dos teléfonos muestran esto?",
     sasBlurb = "Te uniste con un código escrito, así que los teléfonos no pueden verificarse solos. Si el otro teléfono muestra dígitos distintos, hay alguien en medio: cierra la sesión.",
     sasMatches = "Sí, coinciden",

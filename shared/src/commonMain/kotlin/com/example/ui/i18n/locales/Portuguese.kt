@@ -144,6 +144,7 @@ internal val portuguese = Strings(
     linkOtherPhone = "Outro telemóvel",
     linkVerifiedByQr = "Encriptado, verificado pelo código QR",
     linkNeedsSasCheck = "Encriptado — verifica se o código coincide",
+    linkVerifiedBySas = "Encriptado, verificaste o código",
     sasTitle = "Os dois telemóveis mostram isto?",
     sasBlurb = "Entraste com um código escrito, por isso os telemóveis não se conseguem verificar sozinhos. Se o outro telemóvel mostrar dígitos diferentes, há alguém pelo meio — fecha a sessão.",
     sasMatches = "Sim, coincidem",

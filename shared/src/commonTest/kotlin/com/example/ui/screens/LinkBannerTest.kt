@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import com.example.link.LinkFailure
 import com.example.link.LinkState
+import com.example.link.Verification
 import com.example.ui.i18n.Strings
 import com.example.ui.i18n.localeCatalogs
 import kotlin.test.Test
@@ -69,5 +70,57 @@ class LinkBannerTest {
         ).first
         assertTrue(text.isNotBlank())
         assertTrue("{0}" !in text)
+    }
+
+    @Test
+    fun theTypedCodePathAsksForTheCheckUntilTheUserSaysItMatches() {
+        val connected = LinkState.Connected(
+            peerPresent = true,
+            peerLang = "ro",
+            verification = Verification.NEEDS_SAS_CHECK,
+            sas = "81210",
+        )
+
+        val before = assertNotNull(linkBannerText(connected, strings, sasConfirmed = false)).first
+        assertTrue(strings.linkNeedsSasCheck in before, before)
+
+        // Found by pairing two browser tabs against a live relay: the banner was
+        // built from `verification` alone, which never changes, so it went on
+        // telling both people to compare digits they had already compared.
+        val after = assertNotNull(linkBannerText(connected, strings, sasConfirmed = true)).first
+        assertTrue(strings.linkVerifiedBySas in after, after)
+        assertTrue(strings.linkNeedsSasCheck !in after, after)
+        assertEquals(false, assertNotNull(linkBannerText(connected, strings, true)).second)
+    }
+
+    @Test
+    fun confirmingDigitsNeverClaimsTheStrongerQrGuarantee() {
+        // The two paths are named apart on purpose; a confirmed SAS is a weaker
+        // claim than a scanned key and must not borrow its wording.
+        val sas = assertNotNull(
+            linkBannerText(
+                LinkState.Connected(
+                    peerPresent = true,
+                    peerLang = "ro",
+                    verification = Verification.NEEDS_SAS_CHECK,
+                ),
+                strings,
+                sasConfirmed = true,
+            )
+        ).first
+        assertTrue(strings.linkVerifiedByQr !in sas, sas)
+    }
+
+    @Test
+    fun theQrPathIgnoresTheSasFlagEntirely() {
+        val qr = LinkState.Connected(
+            peerPresent = true,
+            peerLang = "ro",
+            verification = Verification.VERIFIED_BY_QR,
+        )
+        assertEquals(
+            assertNotNull(linkBannerText(qr, strings, sasConfirmed = false)).first,
+            assertNotNull(linkBannerText(qr, strings, sasConfirmed = true)).first,
+        )
     }
 }
