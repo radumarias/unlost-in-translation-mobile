@@ -119,6 +119,9 @@ kotlin {
         // Issue #33: session ids are bearer credentials, so they come from a CSPRNG.
         // No provider artifact is needed for this one — see the catalog comment.
         implementation(libs.cryptography.random)
+        // Draws the pairing QR. Compose Multiplatform, wasmJs klib included, so the
+        // pairing dialog is common code like everything else in the feature.
+        implementation(libs.qrose)
       }
     }
     androidMain.dependencies {

@@ -889,8 +889,6 @@ class TranslateViewModel(
         if (!_isRemoteSession.value) return
         _isRemoteSession.value = false
         _remoteTicket.value = null
-        inboundJob?.cancel()
-        inboundJob = null
         seenRemoteTurnIds.clear()
         viewModelScope.launch { link.disconnect() }
     }
@@ -905,16 +903,29 @@ class TranslateViewModel(
         seenRemoteTurnIds.clear()
         _remoteTicket.value = if (publish) ticket else null
         _isRemoteSession.value = true
-        inboundJob?.cancel()
-        inboundJob = viewModelScope.launch {
-            link.inbound.collect(::onInboundLinkMessage)
+        // Subscribed once and never cancelled between sessions. `inbound` has no
+        // replay, so cancelling one collector and launching the next leaves a window
+        // — however short — in which a frame is emitted to nobody and is gone for
+        // good. Frames arriving outside a session are ignored below instead.
+        if (inboundJob == null) {
+            inboundJob = viewModelScope.launch {
+                link.inbound.collect(::onInboundLinkMessage)
+            }
         }
         viewModelScope.launch {
-            link.connect(ticket, myLang = _sourceLanguage.value.code)
+            // The link reports its own failures through `state`; this catch is for
+            // the ones it cannot, so that a throw ends up on the banner rather than
+            // on the default handler, which on Android means a crash.
+            runCatching { link.connect(ticket, myLang = _sourceLanguage.value.code) }
+                .onFailure { failure ->
+                    log.e(TAG, "could not start the remote session", failure)
+                    showMessage(strings.linkFailedNetwork)
+                }
         }
     }
 
     private fun onInboundLinkMessage(message: LinkMessage) {
+        if (!_isRemoteSession.value) return
         when (message.type) {
             LinkMessage.TYPE_HELLO -> message.lang?.let(::adoptPeerLanguage)
             LinkMessage.TYPE_TURN -> applyRemoteTurn(message)

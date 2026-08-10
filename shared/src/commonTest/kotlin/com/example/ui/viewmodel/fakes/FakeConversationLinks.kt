@@ -31,8 +31,16 @@ class RecordingConversationLink(override val memberId: String = "me") : Conversa
     var disconnects = 0
         private set
 
+    /**
+     * Thrown out of [connect] when set. The real link reports most failures through
+     * [state], but a relay URL that is not a URL at all throws before there is any
+     * state to report — and a throw out of a `viewModelScope.launch` is a crash.
+     */
+    var connectFailure: Throwable? = null
+
     override suspend fun connect(ticket: SessionTicket, myLang: String, myName: String?) {
         connects += ticket
+        connectFailure?.let { throw it }
         _state.value = LinkState.Connected()
     }
 

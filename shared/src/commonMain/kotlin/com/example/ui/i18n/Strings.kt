@@ -172,6 +172,35 @@ data class Strings(
     val send: String = "Send",
     val pickLanguageToSpeak: String = "Pick a language to speak in, or type instead.",
 
+    // --- Two-device conversation (issue #33) ---
+    val pairDevices: String = "Use two phones",
+    val pairingTitle: String = "Two phones, one conversation",
+    val pairingBlurb: String =
+        "Each of you holds your own phone. What you say is translated and appears on the other one.",
+    val pairingShowThisCode: String = "Have the other person scan this",
+    val pairingCantScan: String = "Can't scan it?",
+    val pairingTypeCodeInstead: String = "Use a code instead",
+    /** Label above the six-character code, which is displayed on its own line. */
+    val pairingCodeIs: String = "Your code",
+    val pairingEnterCode: String = "Enter the code from the other phone",
+    val pairingCodePlaceholder: String = "6-character code",
+    val pairingScanQr: String = "Scan the QR code",
+    val pairingScanUnavailable: String = "The scanner cannot be opened on this phone.",
+    val pairingJoin: String = "Join",
+    val pairingWaiting: String = "Waiting for the other phone…",
+    val pairingNotACode: String = "That is not a pairing code.",
+    val pairingLeave: String = "Leave",
+    // Connection banner, driven by the link's state.
+    val linkConnecting: String = "Connecting…",
+    /** `{0}` is the peer's language. */
+    val linkConnectedWith: String = "Connected — the other phone speaks {0}",
+    val linkPeerLeft: String = "The other phone left the conversation.",
+    val linkFailedNetwork: String = "Lost the connection to the other phone.",
+    val linkFailedUnconfigured: String = "This build has no relay configured, so two-phone mode is off.",
+    val linkFailedProtocol: String = "The other phone is speaking a version this app does not understand.",
+    val linkThisPhone: String = "This phone",
+    val linkOtherPhone: String = "Other phone",
+
     // --- Dual headset ---
     val dualHeadsetSetup: String = "Dual Headset Setup",
     val dualHeadphoneMode: String = "Dual Headphone Mode",

@@ -92,6 +92,7 @@ class StringsTest {
             strings.assignUser2,
             strings.playingTranslationToHeadset,
             strings.playingTestSound,
+            strings.linkConnectedWith,
         ).forEach { assertTrue(it.contains("{0}"), "missing {0} in: $it") }
         assertTrue(strings.playingTestSound.contains("{1}"))
     }

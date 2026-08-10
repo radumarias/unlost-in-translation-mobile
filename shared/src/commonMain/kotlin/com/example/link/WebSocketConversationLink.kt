@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.TimeSource
 
 /**
  * [ConversationLink] over the Cloudflare relay in `relay/` (issue #33 Phase 2).
@@ -39,6 +40,8 @@ import kotlinx.coroutines.withTimeoutOrNull
  * @param newMemberId injectable only so tests can pin the id; production uses the CSPRNG.
  * @param maxAttempts consecutive failed connections before the session gives up.
  * @param retryBaseDelayMs first backoff step; it doubles per attempt.
+ * @param stableConnectionMs how long a connection must last to count as progress and
+ *   clear the attempt counter. Injectable so tests need not sit through it.
  */
 class WebSocketConversationLink(
     private val client: HttpClient,
@@ -48,6 +51,7 @@ class WebSocketConversationLink(
     private val newMemberId: () -> String = SessionTicket::newMemberId,
     private val maxAttempts: Int = MAX_ATTEMPTS,
     private val retryBaseDelayMs: Long = RETRY_BASE_DELAY_MS,
+    private val stableConnectionMs: Long = STABLE_CONNECTION_MS,
 ) : ConversationLink {
 
     private val _state = MutableStateFlow<LinkState>(LinkState.Idle)
@@ -86,6 +90,16 @@ class WebSocketConversationLink(
      */
     private val unconfirmed = ArrayDeque<LinkMessage>()
 
+    /**
+     * What the peer has told us about itself, kept outside [LinkState] because the
+     * state is rebuilt on every reconnect and this outlives one connection. The
+     * relay reports no presence of its own, so once a peer has been heard from it
+     * is treated as present until it says `bye`.
+     */
+    private var peerPresent = false
+    private var peerLang: String? = null
+    private var peerName: String? = null
+
     override suspend fun connect(ticket: SessionTicket, myLang: String, myName: String?) {
         disconnect()
         if (relayBaseUrl.isBlank()) {
@@ -96,6 +110,9 @@ class WebSocketConversationLink(
         // Per session, like the queue: the previous conversation's last turns must
         // not be re-sent into the next one.
         unconfirmed.clear()
+        peerPresent = false
+        peerLang = null
+        peerName = null
         val queue = Channel<LinkMessage>(capacity = OUTBOX_CAPACITY)
         outbox = queue
         _state.value = LinkState.Connecting
@@ -139,10 +156,18 @@ class WebSocketConversationLink(
     ) {
         var attempt = 0
         while (currentCoroutineContext().isActive) {
+            val openedAt = TimeSource.Monotonic.markNow()
             try {
                 client.webSocket(sessionUrl(ticket.sessionId, memberId)) {
-                    attempt = 0
-                    _state.value = LinkState.Connected()
+                    // Reconnecting does not start the conversation over: what the peer
+                    // told us about itself is still true, and rebuilding the state from
+                    // defaults here would show "waiting for the other phone" to someone
+                    // whose peer never left.
+                    _state.value = LinkState.Connected(
+                        peerPresent = peerPresent,
+                        peerLang = peerLang,
+                        peerName = peerName,
+                    )
                     // Re-announced on every reconnect, not only the first: after a drop
                     // the peer may have restarted and no longer know our language.
                     outgoing.send(Frame.Text(LinkCodec.encode(LinkMessage.hello(memberId, myLang, myName))))
@@ -183,6 +208,12 @@ class WebSocketConversationLink(
             // A closed queue means we are shutting down on purpose, and a terminal
             // state means reconnecting would only reproduce it.
             if (queue.isClosedForSend || _state.value is LinkState.Failed) return
+            // A socket that opened and closed again immediately is not progress. An
+            // expired session does exactly that — the relay accepts the upgrade and
+            // hangs up — and resetting the counter on "the upgrade succeeded" would
+            // mean `maxAttempts` is never reached and the phone retries for ever.
+            // Only a connection that stayed up counts as a fresh start.
+            if (openedAt.elapsedNow().inWholeMilliseconds >= stableConnectionMs) attempt = 0
             attempt += 1
             if (attempt >= maxAttempts) {
                 _state.value = LinkState.Failed(LinkFailure.NETWORK)
@@ -203,13 +234,21 @@ class WebSocketConversationLink(
         }
         if (message.from == memberId) return // the relay never does this; belt and braces
         when (message.type) {
-            LinkMessage.TYPE_HELLO -> _state.value = LinkState.Connected(
-                peerPresent = true,
-                peerLang = message.lang,
-                peerName = message.name,
-            )
+            LinkMessage.TYPE_HELLO -> {
+                peerPresent = true
+                peerLang = message.lang
+                peerName = message.name
+                _state.value = LinkState.Connected(
+                    peerPresent = true,
+                    peerLang = message.lang,
+                    peerName = message.name,
+                )
+            }
             LinkMessage.TYPE_BYE -> _state.value = LinkState.Failed(LinkFailure.PEER_LEFT)
             else -> {
+                // Anything at all from the peer proves it is there, even if its
+                // `hello` was the frame that went missing.
+                peerPresent = true
                 val current = _state.value
                 if (current is LinkState.Connected && !current.peerPresent) {
                     _state.value = current.copy(peerPresent = true)
@@ -236,6 +275,13 @@ class WebSocketConversationLink(
         const val MAX_ATTEMPTS = 5
         const val RETRY_BASE_DELAY_MS = 500L
         const val SHUTDOWN_TIMEOUT_MS = 1000L
+
+        /**
+         * A connection has to last this long before it clears the attempt counter.
+         * Long enough that only a session which actually worked resets the backoff,
+         * short enough that a real conversation always does.
+         */
+        const val STABLE_CONNECTION_MS = 5_000L
 
         /**
          * How many recent frames are re-sent on reconnect. Small on purpose: the

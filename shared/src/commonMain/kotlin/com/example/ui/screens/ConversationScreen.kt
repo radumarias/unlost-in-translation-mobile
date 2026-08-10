@@ -22,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.PhonelinkRing
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -33,6 +34,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -47,12 +49,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.DualHeadsetEntry
 import com.example.model.Language
+import com.example.model.TurnOrigin
 import com.example.model.flagLabel
 import com.example.platform.AudioOutputCatalog
 import com.example.platform.SpeechSynthesizer
+import com.example.link.LinkFailure
+import com.example.link.LinkState
 import com.example.ui.components.ConversationDraftDialog
+import com.example.ui.components.PairingDialog
 import com.example.ui.components.ToneSituationBar
 import com.example.ui.i18n.LocalStrings
+import com.example.ui.i18n.Strings
 import com.example.ui.i18n.withArg
 import com.example.ui.viewmodel.TranslateViewModel
 
@@ -76,11 +83,44 @@ fun ConversationScreen(
     extendedGlyphs: Boolean,
     launchVoiceInput: (isConversationA: Boolean?, language: Language) -> Unit,
     onShowFullScreen: (String) -> Unit = {},
+    /** Issue #33: false hides pairing entirely (web, or a build with no relay). */
+    showRemoteConversation: Boolean = false,
+    /** Opens the platform QR scanner; the payload comes back through the view model. */
+    launchQrScan: () -> Unit = {},
 ) {
     val strings = LocalStrings.current
     val conversationHistory by viewModel.conversationHistory.collectAsState()
     val tone by viewModel.tone.collectAsState()
     val situation by viewModel.situation.collectAsState()
+    val isRemote by viewModel.isRemoteSession.collectAsState()
+    val remoteTicket by viewModel.remoteTicket.collectAsState()
+    val linkState by viewModel.linkState.collectAsState()
+    var showPairing by remember { mutableStateOf(false) }
+
+    // A turn from the paired phone arrives as text and nothing else. A local turn is
+    // spoken by the draft-confirmation callback further down; without the same here,
+    // the peer's translation lands silently and the user has to notice a new bubble
+    // and press play — which is not a conversation.
+    //
+    // Seeded with whatever is already on screen so re-entering the tab does not
+    // replay the whole exchange, and the ids that have been spoken are kept rather
+    // than the last one alone, because the SAS gate releases several turns at once.
+    val spokenRemoteTurns = remember {
+        conversationHistory.filter { it.origin == TurnOrigin.REMOTE }.map { it.id }.toMutableSet()
+    }
+    LaunchedEffect(conversationHistory) {
+        conversationHistory
+            .filter { it.origin == TurnOrigin.REMOTE && spokenRemoteTurns.add(it.id) }
+            .forEach { item ->
+                // No headset device: remote mode and dual-headset mode are mutually
+                // exclusive, so there is never an assignment to honour here.
+                speechSynthesizer.speak(
+                    item.translated,
+                    Language.getByCode(item.tgtLangCode).languageTag,
+                    null,
+                )
+            }
+    }
 
     Column(
         modifier = Modifier.fillMaxSize()
@@ -103,12 +143,33 @@ fun ConversationScreen(
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(modifier = Modifier.weight(1f))
+            if (showRemoteConversation) {
+                // Pairing lives in the conversation header rather than the app's
+                // main chrome: it is a property of *this* conversation, and putting
+                // it here keeps the translate tab untouched.
+                IconButton(onClick = { showPairing = true }) {
+                    Icon(
+                        Icons.Default.PhonelinkRing,
+                        contentDescription = strings.pairDevices,
+                        tint = if (isRemote) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                }
+            }
             DualHeadsetEntry(
                 viewModel = viewModel,
                 catalog = audioOutputCatalog,
-                show = showDualHeadset
+                show = showDualHeadset && !isRemote,
             )
         }
+
+        // A banner, not a snackbar: `messages` is a no-replay SharedFlow, so a
+        // state change emitted before the collector attaches would be lost, and
+        // "are we still connected?" is a question about now rather than an event.
+        if (isRemote) LinkBanner(linkState)
 
         // Tone / situation constraints — they shape every turn of the conversation
         ToneSituationBar(
@@ -225,14 +286,21 @@ fun ConversationScreen(
                     onSubmit = { viewModel.prepareConversationPart(it, isLanguageA = true) }
                 )
 
-                SpeakerInput(
-                    language = targetLang,
-                    isLanguageA = false,
-                    showVoiceInput = showVoiceInput,
-                    extendedGlyphs = extendedGlyphs,
-                    onVoiceClick = { launchVoiceInput(false, targetLang) },
-                    onSubmit = { viewModel.prepareConversationPart(it, isLanguageA = false) }
-                )
+                // With two phones the other person speaks into their own device, so
+                // the second mic would be a button nobody can honestly press. It
+                // becomes a status strip naming the language coming back.
+                if (isRemote) {
+                    PeerStrip(language = targetLang, extendedGlyphs = extendedGlyphs)
+                } else {
+                    SpeakerInput(
+                        language = targetLang,
+                        isLanguageA = false,
+                        showVoiceInput = showVoiceInput,
+                        extendedGlyphs = extendedGlyphs,
+                        onVoiceClick = { launchVoiceInput(false, targetLang) },
+                        onSubmit = { viewModel.prepareConversationPart(it, isLanguageA = false) }
+                    )
+                }
             }
         }
     }
@@ -264,6 +332,119 @@ fun ConversationScreen(
             },
             sourceLangName = sName,
             targetLangName = tName
+        )
+    }
+
+    if (showPairing) {
+        PairingDialog(
+            ticket = remoteTicket,
+            linkState = linkState,
+            canScan = showRemoteConversation,
+            isRemote = isRemote,
+            onStartHosting = { viewModel.startRemoteSession() },
+            onStartHostingWithCode = { viewModel.startRemoteSessionWithCode() },
+            onJoin = { payload ->
+                val joined = viewModel.joinRemoteSession(payload)
+                if (joined) showPairing = false
+                joined
+            },
+            onScan = {
+                showPairing = false
+                launchQrScan()
+            },
+            onLeave = {
+                viewModel.endRemoteSession()
+                showPairing = false
+            },
+            onDismiss = { showPairing = false },
+        )
+    }
+}
+
+/**
+ * What the banner says for a given [state], and whether it reads as a problem —
+ * null when there is nothing to show.
+ *
+ * A plain function rather than logic inside the composable, so a test can walk
+ * every [LinkFailure] and prove none of them renders an empty banner. Kotlin's
+ * exhaustive `when` catches a *new* reason at compile time; only a test catches
+ * one that compiles because it was wired to a blank string.
+ */
+/**
+ * The peer's language as a person would say it, not as the wire carries it.
+ *
+ * Shared with the pairing dialog so the same peer is not described as "Romanian"
+ * under the header and "ro" inside the dialog above it. An unknown tag falls back
+ * to the tag: a peer on a language this build does not list is still worth naming.
+ */
+internal fun peerLanguageLabel(code: String?): String =
+    Language.findByCode(code.orEmpty())?.name ?: code.orEmpty()
+
+internal fun linkBannerText(state: LinkState, strings: Strings): Pair<String, Boolean>? = when (state) {
+    is LinkState.Idle -> null
+    is LinkState.Connecting -> strings.linkConnecting to false
+    is LinkState.Connected ->
+        if (state.peerPresent) {
+            strings.linkConnectedWith.withArg(peerLanguageLabel(state.peerLang)) to false
+        } else {
+            strings.pairingWaiting to false
+        }
+    is LinkState.Failed -> when (state.reason) {
+        LinkFailure.PEER_LEFT -> strings.linkPeerLeft to true
+        LinkFailure.NOT_CONFIGURED -> strings.linkFailedUnconfigured to true
+        LinkFailure.PROTOCOL -> strings.linkFailedProtocol to true
+        // "Session full" arrives as a failed WebSocket upgrade, and neither the
+        // OkHttp engine nor a browser can read the HTTP status of one, so it is
+        // reported as what the user actually experiences: no connection.
+        LinkFailure.SESSION_FULL,
+        LinkFailure.SESSION_EXPIRED,
+        LinkFailure.NETWORK -> strings.linkFailedNetwork to true
+    }
+}
+
+/** The connection state of the paired device, as a strip under the header. */
+@Composable
+private fun LinkBanner(state: LinkState) {
+    val (message, isProblem) = linkBannerText(state, LocalStrings.current) ?: return
+    Surface(
+        color = if (isProblem) {
+            MaterialTheme.colorScheme.errorContainer
+        } else {
+            MaterialTheme.colorScheme.primaryContainer
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = message,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            color = if (isProblem) {
+                MaterialTheme.colorScheme.onErrorContainer
+            } else {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            },
+        )
+    }
+}
+
+/** The peer's side of the deck in a two-phone session: a label, not an input. */
+@Composable
+private fun RowScope.PeerStrip(language: Language, extendedGlyphs: Boolean) {
+    val strings = LocalStrings.current
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+    ) {
+        Text(
+            text = language.name + " " + language.flagLabel(extendedGlyphs),
+            fontWeight = FontWeight.Medium,
+            fontSize = 14.sp,
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = strings.linkOtherPhone,
+            fontSize = 12.sp,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }

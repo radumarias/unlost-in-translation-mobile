@@ -13,6 +13,7 @@ import com.example.ui.viewmodel.fakes.RecordingConversationLink
 import com.example.ui.viewmodel.fakes.RecordingLog
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -291,6 +292,55 @@ class TranslateViewModelRemoteTest {
         vm.endRemoteSession()
 
         assertEquals(1, link.disconnects)
+    }
+
+    @Test
+    fun aFrameThatArrivesAfterLeavingIsIgnored() = runTest {
+        val link = RecordingConversationLink()
+        val vm = viewModel(link)
+        vm.startRemoteSession()
+        vm.endRemoteSession()
+
+        // The collector outlives the session on purpose, so the guard is what keeps
+        // a frame still in flight when the user hit Leave from re-opening the
+        // conversation on their screen.
+        link.deliver(LinkMessage.turn("peer", "t-1", "ro", "a", "b"))
+
+        assertTrue(vm.conversationHistory.value.isEmpty())
+        assertFalse(vm.isRemoteSession.value)
+    }
+
+    @Test
+    fun aSecondSessionStillReceivesTurns() = runTest {
+        val link = RecordingConversationLink()
+        val vm = viewModel(link)
+        vm.startRemoteSession()
+        vm.endRemoteSession()
+
+        vm.startRemoteSession()
+        link.deliver(LinkMessage.turn("peer", "t-2", "ro", "a", "b"))
+
+        // Subscribing once and never re-subscribing is what closes the window in
+        // which a frame is emitted to nobody; this is the other half of that — the
+        // one subscription has to still be there for session two.
+        assertEquals(1, vm.conversationHistory.value.size)
+    }
+
+    @Test
+    fun aLinkThatCannotConnectSaysSoInsteadOfCrashing() = runTest {
+        val link = RecordingConversationLink()
+        link.connectFailure = IllegalStateException("no relay here")
+        val vm = viewModel(link)
+        val seen = mutableListOf<String>()
+        val collector = launch(UnconfinedTestDispatcher(testScheduler)) {
+            vm.messages.collect { seen += it }
+        }
+
+        vm.startRemoteSession()
+
+        // Unhandled, this reaches Android's default handler and takes the app down.
+        assertEquals(listOf(vm.strings.linkFailedNetwork), seen)
+        collector.cancel()
     }
 
     // --- the two latent defects two devices turn real (issue #33, findings #3 and #5) ---
