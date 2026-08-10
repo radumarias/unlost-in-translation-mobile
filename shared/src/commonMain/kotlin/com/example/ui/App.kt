@@ -381,6 +381,7 @@ private fun AppContent(
                         showVoiceInput = container.capabilities.voiceInput,
                         showImageInput = container.capabilities.imageInput,
                         showDualHeadset = container.capabilities.dualHeadset,
+                        showRemoteConversation = container.capabilities.remoteConversation,
                         onDismiss = { showHelp = false },
                     )
                 }

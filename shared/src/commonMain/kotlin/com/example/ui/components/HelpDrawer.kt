@@ -63,12 +63,13 @@ fun HelpDrawer(
     showVoiceInput: Boolean,
     showImageInput: Boolean,
     showDualHeadset: Boolean,
+    showRemoteConversation: Boolean = false,
     onDismiss: () -> Unit,
 ) {
     if (!visible) return
     val strings = LocalStrings.current
     val sections = remember(strings, showVoiceInput, showImageInput, showDualHeadset) {
-        helpSections(strings, showVoiceInput, showImageInput, showDualHeadset)
+        helpSections(strings, showVoiceInput, showImageInput, showDualHeadset, showRemoteConversation)
     }
 
     Dialog(
@@ -181,6 +182,7 @@ private fun helpSections(
     showVoiceInput: Boolean,
     showImageInput: Boolean,
     showDualHeadset: Boolean,
+    showRemoteConversation: Boolean,
 ): List<HelpSection> = buildList {
     if (showVoiceInput) {
         add(HelpSection(strings.helpVoiceTitle, strings.helpVoiceShort, strings.helpVoiceBody))
@@ -192,6 +194,12 @@ private fun helpSections(
     }
     add(HelpSection(strings.helpAutoDetectTitle, strings.helpAutoDetectShort, strings.helpAutoDetectBody))
     add(HelpSection(strings.helpConversationTitle, strings.helpConversationShort, strings.helpConversationBody))
+    if (showRemoteConversation) {
+        // Placed right after conversation mode, because it is the same feature with
+        // a second phone — and it is the section that says plainly what the
+        // encryption does and does not hide.
+        add(HelpSection(strings.helpTwoPhonesTitle, strings.helpTwoPhonesShort, strings.helpTwoPhonesBody))
+    }
     if (showDualHeadset) {
         add(HelpSection(strings.helpDualHeadsetTitle, strings.helpDualHeadsetShort, strings.helpDualHeadsetBody))
     }

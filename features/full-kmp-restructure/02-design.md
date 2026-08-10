@@ -304,6 +304,14 @@ The handshake in `WebSocketConversationLink` (issue #34b):
 - **Resolved contradiction in #34.** §3.6 says a replayed counter is *dropped* (it is how the relay's reconnect ring is absorbed); §3.7 lists "a counter violation" among the things that terminate the session. They cannot both hold. Implemented as §3.6: a replay is dropped, a **tag failure** terminates. Dropping is also strictly safer — terminating would let anyone kill a conversation by echoing one frame back into it. A GCM failure still fails closed.
 - **Recorded finding:** the `expectedHostKey` check must apply to the *guest only*. The host holds the same field in its own ticket — that is its own key — and comparing the guest's `kex` against it rejects every genuine session. Caught by the first end-to-end handshake test.
 
+Making verification visible (issue #34c):
+
+- The banner names the two states apart honestly — *encrypted, verified by the QR code* vs *encrypted, check the code matches*. Hiding the difference would be the one dishonest option.
+- On the typed-code path a `SasCheckDialog` shows five digits and **nothing is rendered or spoken until the user confirms** (§5). Turns that arrive while they are reading are **held, not dropped** — the peer may speak mid-check and losing what they said would be its own kind of wrong — and released in order on confirmation. Saying the codes differ ends the session and discards what was held: it did not come from the person the user thinks they are talking to.
+- The confirmation is per session. Carrying it across a re-pair would silently skip the check.
+- Digits, never words or emoji: the wasm canvas has no emoji font, and digits read aloud in all sixteen languages.
+- The help drawer gains a two-phones section, gated on the capability, which says plainly what the encryption does **and does not** hide: it covers the hop between the phones, not the translation, which Google or Gemini still performs before anything is sent.
+
 ## 6. Secrets (D6)
 
 Gradle task in `:shared` (registered as a commonMain generated source dir, wired into `compileKotlinMetadata`/source-set model):

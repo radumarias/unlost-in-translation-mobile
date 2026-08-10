@@ -9,6 +9,7 @@ import com.example.link.crypto.LinkRole
 import com.example.link.LinkState
 import com.example.link.OfflineConversationLink
 import com.example.link.SessionTicket
+import com.example.link.Verification
 import com.example.model.ContextTurn
 import com.example.model.ConversationItem
 import com.example.model.Language
@@ -843,6 +844,22 @@ class TranslateViewModel(
     /** Turn ids already applied, so the relay's reconnect replay cannot double up. */
     private val seenRemoteTurnIds = mutableSetOf<String>()
 
+    /**
+     * Whether the user has confirmed the five-digit code matches (issue #34 §5).
+     * Irrelevant on the QR path, where the QR itself authenticated the other phone.
+     */
+    private val _sasConfirmed = MutableStateFlow(false)
+    val sasConfirmed = _sasConfirmed.asStateFlow()
+
+    /**
+     * Turns that arrived before the user confirmed the code.
+     *
+     * Held rather than dropped: §5 says nothing may be *rendered* before the check,
+     * and a peer who speaks while you are still reading the digits should not lose
+     * what they said. Cleared with the session if the check fails.
+     */
+    private val turnsAwaitingSas = mutableListOf<ConversationItem>()
+
     private var inboundJob: Job? = null
 
     /**
@@ -882,6 +899,8 @@ class TranslateViewModel(
         _isRemoteSession.value = false
         _remoteTicket.value = null
         seenRemoteTurnIds.clear()
+        turnsAwaitingSas.clear()
+        _sasConfirmed.value = false
         viewModelScope.launch { link.disconnect() }
     }
 
@@ -912,6 +931,8 @@ class TranslateViewModel(
             setDualHeadsetModeEnabled(false)
         }
         seenRemoteTurnIds.clear()
+        turnsAwaitingSas.clear()
+        _sasConfirmed.value = false
         _remoteTicket.value = if (publish) ticket else null
         _isRemoteSession.value = true
         // Subscribed once and never cancelled between sessions. `inbound` has no
@@ -967,7 +988,7 @@ class TranslateViewModel(
         val original = message.original ?: return
         val translated = message.translated ?: return
         val peerLang = message.lang ?: _targetLanguage.value.code
-        _conversationHistory.value = _conversationHistory.value + ConversationItem(
+        val item = ConversationItem(
             id = id,
             text = original,
             translated = translated,
@@ -978,7 +999,45 @@ class TranslateViewModel(
             tgtLangCode = _sourceLanguage.value.code,
             origin = TurnOrigin.REMOTE,
         )
-        _partnerBText.value = original
+        if (needsSasCheck() && !_sasConfirmed.value) {
+            // §5: nothing is rendered — or spoken — before the two people have
+            // confirmed the digits match.
+            turnsAwaitingSas += item
+            return
+        }
+        publishRemoteTurn(item)
+    }
+
+    private fun publishRemoteTurn(item: ConversationItem) {
+        _conversationHistory.value = _conversationHistory.value + item
+        _partnerBText.value = item.text
+    }
+
+    private fun needsSasCheck(): Boolean {
+        val state = link.state.value
+        return state is LinkState.Connected && state.verification == Verification.NEEDS_SAS_CHECK
+    }
+
+    /**
+     * The user says the digits match on both phones. Everything that arrived while
+     * they were checking is released, in the order it arrived.
+     */
+    fun confirmSasMatch() {
+        if (_sasConfirmed.value) return
+        _sasConfirmed.value = true
+        val held = turnsAwaitingSas.toList()
+        turnsAwaitingSas.clear()
+        held.forEach(::publishRemoteTurn)
+    }
+
+    /**
+     * The digits differ, which means somebody is in the middle. The session ends and
+     * what was held is discarded rather than shown — it did not come from the person
+     * the user thinks they are talking to.
+     */
+    fun rejectSasMatch() {
+        turnsAwaitingSas.clear()
+        endRemoteSession()
     }
 
     private fun sendTurnToPeer(item: ConversationItem) {
