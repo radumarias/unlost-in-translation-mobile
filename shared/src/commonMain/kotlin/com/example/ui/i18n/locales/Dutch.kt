@@ -147,6 +147,7 @@ internal val dutch = Strings(
     linkOtherPhone = "Andere telefoon",
     linkVerifiedByQr = "Versleuteld, geverifieerd via de QR-code",
     linkNeedsSasCheck = "Versleuteld — controleer of de code klopt",
+    linkVerifiedBySas = "Versleuteld, je hebt de code gecontroleerd",
     sasTitle = "Tonen beide telefoons dit?",
     sasBlurb = "Je bent met een ingetypte code binnengekomen, dus de telefoons kunnen elkaar niet zelf verifiëren. Toont de andere telefoon andere cijfers, dan zit er iemand tussen — sluit de sessie.",
     sasMatches = "Ja, ze komen overeen",

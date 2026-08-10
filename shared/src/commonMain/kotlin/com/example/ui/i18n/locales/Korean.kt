@@ -144,6 +144,7 @@ internal val korean = Strings(
     linkOtherPhone = "상대방 휴대폰",
     linkVerifiedByQr = "암호화됨, QR 코드로 확인됨",
     linkNeedsSasCheck = "암호화됨 — 코드가 일치하는지 확인하세요",
+    linkVerifiedBySas = "암호화됨, 코드를 확인했습니다",
     sasTitle = "두 휴대폰 모두 이 숫자를 표시하나요?",
     sasBlurb = "입력한 코드로 참여했기 때문에 휴대폰끼리 서로를 확인할 수 없습니다. 상대방 휴대폰의 숫자가 다르면 중간에 누군가 있는 것입니다. 세션을 닫으세요.",
     sasMatches = "네, 일치합니다",

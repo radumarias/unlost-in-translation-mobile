@@ -144,6 +144,7 @@ internal val french = Strings(
     linkOtherPhone = "L'autre téléphone",
     linkVerifiedByQr = "Chiffré, vérifié par le code QR",
     linkNeedsSasCheck = "Chiffré — vérifiez que le code correspond",
+    linkVerifiedBySas = "Chiffré, vous avez vérifié le code",
     sasTitle = "Les deux téléphones affichent-ils ceci ?",
     sasBlurb = "Vous avez rejoint avec un code saisi, les téléphones ne peuvent donc pas se vérifier seuls. Si l'autre téléphone affiche d'autres chiffres, quelqu'un est au milieu — fermez la session.",
     sasMatches = "Oui, ils correspondent",

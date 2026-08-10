@@ -144,6 +144,7 @@ internal val italian = Strings(
     linkOtherPhone = "Altro telefono",
     linkVerifiedByQr = "Crittografato, verificato dal codice QR",
     linkNeedsSasCheck = "Crittografato — controlla che il codice corrisponda",
+    linkVerifiedBySas = "Crittografato, hai controllato il codice",
     sasTitle = "Entrambi i telefoni mostrano questo?",
     sasBlurb = "Sei entrato con un codice digitato, quindi i telefoni non possono verificarsi da soli. Se l'altro telefono mostra cifre diverse, c'è qualcuno nel mezzo: chiudi la sessione.",
     sasMatches = "Sì, corrispondono",

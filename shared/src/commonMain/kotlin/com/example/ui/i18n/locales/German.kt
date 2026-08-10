@@ -144,6 +144,7 @@ internal val german = Strings(
     linkOtherPhone = "Anderes Handy",
     linkVerifiedByQr = "Verschlüsselt, per QR-Code bestätigt",
     linkNeedsSasCheck = "Verschlüsselt — prüfe, ob der Code übereinstimmt",
+    linkVerifiedBySas = "Verschlüsselt, du hast den Code geprüft",
     sasTitle = "Zeigen beide Handys das hier?",
     sasBlurb = "Du bist mit einem eingetippten Code beigetreten, also können sich die Handys nicht selbst bestätigen. Zeigt das andere Handy andere Ziffern, ist jemand dazwischen — beende die Sitzung.",
     sasMatches = "Ja, sie stimmen überein",

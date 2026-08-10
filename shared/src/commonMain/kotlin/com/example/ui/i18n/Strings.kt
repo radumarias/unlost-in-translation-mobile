@@ -208,6 +208,8 @@ data class Strings(
     // authenticated the other phone's key, a typed code cannot.
     val linkVerifiedByQr: String = "Encrypted, verified by the QR code",
     val linkNeedsSasCheck: String = "Encrypted — check the code matches",
+    /** After the user says the five digits match. Still weaker than the QR path. */
+    val linkVerifiedBySas: String = "Encrypted, you checked the code",
     val sasTitle: String = "Do both phones show this?",
     val sasBlurb: String =
         "You joined with a typed code, so the phones cannot verify each other on their own. " +

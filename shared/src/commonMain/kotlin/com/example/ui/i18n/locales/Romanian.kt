@@ -144,6 +144,7 @@ internal val romanian = Strings(
     linkOtherPhone = "Celălalt telefon",
     linkVerifiedByQr = "Criptat, verificat prin codul QR",
     linkNeedsSasCheck = "Criptat — verifică dacă se potrivește codul",
+    linkVerifiedBySas = "Criptat, ai verificat codul",
     sasTitle = "Ambele telefoane arată asta?",
     sasBlurb = "Ai intrat cu un cod scris, deci telefoanele nu se pot verifica singure. Dacă celălalt telefon arată alte cifre, cineva este la mijloc — închide sesiunea.",
     sasMatches = "Da, se potrivesc",

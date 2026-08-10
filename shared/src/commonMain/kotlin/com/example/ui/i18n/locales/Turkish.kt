@@ -147,6 +147,7 @@ internal val turkish = Strings(
     linkOtherPhone = "Diğer telefon",
     linkVerifiedByQr = "Şifreli, QR koduyla doğrulandı",
     linkNeedsSasCheck = "Şifreli — kodun eşleştiğini kontrol edin",
+    linkVerifiedBySas = "Şifreli, kodu kontrol ettin",
     sasTitle = "Her iki telefon da bunu gösteriyor mu?",
     sasBlurb = "Yazılan bir kodla katıldınız, bu yüzden telefonlar birbirini kendi başına doğrulayamaz. Diğer telefon farklı rakamlar gösteriyorsa arada biri var — oturumu kapatın.",
     sasMatches = "Evet, eşleşiyor",

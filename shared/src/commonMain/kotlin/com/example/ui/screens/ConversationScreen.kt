@@ -97,6 +97,9 @@ fun ConversationScreen(
     val isRemote by viewModel.isRemoteSession.collectAsState()
     val remoteTicket by viewModel.remoteTicket.collectAsState()
     val linkState by viewModel.linkState.collectAsState()
+    // Read here rather than next to the SAS dialog below: the banner needs it too,
+    // and the banner is rendered first.
+    val sasConfirmed by viewModel.sasConfirmed.collectAsState()
     var showPairing by remember { mutableStateOf(false) }
 
     // A turn from the paired phone arrives as text and nothing else. A local turn is
@@ -171,7 +174,7 @@ fun ConversationScreen(
         // A banner, not a snackbar: `messages` is a no-replay SharedFlow, so a
         // state change emitted before the collector attaches would be lost, and
         // "are we still connected?" is a question about now rather than an event.
-        if (isRemote) LinkBanner(linkState)
+        if (isRemote) LinkBanner(linkState, sasConfirmed)
 
         // Tone / situation constraints — they shape every turn of the conversation
         ToneSituationBar(
@@ -340,7 +343,6 @@ fun ConversationScreen(
     // Issue #34 §5: on the typed-code path nothing is rendered or spoken until both
     // people confirm the digits match. This sits above the pairing dialog on purpose
     // — it is the last thing between an unverified peer and the screen.
-    val sasConfirmed by viewModel.sasConfirmed.collectAsState()
     val pendingSas = (linkState as? LinkState.Connected)
         ?.takeIf { it.verification == Verification.NEEDS_SAS_CHECK && !sasConfirmed }
         ?.sas
@@ -397,7 +399,21 @@ fun ConversationScreen(
 internal fun peerLanguageLabel(code: String?): String =
     Language.findByCode(code.orEmpty())?.name ?: code.orEmpty()
 
-internal fun linkBannerText(state: LinkState, strings: Strings): Pair<String, Boolean>? = when (state) {
+/**
+ * The strip under the header, as `text to isProblem`, or null when there is nothing
+ * to say.
+ *
+ * [sasConfirmed] is the view model's, not the link's: confirming the digits is a
+ * decision the *user* makes about a session whose [Verification] never changes —
+ * the link cannot know whether two people compared five digits out loud. Without it
+ * the banner goes on telling them to check a code they have already checked, and
+ * the verified state has no way to be announced at all.
+ */
+internal fun linkBannerText(
+    state: LinkState,
+    strings: Strings,
+    sasConfirmed: Boolean = false,
+): Pair<String, Boolean>? = when (state) {
     is LinkState.Idle -> null
     is LinkState.Connecting -> strings.linkConnecting to false
     // The handshake is fast, but naming it is worth a string: if it stalls, the
@@ -410,7 +426,12 @@ internal fun linkBannerText(state: LinkState, strings: Strings): Pair<String, Bo
             // authenticated the other phone's key, a typed code cannot.
             val trust = when (state.verification) {
                 Verification.VERIFIED_BY_QR -> strings.linkVerifiedByQr
-                Verification.NEEDS_SAS_CHECK -> strings.linkNeedsSasCheck
+                // Named apart from the QR case for the same reason the two
+                // verification states are: comparing digits out loud is a weaker
+                // claim than a scanned key, and the banner should not pretend
+                // otherwise once the check is done.
+                Verification.NEEDS_SAS_CHECK ->
+                    if (sasConfirmed) strings.linkVerifiedBySas else strings.linkNeedsSasCheck
                 Verification.NONE -> null
             }
             // Not a middle dot: the wasm canvas cannot draw one, which is the same
@@ -437,8 +458,8 @@ internal fun linkBannerText(state: LinkState, strings: Strings): Pair<String, Bo
 
 /** The connection state of the paired device, as a strip under the header. */
 @Composable
-private fun LinkBanner(state: LinkState) {
-    val (message, isProblem) = linkBannerText(state, LocalStrings.current) ?: return
+private fun LinkBanner(state: LinkState, sasConfirmed: Boolean) {
+    val (message, isProblem) = linkBannerText(state, LocalStrings.current, sasConfirmed) ?: return
     Surface(
         color = if (isProblem) {
             MaterialTheme.colorScheme.errorContainer
