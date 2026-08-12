@@ -17,13 +17,13 @@ If this file disagrees with the code, **the code is right and this file is stale
 
 | | |
 |---|---|
-| `main` | `8672ab4` — `origin/main` identical, nothing unpushed |
+| `main` | see `git log` — `origin/main` identical, nothing unpushed |
 | Working tree | clean |
-| In flight | **#31** (test: raise the floor) and **#32** (i18n: platform strings), both open since 2026-08-03 and both now well behind `main`. Rebase before merging; #31's dead-flow deletion has already landed separately |
+| In flight | **nothing.** #31 and #32 were the last two open PRs; both were rebased onto post-Arc-6 `main` and merged 2026-08-12 |
 | CI | **none**. "Green" always means the local gate suite in §5 |
-| Open issues | **#1** (KMP restructure — code complete, owner keeps it open), **#15** (Ray-Ban spike — not started), **#33** / **#34** (two-device conversation — code complete and merged, left open for the owner's two-phone check in §8), **#35** (iOS target — not started) |
-| Last work | two phones, one conversation: PRs #36–#42; then #44 (the SAS banner bug the browser run found) and #46 (the long-standing findings list, closed), merged 2026-08-10 |
-| Gate on `main` | 286 JVM / 275 wasm / 3 `:app`, 0 failures; Roborazzi byte-identical |
+| Open issues | **#1** (KMP restructure — code complete, owner keeps it open), **#15** (Ray-Ban spike — owner declined it 2026-08-03), **#33** / **#34** (two-device conversation — code complete and merged, left open for the owner's two-phone check in §8), **#35** (iOS target — not started) |
+| Last work | two phones, one conversation (#36–#42), then #44 and #46; then the two stale branches: #31 (Room and image-loading tests, plus the OCR bug they found) and #32 (the platform layer's last English strings) |
+| Gate on `main` | **289 JVM / 279 wasm / 18 `:app`**, 0 failures; Roborazzi byte-identical |
 
 Every merged feature branch still exists on `origin`. They are merged; deleting them is housekeeping,
 not work.
@@ -175,6 +175,33 @@ the code reads correctly and does not work.
 Both test classes live in `:app/src/test/` rather than `:shared`, because Robolectric is already
 wired there and the AGP KMP-library `withHostTest {}` source set is not set up for JUnit4.
 
+### Arc 7 — the platform layer's last English strings
+
+Arc 4 moved the shared UI into `Strings.kt`, but the platform entry points kept composing their
+own sentences. Those are now catalogue fields too, in all 15 locales:
+
+- `MainActivity`'s two image-input snackbars, and the Android share-sheet title.
+- `WebVoiceInput` no longer writes user-facing prose at all. `VoiceInputException` carries the
+  browser's own SpeechRecognition **error code**; `Strings.voiceInputError(code)` chooses the
+  sentence, so a translated device gets a translated failure. This closes the item that was
+  logged in `STATUS.md` §4.2.
+
+**Still English:** the Wear notification (title, `Original:` / `Translation:` labels, channel
+name and description). Deliberate — it is level-C code that needs a paired watch, so it should be
+changed in the same pass that finally exercises it.
+
+Three things review turned up in the same area, all fixed here:
+
+- The web entry point's `catch (Exception)` could not see a throw out of `js()` interop, which
+  arrives as `kotlin.Error` — the trap `KtorTranslationApi.apiCall` already documents. Uncaught it
+  would cancel the scope the mic and camera lambdas share and kill **both** buttons for the rest of
+  the session. Both now catch `Throwable` (after rethrowing `CancellationException`) and log.
+- `TranslateViewModel.strings` was fixed at construction, but the view model outlives the Activity
+  recreation a device-language change triggers, so its snackbars kept the old language while the
+  screen switched. `rememberTranslateViewModel` now reassigns it.
+- `PlatformActions.share` takes the sheet title, instead of `AndroidPlatformActions` resolving its
+  own catalogue from `java.util.Locale` — one resolution path, from Compose, for the whole app.
+
 ---
 
 ## 4. Setting up a fresh clone
@@ -248,8 +275,8 @@ Windows: `.\gradlew.bat` with the same arguments.
 
 | Task | What it proves | Expected |
 |---|---|---|
-| `:shared:testAndroidHostTest` | `commonTest` on the JVM — parsers, `KtorTranslationApi` with MockEngine, `TranslateViewModel` with fakes, the string catalogue — **plus** `androidHostTest`, which is where the conversation link is driven against a real WebSocket server | **286 tests, 0 failures** |
-| `:shared:wasmJsTest` | the same `commonTest` **plus** `wasmJsTest` in headless Chrome | **276 tests, 0 failures** |
+| `:shared:testAndroidHostTest` | `commonTest` on the JVM — parsers, `KtorTranslationApi` with MockEngine, `TranslateViewModel` with fakes, the string catalogue — **plus** `androidHostTest`, which is where the conversation link is driven against a real WebSocket server | **289 tests, 0 failures** |
+| `:shared:wasmJsTest` | the same `commonTest` **plus** `wasmJsTest` in headless Chrome | **279 tests, 0 failures** |
 | `:app:testDebugUnitTest` | Robolectric + Roborazzi — plus the Room repository and image-downscale suites | **18 tests, 0 failures** |
 | `:app:verifyRoborazziDebug` | Android UI is pixel-identical to the committed baselines | green |
 | `:app:assembleDebug` | the Android app still builds | green |
@@ -464,7 +491,7 @@ validation sheet shows the sanity check and idiom sections and that the rewrite 
 | **Issue #35** | iOS target (`:shared` iosArm64 + `:iosApp`) — opened by the owner, not started. Needs a Mac; every platform seam already has an interface waiting |
 | **Relay deploy** | `cd relay && npm install && npx wrangler deploy`, then `RELAY_BASE_URL` in `.env`. **Owner-only** — remote conversation mode does nothing until this happens |
 | **Issue #1 / #33 / #34 close-out** | Code is complete for all three. Closing is the owner's call — **do not close them yourself** |
-| **Web polish candidates** | TTS unsupported-language fallback (Android falls back to `Locale.US`, browsers vary) · `release()` vs `stop()` semantics · `share()` silent clipboard fallback needs user feedback · i18n-ready error codes for `VoiceInputException` · localStorage size cap · `user-scalable=no` in `index.html` (a11y) · `WearSyncManager` could use `flagLabel` |
+| **Web polish candidates** | TTS unsupported-language fallback (Android falls back to `Locale.US`, browsers vary) · `release()` vs `stop()` semantics · `share()` silent clipboard fallback needs user feedback · localStorage size cap · `user-scalable=no` in `index.html` (a11y) · `WearSyncManager` could use `flagLabel` |
 | **Deploy** | Only after owner sign-off. Consider a key proxy first |
 
 ---

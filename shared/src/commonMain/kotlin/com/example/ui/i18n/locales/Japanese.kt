@@ -198,6 +198,12 @@ internal val japanese = Strings(
     voiceInputPrompt = "今話してください（{0}）...",
     voiceInputUnsupported = "この端末では音声入力に対応していません。",
     voiceInputFailed = "音声入力に失敗しました。",
+    voiceInputMicBlocked = "マイクへのアクセスがブロックされています。ブラウザの設定で許可してください。",
+    voiceInputNoMicrophone = "マイクが見つかりませんでした。",
+    voiceInputNoNetwork = "音声入力にはネットワーク接続が必要です。",
+    voiceInputLanguageUnsupported =
+        "このブラウザでは音声入力がこの言語に対応していません。",
+    voiceInputFailedWithCode = "音声入力に失敗しました（{0}）。",
 
     aiEnhancedTurnedOn = "AI強化をオンにしました — トーンと状況に必要です。",
     translateFirstToDetect = "言語を検出できるよう、まず何か翻訳してください。",
@@ -206,6 +212,8 @@ internal val japanese = Strings(
     validationFailed = "検証に失敗しました: {0}",
     validationUnavailable = "文化的なチェックを完了できませんでした。",
     imageReadFailed = "画像を読み取れませんでした",
+    imageInputUnavailable = "写真を提供できるアプリがありません。",
+    shareTranslationTitle = "翻訳を共有",
     rewriteFailed = "メッセージを書き直せませんでした",
     conversationTranslationFailed = "翻訳段階で失敗しました",
 )

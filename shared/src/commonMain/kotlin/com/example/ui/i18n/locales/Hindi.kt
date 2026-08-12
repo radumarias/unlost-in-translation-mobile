@@ -201,6 +201,12 @@ internal val hindi = Strings(
     voiceInputPrompt = "अब बोलिए ({0})...",
     voiceInputUnsupported = "इस डिवाइस पर आवाज़ से इनपुट समर्थित नहीं है।",
     voiceInputFailed = "आवाज़ से इनपुट विफल रहा।",
+    voiceInputMicBlocked = "माइक्रोफ़ोन का उपयोग अवरुद्ध है। इसे ब्राउज़र सेटिंग में अनुमति दें।",
+    voiceInputNoMicrophone = "कोई माइक्रोफ़ोन नहीं मिला।",
+    voiceInputNoNetwork = "आवाज़ से इनपुट के लिए नेटवर्क कनेक्शन चाहिए।",
+    voiceInputLanguageUnsupported =
+        "यह ब्राउज़र इस भाषा में आवाज़ से इनपुट का समर्थन नहीं करता।",
+    voiceInputFailedWithCode = "आवाज़ से इनपुट विफल रहा ({0})।",
 
     aiEnhancedTurnedOn = "AI एन्हांस्ड चालू किया गया — लहजे और स्थिति के लिए यह ज़रूरी है।",
     translateFirstToDetect = "भाषा पहचानी जा सके, इसके लिए पहले कुछ अनुवाद करें।",
@@ -209,6 +215,8 @@ internal val hindi = Strings(
     validationFailed = "सत्यापन विफल: {0}",
     validationUnavailable = "सांस्कृतिक जाँच पूरी नहीं हो सकी।",
     imageReadFailed = "छवि पढ़ी नहीं जा सकी",
+    imageInputUnavailable = "फ़ोटो देने वाला कोई ऐप उपलब्ध नहीं है।",
+    shareTranslationTitle = "अनुवाद साझा करें",
     rewriteFailed = "संदेश दोबारा नहीं लिखा जा सका",
     conversationTranslationFailed = "अनुवाद चरण में विफल",
 )

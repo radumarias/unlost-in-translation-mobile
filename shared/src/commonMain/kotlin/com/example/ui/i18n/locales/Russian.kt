@@ -198,6 +198,12 @@ internal val russian = Strings(
     voiceInputPrompt = "Говорите ({0})...",
     voiceInputUnsupported = "Голосовой ввод не поддерживается на этом устройстве.",
     voiceInputFailed = "Не удалось выполнить голосовой ввод.",
+    voiceInputMicBlocked = "Доступ к микрофону заблокирован. Разрешите его в настройках браузера.",
+    voiceInputNoMicrophone = "Микрофон не найден.",
+    voiceInputNoNetwork = "Для голосового ввода нужно сетевое подключение.",
+    voiceInputLanguageUnsupported =
+        "Голосовой ввод не поддерживает этот язык в этом браузере.",
+    voiceInputFailedWithCode = "Не удалось выполнить голосовой ввод ({0}).",
 
     aiEnhancedTurnedOn = "Режим ИИ включён — тон и ситуация требуют его.",
     translateFirstToDetect = "Сначала переведите что-нибудь, чтобы язык можно было определить.",
@@ -206,6 +212,8 @@ internal val russian = Strings(
     validationFailed = "Проверка не удалась: {0}",
     validationUnavailable = "Не удалось выполнить культурную проверку.",
     imageReadFailed = "Не удалось прочитать изображение",
+    imageInputUnavailable = "Нет приложения, которое может предоставить фотографию.",
+    shareTranslationTitle = "Поделиться переводом",
     rewriteFailed = "Не удалось переписать сообщение",
     conversationTranslationFailed = "Сбой на этапе перевода",
 )

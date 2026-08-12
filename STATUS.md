@@ -150,11 +150,18 @@ table in §2.
    helper. Behaviour-preserving; §10 tests pin both pipelines, so the tests are the safety net.
 2. **Web polish list**, each independent and small: TTS fallback for an unsupported language
    (Android falls back to `Locale.US`, browsers vary) · `release()` vs `stop()` semantics ·
-   `share()` falls back to the clipboard silently and should say so · `VoiceInputException`
-   carries English strings from the platform layer and should carry codes the catalogue can
-   translate · no localStorage size cap · `user-scalable=no` in `index.html` is an accessibility
-   problem · `WearSyncManager` could use `flagLabel`.
-The cosmetic items that used to be item 3 here are gone: PR #46 fixed them.
+   `share()` falls back to the clipboard silently and should say so · no localStorage size cap ·
+   `user-scalable=no` in `index.html` is an accessibility problem · `WearSyncManager` could use
+   `flagLabel`. (`VoiceInputException` carrying English strings was on this list and is **done**
+   — it now carries the browser's error code and `Strings.voiceInputError` picks the wording.)
+3. **The Wear notification is the last English-only user-visible text.** `WearSyncManager` builds
+   its title, its `Original:` / `Translation:` labels and the notification-channel name and
+   description as literals. Left alone deliberately for now: it is level-C code that needs a
+   paired watch, so a change there cannot be verified by anything but reading — and the same
+   pass should switch it to `flagLabel`. Everything reachable without a watch now comes from the
+   catalogue.
+
+The cosmetic items that used to be listed here are gone: PR #46 fixed them.
 
 ### 4.3 Tier C features — not started
 
@@ -233,7 +240,7 @@ Repeated from HANDOFF because breaking one of these is worse than shipping nothi
           --rerun-tasks --continue
 ```
 
-Expected on `main` after this branch: **286** JVM · **276** wasm · **18** `:app` · Roborazzi green ·
+Expected on `main` after this branch: **289** JVM · **279** wasm · **18** `:app` · Roborazzi green ·
 both builds green. The host count is the higher of the two because `androidHostTest` holds the
 transport tests, which need a real WebSocket server and so are JVM-only; the code they drive is
 `commonMain` and identical on wasm.
@@ -250,8 +257,9 @@ Counts come from `*/build/test-results/*/*.xml`. Where the numbers live:
 | `NetworkParsersTest` | 36 |
 | `TranslateViewModelRemoteTest` | 25 |
 | `SessionTicketTest` | 23 |
+| `StringsTest` | 21 |
 | `WebSocketConversationLinkTest` | 19 (JVM host only — needs a server) |
-| `SessionCryptoTest` · `StringsTest` | 18 each |
+| `SessionCryptoTest` | 18 |
 | `LinkMessageTest` | 16 |
 | `LinkBannerTest` | 9 |
 | `LocalStorageHistoryRepositoryTest` | 9 (wasm only) |

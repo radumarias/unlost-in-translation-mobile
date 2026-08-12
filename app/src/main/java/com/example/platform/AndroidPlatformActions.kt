@@ -21,12 +21,12 @@ class AndroidPlatformActions(context: Context) : PlatformActions {
         clipboard.setPrimaryClip(ClipData.newPlainText("translation", text))
     }
 
-    override fun share(text: String) {
+    override fun share(text: String, title: String) {
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
             putExtra(Intent.EXTRA_TEXT, text)
         }
-        val chooser = Intent.createChooser(intent, "Share translation").apply {
+        val chooser = Intent.createChooser(intent, title).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         appContext.startActivity(chooser)

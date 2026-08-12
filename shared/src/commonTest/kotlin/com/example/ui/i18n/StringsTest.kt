@@ -93,8 +93,43 @@ class StringsTest {
             strings.playingTranslationToHeadset,
             strings.playingTestSound,
             strings.linkConnectedWith,
+            strings.voiceInputFailedWithCode,
         ).forEach { assertTrue(it.contains("{0}"), "missing {0} in: $it") }
         assertTrue(strings.playingTestSound.contains("{1}"))
+    }
+
+    // --- Voice-input error codes ---
+
+    @Test
+    fun every_hard_recognition_code_maps_to_its_own_catalogue_field() {
+        val strings = Strings()
+        assertEquals(strings.voiceInputMicBlocked, strings.voiceInputError("not-allowed"))
+        assertEquals(strings.voiceInputMicBlocked, strings.voiceInputError("service-not-allowed"))
+        assertEquals(strings.voiceInputNoMicrophone, strings.voiceInputError("audio-capture"))
+        assertEquals(strings.voiceInputNoNetwork, strings.voiceInputError("network"))
+        assertEquals(
+            strings.voiceInputLanguageUnsupported,
+            strings.voiceInputError("language-not-supported"),
+        )
+    }
+
+    @Test
+    fun an_unrecognised_code_stays_visible_in_the_message() {
+        // Otherwise a browser-specific failure would be unreportable.
+        assertEquals("Voice input failed (bad-grammar).", Strings().voiceInputError("bad-grammar"))
+    }
+
+    @Test
+    fun the_failure_wording_follows_the_device_language() {
+        // The whole point of keying on the code: the platform layer no longer
+        // composes an English sentence that a translated device then shows.
+        val romanian = stringsFor("ro")
+        assertEquals(romanian.voiceInputNoMicrophone, romanian.voiceInputError("audio-capture"))
+        assertNotEquals(
+            Strings().voiceInputError("audio-capture"),
+            romanian.voiceInputError("audio-capture"),
+        )
+        assertTrue(romanian.voiceInputError("bad-grammar").contains("bad-grammar"))
     }
 
     // --- Preset labels ---

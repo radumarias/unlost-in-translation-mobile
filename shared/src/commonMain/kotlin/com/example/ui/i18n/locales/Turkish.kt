@@ -201,6 +201,12 @@ internal val turkish = Strings(
     voiceInputPrompt = "Şimdi konuşun ({0})...",
     voiceInputUnsupported = "Bu cihazda sesli giriş desteklenmiyor.",
     voiceInputFailed = "Sesli giriş başarısız oldu.",
+    voiceInputMicBlocked = "Mikrofon erişimi engellendi. Tarayıcı ayarlarından izin verin.",
+    voiceInputNoMicrophone = "Mikrofon bulunamadı.",
+    voiceInputNoNetwork = "Sesli giriş için ağ bağlantısı gerekir.",
+    voiceInputLanguageUnsupported =
+        "Sesli giriş bu tarayıcıda bu dili desteklemiyor.",
+    voiceInputFailedWithCode = "Sesli giriş başarısız oldu ({0}).",
 
     aiEnhancedTurnedOn = "Gelişmiş yapay zekâ açıldı — ton ve durum bunu gerektiriyor.",
     translateFirstToDetect = "Dilin algılanabilmesi için önce bir şey çevirin.",
@@ -209,6 +215,8 @@ internal val turkish = Strings(
     validationFailed = "Doğrulama başarısız: {0}",
     validationUnavailable = "Kültürel kontrol tamamlanamadı.",
     imageReadFailed = "Görsel okunamadı",
+    imageInputUnavailable = "Fotoğraf sağlayabilecek bir uygulama yok.",
+    shareTranslationTitle = "Çeviriyi paylaş",
     rewriteFailed = "Mesaj yeniden yazılamadı",
     conversationTranslationFailed = "Çeviri aşamasında başarısız oldu",
 )

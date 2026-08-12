@@ -198,6 +198,12 @@ internal val german = Strings(
     voiceInputPrompt = "Sprich jetzt ({0})...",
     voiceInputUnsupported = "Spracheingabe wird auf diesem Gerät nicht unterstützt.",
     voiceInputFailed = "Spracheingabe fehlgeschlagen.",
+    voiceInputMicBlocked = "Der Zugriff auf das Mikrofon ist blockiert. Erlaube ihn in den Browsereinstellungen.",
+    voiceInputNoMicrophone = "Es wurde kein Mikrofon gefunden.",
+    voiceInputNoNetwork = "Spracheingabe benötigt eine Netzwerkverbindung.",
+    voiceInputLanguageUnsupported =
+        "Spracheingabe unterstützt diese Sprache in diesem Browser nicht.",
+    voiceInputFailedWithCode = "Spracheingabe fehlgeschlagen ({0}).",
 
     aiEnhancedTurnedOn = "KI-Verbesserung aktiviert — Ton und Situation brauchen sie.",
     translateFirstToDetect = "Übersetze zuerst etwas, damit die Sprache erkannt werden kann.",
@@ -206,6 +212,8 @@ internal val german = Strings(
     validationFailed = "Validierung fehlgeschlagen: {0}",
     validationUnavailable = "Die kulturelle Prüfung konnte nicht abgeschlossen werden.",
     imageReadFailed = "Bild konnte nicht gelesen werden",
+    imageInputUnavailable = "Keine App verfügbar, die ein Foto liefern kann.",
+    shareTranslationTitle = "Übersetzung teilen",
     rewriteFailed = "Nachricht konnte nicht neu formuliert werden",
     conversationTranslationFailed = "In der Übersetzungsphase fehlgeschlagen",
 )

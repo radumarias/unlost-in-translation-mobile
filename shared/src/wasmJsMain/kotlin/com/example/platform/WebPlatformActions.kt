@@ -13,8 +13,8 @@ object WebPlatformActions : PlatformActions {
         copyViaBrowser(text)
     }
 
-    override fun share(text: String) {
-        shareViaBrowser(text)
+    override fun share(text: String, title: String) {
+        shareViaBrowser(text, title)
     }
 }
 
@@ -28,11 +28,11 @@ private fun copyViaBrowser(text: String) {
     )
 }
 
-private fun shareViaBrowser(text: String) {
+private fun shareViaBrowser(text: String, title: String) {
     js(
         """{
         if (navigator.share) {
-            navigator.share({ text: text }).catch(function(e) {});
+            navigator.share({ title: title, text: text }).catch(function(e) {});
         } else if (navigator.clipboard) {
             navigator.clipboard.writeText(text).catch(function(e) {});
         }

@@ -198,6 +198,12 @@ internal val thai = Strings(
     voiceInputPrompt = "พูดได้เลย ({0})...",
     voiceInputUnsupported = "อุปกรณ์นี้ไม่รองรับการป้อนด้วยเสียง",
     voiceInputFailed = "การป้อนด้วยเสียงล้มเหลว",
+    voiceInputMicBlocked = "การเข้าถึงไมโครโฟนถูกบล็อก อนุญาตได้ในการตั้งค่าเบราว์เซอร์",
+    voiceInputNoMicrophone = "ไม่พบไมโครโฟน",
+    voiceInputNoNetwork = "การป้อนด้วยเสียงต้องใช้การเชื่อมต่อเครือข่าย",
+    voiceInputLanguageUnsupported =
+        "เบราว์เซอร์นี้ไม่รองรับการป้อนด้วยเสียงสำหรับภาษานี้",
+    voiceInputFailedWithCode = "การป้อนด้วยเสียงล้มเหลว ({0})",
 
     aiEnhancedTurnedOn = "เปิด AI ขั้นสูงแล้ว — น้ำเสียงและสถานการณ์จำเป็นต้องใช้",
     translateFirstToDetect = "แปลอะไรสักอย่างก่อน เพื่อให้ตรวจจับภาษาได้",
@@ -206,6 +212,8 @@ internal val thai = Strings(
     validationFailed = "การตรวจสอบล้มเหลว: {0}",
     validationUnavailable = "ไม่สามารถตรวจสอบเชิงวัฒนธรรมให้เสร็จได้",
     imageReadFailed = "อ่านรูปภาพไม่ได้",
+    imageInputUnavailable = "ไม่มีแอปที่ให้รูปภาพได้",
+    shareTranslationTitle = "แชร์คำแปล",
     rewriteFailed = "เขียนข้อความใหม่ไม่สำเร็จ",
     conversationTranslationFailed = "ล้มเหลวในขั้นตอนการแปล",
 )

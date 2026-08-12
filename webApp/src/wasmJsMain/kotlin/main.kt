@@ -2,6 +2,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
+import com.example.platform.VoiceInputException
 import com.example.platform.createAppContainer
 import com.example.ui.App
 import com.example.ui.rememberTranslateViewModel
@@ -22,9 +23,12 @@ import kotlinx.coroutines.launch
  * aborts the in-flight one. The shared "Speak now" prompt is surfaced as a
  * snackbar (the web has no system recognizer dialog), results route through
  * the shared `onVoiceInputResult`, and hard failures ([VoiceInputException])
- * surface their message as a snackbar — mirroring MainActivity's catch around
- * the RecognizerIntent launch.
+ * carry the browser's error code, which the catalogue turns into a snackbar in
+ * the device language — mirroring MainActivity's catch around the
+ * RecognizerIntent launch.
  */
+private const val TAG = "WebEntryPoint"
+
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
     // Lives outside the composition: plain state for the entry-point lambda,
@@ -54,8 +58,18 @@ fun main() {
                         )
                     } catch (e: CancellationException) {
                         throw e
-                    } catch (e: Exception) {
-                        viewModel.showMessage(e.message ?: viewModel.strings.voiceInputFailed)
+                    } catch (e: VoiceInputException) {
+                        viewModel.showMessage(viewModel.strings.voiceInputError(e.code))
+                        null
+                    } catch (t: Throwable) {
+                        // Throwable, not Exception: a throw out of the js()
+                        // interop arrives as kotlin.Error, which catch(Exception)
+                        // misses — the same trap KtorTranslationApi.apiCall
+                        // documents. Uncaught, it would cancel the scope this
+                        // lambda shares with the image picker and leave both
+                        // buttons silently dead for the rest of the session.
+                        container.log.e(TAG, "Voice input failed", t)
+                        viewModel.showMessage(viewModel.strings.voiceInputFailed)
                         null
                     }
                     viewModel.onVoiceInputResult(spokenText, isConversationA)
@@ -66,7 +80,16 @@ fun main() {
                 // abandoned file dialog, which the browser never reports.
                 activeImageJob?.cancel()
                 activeImageJob = scope.launch {
-                    val picked = container.imagePicker.pick(source)
+                    val picked = try {
+                        container.imagePicker.pick(source)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (t: Throwable) {
+                        // Same shared scope, same reason as above.
+                        container.log.e(TAG, "Image input failed", t)
+                        viewModel.showMessage(viewModel.strings.imageReadFailed)
+                        null
+                    }
                     viewModel.onImageInputResult(picked?.base64, picked?.mimeType ?: "")
                 }
             },

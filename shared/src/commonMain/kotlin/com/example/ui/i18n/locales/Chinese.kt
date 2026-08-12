@@ -201,6 +201,12 @@ internal val chinese = Strings(
     voiceInputPrompt = "请讲话（{0}）...",
     voiceInputUnsupported = "此设备不支持语音输入。",
     voiceInputFailed = "语音输入失败。",
+    voiceInputMicBlocked = "麦克风访问被阻止。请在浏览器设置中允许。",
+    voiceInputNoMicrophone = "未找到麦克风。",
+    voiceInputNoNetwork = "语音输入需要网络连接。",
+    voiceInputLanguageUnsupported =
+        "此浏览器的语音输入不支持该语言。",
+    voiceInputFailedWithCode = "语音输入失败（{0}）。",
 
     aiEnhancedTurnedOn = "已开启 AI 增强 — 语气和场景需要它。",
     translateFirstToDetect = "请先翻译一句，才能检测出语言。",
@@ -209,6 +215,8 @@ internal val chinese = Strings(
     validationFailed = "校验失败: {0}",
     validationUnavailable = "无法完成文化校验。",
     imageReadFailed = "无法读取图像",
+    imageInputUnavailable = "没有可提供照片的应用。",
+    shareTranslationTitle = "分享翻译",
     rewriteFailed = "无法改写这条消息",
     conversationTranslationFailed = "在翻译阶段失败",
 )
