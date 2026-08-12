@@ -17,13 +17,13 @@ If this file disagrees with the code, **the code is right and this file is stale
 
 | | |
 |---|---|
-| `main` | `8672ab4` — `origin/main` identical, nothing unpushed |
+| `main` | see `git log` — `origin/main` identical, nothing unpushed |
 | Working tree | clean |
-| In flight | **#31** (test: raise the floor) and **#32** (i18n: platform strings), both open since 2026-08-03 and both now well behind `main`. Rebase before merging; #31's dead-flow deletion has already landed separately |
+| In flight | **nothing.** #31 and #32 were the last two open PRs; both were rebased onto post-Arc-6 `main` and merged 2026-08-12 |
 | CI | **none**. "Green" always means the local gate suite in §5 |
-| Open issues | **#1** (KMP restructure — code complete, owner keeps it open), **#15** (Ray-Ban spike — not started), **#33** / **#34** (two-device conversation — code complete and merged, left open for the owner's two-phone check in §8), **#35** (iOS target — not started) |
-| Last work | two phones, one conversation: PRs #36–#42; then #44 (the SAS banner bug the browser run found) and #46 (the long-standing findings list, closed), merged 2026-08-10 |
-| Gate on `main` | 286 JVM / 275 wasm / 3 `:app`, 0 failures; Roborazzi byte-identical |
+| Open issues | **#1** (KMP restructure — code complete, owner keeps it open), **#15** (Ray-Ban spike — owner declined it 2026-08-03), **#33** / **#34** (two-device conversation — code complete and merged, left open for the owner's two-phone check in §8), **#35** (iOS target — not started) |
+| Last work | two phones, one conversation (#36–#42), then #44 and #46; then the two stale branches: #31 (Room and image-loading tests, plus the OCR bug they found) and #32 (the platform layer's last English strings) |
+| Gate on `main` | **289 JVM / 279 wasm / 18 `:app`**, 0 failures; Roborazzi byte-identical |
 
 Every merged feature branch still exists on `origin`. They are merged; deleting them is housekeeping,
 not work.
