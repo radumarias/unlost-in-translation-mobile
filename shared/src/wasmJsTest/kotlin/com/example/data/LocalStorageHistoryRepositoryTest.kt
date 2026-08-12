@@ -65,6 +65,24 @@ class LocalStorageHistoryRepositoryTest {
     }
 
     @Test
+    fun rowsWrittenInTheSameMillisecondKeepAStableNewestFirstOrder() = runTest {
+        // Matches the Room DAO's `ORDER BY timestamp DESC, id DESC`. Without the
+        // id tiebreak the two platforms could order the same history differently.
+        val log = RecordingLog()
+        val writer = LocalStorageHistoryRepository(log)
+        val first = writer.insert(translation("first", timestamp = 5_000L))
+        val second = writer.insert(translation("second", timestamp = 5_000L))
+        val third = writer.insert(translation("third", timestamp = 5_000L))
+
+        assertEquals(listOf(third, second, first), writer.allTranslations().first().map { it.id })
+        // …and after a reload from storage, which sorts on a separate path.
+        assertEquals(
+            listOf("third", "second", "first"),
+            LocalStorageHistoryRepository(log).allTranslations().first().map { it.sourceText },
+        )
+    }
+
+    @Test
     fun roundTrip_mutationsPersistAcrossInstances() = runTest {
         val log = RecordingLog()
         val writer = LocalStorageHistoryRepository(log)

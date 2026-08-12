@@ -62,7 +62,7 @@ class LocalStorageHistoryRepository(
     private fun load(): List<Translation> {
         val raw = localStorage[STORAGE_KEY] ?: return emptyList()
         return try {
-            json.decodeFromString(listSerializer, raw).sortedByDescending { it.timestamp }
+            json.decodeFromString(listSerializer, raw).sortedNewestFirst()
         } catch (e: Exception) {
             log.e(TAG, "Corrupt history in localStorage; starting empty", e)
             // Drop the corrupt payload so it isn't re-parsed (and re-logged) by
@@ -112,8 +112,7 @@ class LocalStorageHistoryRepository(
         val timestamp = if (translation.timestamp == 0L) nowMillis() else translation.timestamp
         val row = translation.copy(id = id, timestamp = timestamp)
         // Newest first; replace any existing row with the same id.
-        val next = (listOf(row) + current.filterNot { it.id == id })
-            .sortedByDescending { it.timestamp }
+        val next = (listOf(row) + current.filterNot { it.id == id }).sortedNewestFirst()
         persist(next)
         return id
     }
@@ -131,6 +130,14 @@ class LocalStorageHistoryRepository(
         persist(emptyList())
     }
 }
+
+/**
+ * Newest first, ties broken by id so two rows written in the same millisecond
+ * keep a stable order. The Room DAO orders by the same two columns; without the
+ * tiebreak the two platforms could disagree about the same history.
+ */
+private fun List<Translation>.sortedNewestFirst(): List<Translation> =
+    sortedWith(compareByDescending<Translation> { it.timestamp }.thenByDescending { it.id })
 
 /** Wall-clock epoch milliseconds — same source the shared view model uses. */
 @OptIn(ExperimentalTime::class)

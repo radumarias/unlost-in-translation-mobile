@@ -5,10 +5,14 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TranslationDao {
-    @Query("SELECT * FROM translations ORDER BY timestamp DESC")
+    // `id DESC` is not decoration: two rows written in the same millisecond
+    // (a translation and its conversation counterpart, a fast retry) would
+    // otherwise come back in whatever order SQLite felt like, and the history
+    // list would reshuffle between reads. Matches the web repository's ordering.
+    @Query("SELECT * FROM translations ORDER BY timestamp DESC, id DESC")
     fun getAllTranslations(): Flow<List<TranslationEntity>>
 
-    @Query("SELECT * FROM translations WHERE isStarred = 1 ORDER BY timestamp DESC")
+    @Query("SELECT * FROM translations WHERE isStarred = 1 ORDER BY timestamp DESC, id DESC")
     fun getStarredTranslations(): Flow<List<TranslationEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -16,9 +20,6 @@ interface TranslationDao {
 
     @Query("UPDATE translations SET isStarred = :isStarred WHERE id = :id")
     suspend fun updateStarredState(id: Long, isStarred: Boolean)
-
-    @Delete
-    suspend fun deleteTranslation(translation: TranslationEntity)
 
     @Query("DELETE FROM translations WHERE id = :id")
     suspend fun deleteById(id: Long)

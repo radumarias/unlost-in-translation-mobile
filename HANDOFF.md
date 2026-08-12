@@ -153,6 +153,28 @@ The relay URL is build-time config (`.env` → `RELAY_BASE_URL` → `AppSecrets.
 default, and blank means remote mode reports itself unconfigured instead of pretending. **Deploying
 the relay is the owner's** (`cd relay && npm install && npx wrangler deploy`).
 
+### Arc 7 — raising the floor under the Android platform layer
+
+The top three items of `STATUS.md` §4.1, taken in one branch:
+
+| What | Result |
+|---|---|
+| 7 Robolectric tests over an in-memory Room DB | `RoomTranslationHistoryRepository` C → A. It was the largest untested component in the repo — the view-model tests all use a fake |
+| 6 tests over `AndroidImageLoading` | C → A, **and they found a real bug** |
+| an `id` tiebreak on both history stores | `ORDER BY timestamp DESC, id DESC` and the same in the web repository, so two rows written in one millisecond cannot order differently per platform |
+
+The branch also deleted `_partnerAText` / `_partnerBText`; that half landed ahead of it with #46,
+which is why the merge conflict on the rebase was empty on this side.
+
+The bug: `decodeDownscaled` null-checked the result of its `inJustDecodeBounds` measuring pass,
+which returns no bitmap by contract — so `toBase64Jpeg` returned null for every image and camera
+and gallery OCR answered every photo with *"That image could not be read."* It shipped that way
+because nothing had ever executed the function. This is the argument for level C in one example:
+the code reads correctly and does not work.
+
+Both test classes live in `:app/src/test/` rather than `:shared`, because Robolectric is already
+wired there and the AGP KMP-library `withHostTest {}` source set is not set up for JUnit4.
+
 ---
 
 ## 4. Setting up a fresh clone
@@ -226,9 +248,9 @@ Windows: `.\gradlew.bat` with the same arguments.
 
 | Task | What it proves | Expected |
 |---|---|---|
-| `:shared:testAndroidHostTest` | `commonTest` on the JVM — parsers, `KtorTranslationApi` with MockEngine, `TranslateViewModel` with fakes, the string catalogue — **plus** `androidHostTest`, which is where the conversation link is driven against a real WebSocket server | **270 tests, 0 failures** |
-| `:shared:wasmJsTest` | the same `commonTest` **plus** `wasmJsTest` in headless Chrome | **256 tests, 0 failures** |
-| `:app:testDebugUnitTest` | Robolectric + Roborazzi | **3 tests, 0 failures** |
+| `:shared:testAndroidHostTest` | `commonTest` on the JVM — parsers, `KtorTranslationApi` with MockEngine, `TranslateViewModel` with fakes, the string catalogue — **plus** `androidHostTest`, which is where the conversation link is driven against a real WebSocket server | **286 tests, 0 failures** |
+| `:shared:wasmJsTest` | the same `commonTest` **plus** `wasmJsTest` in headless Chrome | **276 tests, 0 failures** |
+| `:app:testDebugUnitTest` | Robolectric + Roborazzi — plus the Room repository and image-downscale suites | **18 tests, 0 failures** |
 | `:app:verifyRoborazziDebug` | Android UI is pixel-identical to the committed baselines | green |
 | `:app:assembleDebug` | the Android app still builds | green |
 | `:webApp:compileKotlinWasmJs` | the web target still compiles | green |
