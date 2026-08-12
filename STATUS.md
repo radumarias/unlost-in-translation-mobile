@@ -4,9 +4,9 @@ Companion to [`HANDOFF.md`](HANDOFF.md). HANDOFF tells you how to build, test an
 repo. **This file tells you how much to trust each part of it**, so you know where you can
 change things confidently and where you have to be careful.
 
-Written 2026-08-03 against `main` = `f6dd0f3`, updated the same day for the §4.1 floor-raise
-(Room and image-loading tests). Every claim below was checked against the code and the test
-results on that commit, not recalled.
+Written 2026-08-03 against `main` = `f6dd0f3`; refreshed 2026-08-12 against `main` = `4800842`
+plus the floor-raise branch, which is when the two-device rows and the corrected §3 were added.
+Every claim below was checked against the code and a green run of the §7 suite, not recalled.
 
 ---
 
@@ -40,7 +40,7 @@ attached, and the Gemini key is on a 20-requests-per-day free tier.
 | **Key never leaves in the URL** | **A** | `gemini_sends_the_key_in_a_header_and_never_in_the_url`, `geminiTimeout_message_does_not_contain_the_key`. This was finding F0 — the key used to be printed on screen by a timeout |
 | Retry / backoff / quota handling | **A** | Burst 429 retries, exhausted quota never retries, 5xx retries, both models exhaust their caps, client errors do not retry |
 | Model fallback `gemini-3.5-flash` → `gemini-3-flash-preview` | **A** | 5 tests including the network-failure path |
-| Hand-written serializers and parsers | **A** | 31 parser tests. A text-only request still carries no `inlineData` key |
+| Hand-written serializers and parsers | **A** | 36 parser tests. A text-only request still carries no `inlineData` key, and a validation reply wrapped in prose is carved out rather than rejected |
 | Translate pipeline (publish, persist, broadcast, round trip, validation) | **A** | `happyPath_translates_persists_broadcasts_roundTrips_validates` plus staleness guards on both children |
 | Auto-detect | **A** | 6 tests: uses the free endpoint, round-trips against the detected language, skips the round trip on an unsupported language, refuses to let Auto become the target |
 | Tone / situation | **A** | 5 tests: forces the Gemini path, reaches both calls, flips AI Enhanced, reselect is a no-op |
@@ -50,6 +50,18 @@ attached, and the Gemini key is on a 20-requests-per-day free tier.
 | Camera / gallery OCR *(the API and VM halves)* | **A** | 5 VM tests + the request-shape tests |
 | Hand-over for reply | **A** | 4 tests, including that it costs no call where swapping costs two |
 | String catalogue mechanics | **A** | 18 tests: locale resolution, `pt-BR` → `pt`, placeholders preserved, every supported language has a catalogue, no banned glyphs, no blanks |
+
+### Two-device conversation (issues #33 + #34, Arc 6)
+
+| Piece | Level | What pins it |
+|---|---|---|
+| Wire format, ticket, manual code | **A** | `LinkMessageTest` 16 · `SessionTicketTest` 23 · `ManualCodeTest` 8 — round trips, rejected frames, code alphabet |
+| `WebSocketConversationLink` | **A** | 19 tests against a **real** Ktor WebSocket server (JVM host only; the code under test is `commonMain`). Reconnect, queue-and-flush, replay refusal |
+| Crypto core + handshake | **A** | `SessionCryptoTest` 18 and `SessionKeyScheduleVectorTest` 3 — ECDH/HKDF/AES-GCM, tampered ciphertext, off-curve keys, fixed vectors for the key schedule |
+| View-model remote half | **A** | `TranslateViewModelRemoteTest` 25: hosting, joining, remote turns costing no API call, failure paths |
+| Banner text | **A** | `LinkBannerTest` 9 — including the SAS bug that only a browser run found |
+| The relay itself (`relay/`) | **B→A** | `smoke.mjs` 11 checks and `RealRelayE2ETest` 4 cases pass against `wrangler dev`, i.e. real workerd. Both are **outside the gate** (they need a running server), and the relay has never been deployed |
+| Pairing UI, GMS camera scanner | **C** | Needs two devices and a camera. §4.5 |
 
 ### User interface
 
@@ -80,7 +92,7 @@ Nothing at level C in this table has ever run.
 | Wear: `WearSyncManager`, `WearTranslationService` | **C** | Needs a paired watch |
 | `WebVoiceInput` | **C** | Headless Chrome reaches the recognition service but never transcribes, so the `onresult` transcript extraction is the single unexercised line |
 | `WebSpeechSynthesizer`, `WebPlatformActions`, `WebAudioOutputCatalog`, `WebImagePicker` | **C** | Browser APIs behind `js()` interop |
-| `LocalStorageHistoryRepository` | **A** | The one exception — 5 tests in `wasmJsTest`, including corrupt-data recovery |
+| `LocalStorageHistoryRepository` | **A** | The one exception — 9 tests in `wasmJsTest`, including corrupt-data recovery, monotonic ids and the same-millisecond tiebreak |
 
 ### Content — D
 
@@ -96,13 +108,15 @@ Nothing at level C in this table has ever run.
 
 None of these are regressions. Each was found, assessed, and left. **Do not "discover" them again.**
 
+The list used to be six rows longer. Five of them — the repeated dual-headset expression, the two
+per-recomposition allocations, the no-replay `messages` SharedFlow and the `max + 1` localStorage
+ids — were **fixed** in PR #46 (2026-08-10), each with a test; `HANDOFF.md` §7 has the was/now
+table. One of the entries was also wrong while it stood: `conversationHistory.reversed()` does not
+cancel `reverseLayout` out, it is what puts the newest turn at the bottom. The allocation was
+what needed fixing, not the reversal.
+
 | Thing | Where | Why it is still there |
 |---|---|---|
-| The dual-headset device-choosing expression is repeated | 10 sites across `ui/` | Cosmetic duplication |
-| `starred.map { }` rebuilds per recomposition | `TranslateScreen.kt:309` | Small list, measurable cost is nil |
-| `conversationHistory.reversed()` alongside `reverseLayout = true` | `ConversationScreen.kt:131` | Two reversals cancel out; it works, it is just redundant |
-| `messages` is a `tryEmit` SharedFlow with no replay | `TranslateViewModel:69` | A message emitted with no collector is dropped. In practice the collector is up before anything can emit |
-| localStorage ids are `max + 1` | `LocalStorageHistoryRepository` | Reuses ids after a delete. Single-user, cosmetic. Owner's decision to leave |
 | Design §4 pipeline consolidation is partial | `prepareConversationPart` | `publishTranslation` was extracted and the image path reuses it; the conversation path keeps its own orchestration because it drives the draft flow. Recorded in `02-design.md` §4 |
 | R8 / `isMinifyEnabled = false` on release | `app/build.gradle.kts` | Security finding F1. **Owner decided to leave it indefinitely — do not re-propose.** Also physically blocked: release signing needs env vars and a keystore that are not here, and `proguard-rules.pro` has no keep rules, so enabling R8 would strip reflective code and crash release invisibly to unit tests |
 
@@ -126,8 +140,9 @@ unit of risk, which is not the order they were listed in historically.
 ### 4.1 Raise the floor — done
 
 The three items that stood here (test `RoomTranslationHistoryRepository`, test
-`AndroidImageLoading`, delete `_partnerAText`/`_partnerBText`) were completed on 2026-08-03.
-The image tests turned up a genuine bug — see the platform table in §2.
+`AndroidImageLoading`, delete `_partnerAText`/`_partnerBText`) are all done — the first two in
+this branch, the deletion in PR #46. The image tests turned up a genuine bug — see the platform
+table in §2.
 
 ### 4.2 Cleanups that were already logged
 
@@ -139,7 +154,7 @@ The image tests turned up a genuine bug — see the platform table in §2.
    carries English strings from the platform layer and should carry codes the catalogue can
    translate · no localStorage size cap · `user-scalable=no` in `index.html` is an accessibility
    problem · `WearSyncManager` could use `flagLabel`.
-3. The cosmetic items in §3 (duplication, redundant reversal, recomposition allocation).
+The cosmetic items that used to be item 3 here are gone: PR #46 fixed them.
 
 ### 4.3 Tier C features — not started
 
@@ -171,6 +186,10 @@ These are the real remaining verification. In rough order of what is most likely
 7. **Browser, TTS by ear.**
 8. **Open the flashcard and the help drawer once** — neither overlay has a rendering test.
 9. **Read the Romanian locale on device.** It is machine-authored prose.
+10. **Two phones, one conversation** — deploy the relay first, then pair by QR with a real camera,
+    read the five SAS digits out loud, and drop the network mid-conversation. `HANDOFF.md` §8 has
+    the full list. Everything below the camera and the relay deploy is already proven against a
+    real Worker; these four are what is left.
 
 ---
 
@@ -214,9 +233,10 @@ Repeated from HANDOFF because breaking one of these is worse than shipping nothi
           --rerun-tasks --continue
 ```
 
-Expected after the §4.1 floor-raise: **152** JVM · **158** wasm · **18** `:app` · Roborazzi green ·
-both builds green. The JVM count is unchanged by that work, which is itself the proof that the
-deleted `_partnerAText`/`_partnerBText` flows really were dead.
+Expected on `main` after this branch: **286** JVM · **276** wasm · **18** `:app` · Roborazzi green ·
+both builds green. The host count is the higher of the two because `androidHostTest` holds the
+transport tests, which need a real WebSocket server and so are JVM-only; the code they drive is
+`commonMain` and identical on wasm.
 
 `--rerun-tasks` is not optional when you are reporting numbers: Gradle caches hard enough that a
 docs-only change reports everything `UP-TO-DATE` and proves nothing.
@@ -225,12 +245,18 @@ Counts come from `*/build/test-results/*/*.xml`. Where the numbers live:
 
 | Suite | Tests |
 |---|---|
+| `TranslateViewModelTest` | 59 |
 | `KtorTranslationApiTest` | 45 |
-| `NetworkParsersTest` | 31 |
-| `TranslateViewModelTest` | 55 |
-| `StringsTest` | 18 |
-| `LanguageTest` | 3 |
-| `LocalStorageHistoryRepositoryTest` | 6 (wasm only) |
-| `RoomTranslationHistoryRepositoryTest` | 8 (`:app`) |
+| `NetworkParsersTest` | 36 |
+| `TranslateViewModelRemoteTest` | 25 |
+| `SessionTicketTest` | 23 |
+| `WebSocketConversationLinkTest` | 19 (JVM host only — needs a server) |
+| `SessionCryptoTest` · `StringsTest` | 18 each |
+| `LinkMessageTest` | 16 |
+| `LinkBannerTest` | 9 |
+| `LocalStorageHistoryRepositoryTest` | 9 (wasm only) |
+| `ManualCodeTest` · `RoomTranslationHistoryRepositoryTest` | 8 each (the second in `:app`) |
 | `AndroidImageLoadingTest` | 7 (`:app`) |
+| `DualHeadsetModelTest` | 4 |
+| `LanguageTest` · `SessionKeyScheduleVectorTest` | 3 each |
 | `:app` | 18, of which 1 is the screenshot |
