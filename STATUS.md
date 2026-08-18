@@ -62,6 +62,9 @@ attached, and the Gemini key is on a 20-requests-per-day free tier.
 | Banner text | **A** | `LinkBannerTest` 9 — including the SAS bug that only a browser run found |
 | The relay itself (`relay/`) | **B→A** | `smoke.mjs` 11 checks and `RealRelayE2ETest` 4 cases pass against `wrangler dev`, i.e. real workerd. Both are **outside the gate** (they need a running server), and the relay has never been deployed |
 | Pairing UI, GMS camera scanner | **C** | Needs two devices and a camera. §4.5 |
+| Web hosting and joining (Arc 8) | **B** | Same `commonMain` transport and crypto as Android, plus a run in two browser tabs against `wrangler dev`: hosted, copied the link, opened the second tab **at that link only**, and a turn crossed. Not A because nothing automated drives the browser |
+| Deep link: QR as an https URL | **B** | `SessionTicketTest` pins which payload the QR carries and that both forms parse back the same; `TranslateViewModelRemoteTest` pins `joinFromLink` (6 tests). The browser half is proven end to end — the fragment is consumed and stripped |
+| Android App Link (the QR opening the *app*) | **D** | Written, never executed. It cannot be: verification needs a deployed host serving `assetlinks.json`. §4.5 |
 
 ### User interface
 
@@ -197,6 +200,12 @@ These are the real remaining verification. In rough order of what is most likely
     read the five SAS digits out loud, and drop the network mid-conversation. `HANDOFF.md` §8 has
     the full list. Everything below the camera and the relay deploy is already proven against a
     real Worker; these four are what is left.
+11. **The deep link on a real phone** (Arc 8) — needs the web build deployed with
+    `/.well-known/assetlinks.json` (`webApp/deploy/README.md`). Scan phone A's QR with the **stock
+    camera app** on phone B, not the app's own scanner: with the app installed it must open the app,
+    and after uninstalling it the same QR must open the web build and join from there. The browser
+    half is already proven in two tabs; this is the half that needs Android's link verifier and a
+    camera pointed at a screen.
 
 ---
 
@@ -240,7 +249,7 @@ Repeated from HANDOFF because breaking one of these is worse than shipping nothi
           --rerun-tasks --continue
 ```
 
-Expected on `main` after this branch: **289** JVM · **279** wasm · **18** `:app` · Roborazzi green ·
+Expected on `main` after this branch: **297** JVM · **287** wasm · **18** `:app` · Roborazzi green ·
 both builds green. The host count is the higher of the two because `androidHostTest` holds the
 transport tests, which need a real WebSocket server and so are JVM-only; the code they drive is
 `commonMain` and identical on wasm.

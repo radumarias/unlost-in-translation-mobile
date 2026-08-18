@@ -1,0 +1,7 @@
+# Cloudflare Pages rewrite rules, copied into the bundle by the resources task.
+#
+# The pairing deep link is `<origin>/j#…` — a path with no file behind it. 200
+# (rewrite, not redirect) serves index.html while the browser keeps the URL, which
+# matters here more than usual: the whole pairing payload lives in the fragment, and
+# a 301/302 is the one thing that would drop it.
+/j  /index.html  200
