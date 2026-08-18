@@ -192,6 +192,8 @@ data class Strings(
     val pairingWaiting: String = "Waiting for the other phone…",
     val pairingNotACode: String = "That is not a pairing code.",
     val pairingLeave: String = "Leave",
+    val pairingCopyLink: String = "Copy link",
+    val pairingLinkCopied: String = "Pairing link copied!",
     // Connection banner, driven by the link's state.
     val linkConnecting: String = "Connecting…",
     /** Shown while the two phones exchange keys and confirm them (issue #34). */

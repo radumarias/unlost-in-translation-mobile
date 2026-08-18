@@ -224,6 +224,30 @@ interface AppContainer {
 > Activity-scoped, so that a paired session survives the view model being
 > recreated on rotation.
 
+> **Deviation (Arc 8, recorded 2026-08-18):** `AppContainer` gained
+> `pairingLinkBaseUrl: String` and `PlatformCapabilities` gained
+> `qrScan: Boolean` (defaulted false). Two corrections to the note above.
+>
+> First, `remoteConversation` is no longer "Android only": the transport, the
+> session crypto and the QR painter are all `commonMain`, and Ktor's Js engine
+> speaks WebSocket, so the web build hosts and joins on the same terms —
+> whenever the build has a `RELAY_BASE_URL`. The earlier restriction assumed a
+> web guest-join required `:webApp` to be deployed publicly; it does not, and
+> the deploy gate stays where it was.
+>
+> Second, "can hold a remote conversation" and "can read a QR" turned out to be
+> different questions. The browser is joined but cannot scan — there is no
+> Shape Detection API on desktop Chromium and none at all on Firefox or Safari
+> — so `canScan` in the pairing dialog now reads `qrScan` instead of
+> `remoteConversation`, which stops the web build drawing a scan button that
+> cannot work. A phone on the web build scans with its stock camera app, which
+> is what `pairingLinkBaseUrl` exists for: non-blank, the QR carries
+> `SessionTicket.encodeToUrl` instead of `encodeCompact`, so the payload is an
+> https link that an Android App Link claims when the app is installed and that
+> opens the web build when it is not. The web container answers with
+> `window.location.origin`; Android reads `WEB_BASE_URL`, because nothing in an
+> APK knows where the web build lives.
+
 ## 4. ViewModel Refactor
 
 `TranslateViewModel` becomes a plain multiplatform `ViewModel` with constructor injection:

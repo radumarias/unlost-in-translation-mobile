@@ -16,12 +16,14 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.launch
 import com.example.model.Language
 import com.example.platform.AndroidAppContainer
@@ -173,6 +175,34 @@ private fun AndroidApp() {
         // under a themed context and under Robolectric, and a bare `as?` there
         // turns the scan button into a control that does nothing at all.
         context.findActivity()?.let { AndroidQrScanner(it, container.log) }
+    }
+
+    // Pairing deep link (issue #33): the app was opened by scanning someone's QR with
+    // a camera app, or a link was tapped. The activity is singleTop, so a code scanned
+    // while it is already running arrives through onNewIntent rather than a second
+    // instance — hence the listener as well as the initial intent.
+    //
+    // The Uri is consumed once and cleared from the Intent: an Activity keeps its
+    // Intent across a configuration change, and re-reading it on every rotation would
+    // rejoin a session the user may have already left.
+    // ComponentActivity, not Activity: onNewIntent listeners are androidx.activity's,
+    // and under Robolectric the host is a ComponentActivity too.
+    val activity = remember(context) { context.findActivity() as? ComponentActivity }
+    LaunchedEffect(activity) {
+        val current = activity ?: return@LaunchedEffect
+        fun consume(intent: Intent?) {
+            val data = intent?.takeIf { it.action == Intent.ACTION_VIEW }?.data ?: return
+            intent.data = null
+            viewModel.joinFromLink(data.toString())
+        }
+        consume(current.intent)
+        val listener = androidx.core.util.Consumer<Intent> { consume(it) }
+        current.addOnNewIntentListener(listener)
+        try {
+            awaitCancellation()
+        } finally {
+            current.removeOnNewIntentListener(listener)
+        }
     }
 
     fun launchQrScan() {

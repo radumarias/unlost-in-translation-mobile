@@ -18,11 +18,45 @@
             android:name=".MainActivity"
             android:exported="true"
             android:label="@string/app_name"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.MyApplication">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--
+                Pairing deep link (issue #33). The QR carries
+                https://<WEB_BASE_URL host>/j#s=… so that a stock camera app opens
+                this activity when the app is installed and the web build when it is
+                not — the fragment, which holds the whole payload, is delivered to
+                the app and is never sent to any server.
+
+                autoVerify means Android checks
+                https://<host>/.well-known/assetlinks.json for this app's signing
+                certificate at install time. Without that file the link is NOT
+                claimed: since Android 12 an unverified web filter does not open the
+                app unless the user turns it on by hand, so serving assetlinks.json
+                is part of deploying the web build, not an optional extra.
+
+                The host is a manifest placeholder from .env (example.invalid when
+                unset), so a build with no web deployment claims nothing.
+
+                launchMode=singleTop: scanning a second code while the app is open
+                delivers onNewIntent to the running activity instead of stacking a
+                second copy of the conversation on top of the first.
+            -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data
+                    android:scheme="https"
+                    android:host="${pairingLinkHost}"
+                    android:path="/j" />
             </intent-filter>
         </activity>
 

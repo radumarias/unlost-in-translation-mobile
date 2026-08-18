@@ -75,6 +75,29 @@ class SessionTicketTest {
     // --- the compact form ---
 
     @Test
+    fun theQrCarriesALinkWhenThereIsAWebBuildToPointAtAndTheCompactFormOtherwise() {
+        val ticket = SessionTicket(sessionId = sid, hostLang = "ro", qrSecret = qr)
+
+        assertEquals(ticket.encodeToUrl("https://uitr.example"), ticket.encodeForQr("https://uitr.example"))
+        assertEquals(ticket.encodeCompact(), ticket.encodeForQr(""))
+        // Blank, not just empty: an unset WEB_BASE_URL read through a .env can arrive
+        // as whitespace, and a QR pointing at "https:///j#…" scans as a broken link.
+        assertEquals(ticket.encodeCompact(), ticket.encodeForQr("   "))
+    }
+
+    @Test
+    fun bothQrPayloadsParseBackToTheSameTicket() {
+        // The two forms are what a scanner and a stock camera app respectively hand
+        // over; a guest joined either way must land in the same session.
+        val ticket = SessionTicket(sessionId = sid, hostLang = "ro", qrSecret = qr)
+
+        assertEquals(
+            SessionTicket.parse(ticket.encodeForQr("https://uitr.example")),
+            SessionTicket.parse(ticket.encodeForQr("")),
+        )
+    }
+
+    @Test
     fun theCompactFormRoundTrips() {
         val ticket = SessionTicket(sessionId = sid, hostLang = "en", qrSecret = qr, hostPublicKey = pub)
         assertEquals(ticket, SessionTicket.parse(ticket.encodeCompact()))

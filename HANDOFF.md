@@ -19,11 +19,11 @@ If this file disagrees with the code, **the code is right and this file is stale
 |---|---|
 | `main` | see `git log` — `origin/main` identical, nothing unpushed |
 | Working tree | clean |
-| In flight | **nothing.** #31 and #32 were the last two open PRs; both were rebased onto post-Arc-6 `main` and merged 2026-08-12 |
+| In flight | **PR for Arc 8** — pairing from the browser and the QR as a deep link. Branch `feat/web-pairing-deeplinks` |
 | CI | **none**. "Green" always means the local gate suite in §5 |
 | Open issues | **#1** (KMP restructure — code complete, owner keeps it open), **#15** (Ray-Ban spike — owner declined it 2026-08-03), **#33** / **#34** (two-device conversation — code complete and merged, left open for the owner's two-phone check in §8), **#35** (iOS target — not started) |
-| Last work | two phones, one conversation (#36–#42), then #44 and #46; then the two stale branches: #31 (Room and image-loading tests, plus the OCR bug they found) and #32 (the platform layer's last English strings) |
-| Gate on `main` | **289 JVM / 279 wasm / 18 `:app`**, 0 failures; Roborazzi byte-identical |
+| Last work | Arc 8: the web build hosts and joins a two-device conversation, and the pairing QR is an https deep link. Before it, the two stale branches #31 and #32 |
+| Gate on the Arc 8 branch | **297 JVM / 287 wasm / 18 `:app`**, 0 failures (`--rerun-tasks`); Roborazzi byte-identical. `main` before it: 289 / 279 / 18 |
 
 Every merged feature branch still exists on `origin`. They are merged; deleting them is housekeeping,
 not work.
@@ -201,6 +201,55 @@ Three things review turned up in the same area, all fixed here:
   screen switched. `rememberTranslateViewModel` now reassigns it.
 - `PlatformActions.share` takes the sheet title, instead of `AndroidPlatformActions` resolving its
   own catalogue from `java.util.Locale` — one resolution path, from Compose, for the whole app.
+
+
+---
+
+### Arc 8 — pairing from the browser, and the QR as a deep link
+
+Two changes that only make sense together.
+
+**The web build now hosts and joins a two-device conversation.** Nothing about the transport was
+ever Android-only: the link, the crypto and the QR painter are all `commonMain`, Ktor's Js engine
+speaks WebSocket, and the WebCrypto provider was already installed. What kept the browser out was
+one line in `WebAppContainer` choosing `OfflineConversationLink`, written when a web guest-join was
+assumed to need `:webApp` deployed publicly. It does not — a browser pointed at a relay is a peer
+like any other, and `RELAY_BASE_URL` already switches the whole feature off when there is nothing to
+connect to.
+
+**The pairing QR can carry the ticket's URL form** (`https://<host>/j#s=…`), which is what
+`SessionTicket.encodeToUrl` was written for and never used. A URL is the only payload a *stock
+camera app* can act on, and that is the case that matters: whoever is holding the second phone did
+not install anything. Scanning opens the installed app through an Android App Link, and the web
+build when there is no app. The whole payload stays in the fragment, so it reaches the app and never
+a server — the property the design already rested on.
+
+- `WEB_BASE_URL` joins `RELAY_BASE_URL` in `.env`. Blank keeps the QR compact and points the App
+  Link filter at `example.invalid`, so a build with no web deployment claims nothing.
+- The web container answers `pairingLinkBaseUrl` with `window.location.origin` — localhost
+  included, which is what makes the whole flow testable without deploying anything.
+- `capabilities.qrScan` is now separate from `remoteConversation`. The browser hosts and joins but
+  cannot *scan*: there is no Shape Detection API on desktop Chromium and none at all on Firefox or
+  Safari. A phone on the web build scans with its own camera app instead — which is what the deep
+  link is for. **Deliberately not built: a QR reader for the browser.**
+- `TranslateViewModel.joinFromLink` is the one door both platforms come through. It switches
+  conversation mode on, because a link opens the app cold on the translate screen and joining
+  without it would put the session behind a screen that does not show it.
+- "Copy link" on the hosting side, for the case a camera cannot solve: two browser tabs, a laptop
+  beside a desktop, a phone across a phone line.
+- `/j` has no file behind it. The dev server rewrites it via `webApp/webpack.config.d/`, a deployed
+  build via the `_redirects` committed next to `index.html`. **Found by running it** — the first
+  two-tab attempt 404'd. `webApp/deploy/README.md` has the whole host-side list, including the
+  `assetlinks.json` without which Android hands the link to the browser, not the app.
+
+**Proven in two browser tabs** against `wrangler dev`: tab A hosted, "Copy link" put
+`http://localhost:8082/j#s=…` on the clipboard, tab B was opened *at that link and nothing else*,
+and came up with conversation mode already on and the banner reading *Connected — the other phone
+speaks English — Encrypted, verified by the QR code*. No digits to compare (QR path), the fragment
+was gone from B's address bar afterwards, and a turn typed on A arrived on B translated.
+
+**Not proven, and only the owner can:** a real camera app scanning a real screen, and the App Link
+actually being claimed by an installed APK — that needs a deployed host serving `assetlinks.json`.
 
 ---
 
@@ -441,6 +490,11 @@ None of these can be exercised by the test suite. They are the real remaining ve
    rendered until both people press "It matches".
 3e. **Kill the network on one phone mid-conversation**, speak on the other, then restore it: the turn
    must arrive, once, and the banner must not fall back to "waiting for the other phone".
+3f. **The deep link, on a real phone** (Arc 8, needs the web build deployed — `webApp/deploy/README.md`).
+   Set `WEB_BASE_URL`, rebuild, serve `assetlinks.json`, then scan phone A's QR with **the stock
+   camera app** on phone B, not with the app's own scanner. With the app installed it must open the
+   app; uninstall it and the same QR must open the web build and join from there. This is the one
+   claim of Arc 8 that a browser cannot test.
 
 **The two-tab substitute — no phones required, and it has already earned its keep.** 3c–3e need two
 Android devices, but most of the flow can be driven in two browser tabs on this machine, because the

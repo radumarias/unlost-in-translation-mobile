@@ -904,6 +904,35 @@ class TranslateViewModel(
         return true
     }
 
+    /**
+     * Joins from a pairing *link* — an App Link on Android, the page fragment in the
+     * browser — rather than from the pairing dialog.
+     *
+     * The difference is what the app was doing beforehand: the dialog is only
+     * reachable from inside conversation mode, whereas a link opens the app cold, on
+     * the translate screen. Joining without switching would put the session behind a
+     * screen that does not show it, and the first turn from the other phone would
+     * land somewhere the user is not looking.
+     *
+     * Unlike [joinRemoteSession] this reports its own failures, because both callers
+     * are entry points with no screen of their own to put an error on: it says so when
+     * the payload is not a pairing link, and stays quiet when conversation mode
+     * declines — [setConversationMode] refuses while the source language is an
+     * unresolved Auto-detect and has already explained itself, and two snackbars for
+     * one tap read as two separate problems.
+     */
+    fun joinFromLink(payload: String): Boolean {
+        if (SessionTicket.parse(payload) == null) {
+            showMessage(strings.pairingNotACode)
+            return false
+        }
+        if (!_isConversationMode.value) {
+            setConversationMode(true)
+            if (!_isConversationMode.value) return false
+        }
+        return joinRemoteSession(payload)
+    }
+
     /** Ends the session, telling the other phone rather than just going quiet. */
     fun endRemoteSession() {
         if (!_isRemoteSession.value) return

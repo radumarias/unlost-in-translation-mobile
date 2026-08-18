@@ -102,8 +102,8 @@ fun App(
     /**
      * Issue #33: opens the platform QR scanner for pairing. Same shape and the
      * same reason as [launchVoiceInput] — the GMS Code Scanner needs an Activity,
-     * so the caller owns it. Defaulted to a no-op for the web build, which has
-     * `remoteConversation = false` and never shows the affordance anyway.
+     * so the caller owns it. Defaulted to a no-op for the web build, which hosts and
+     * joins but reports `qrScan = false`, so the scan button is never drawn there.
      */
     launchQrScan: () -> Unit = {},
 ) {
@@ -200,6 +200,12 @@ private fun AppContent(
                             onShowFullScreen = { fullScreenText = it },
                             showRemoteConversation = container.capabilities.remoteConversation,
                             launchQrScan = launchQrScan,
+                            canScanQr = container.capabilities.qrScan,
+                            pairingLinkBaseUrl = container.pairingLinkBaseUrl,
+                            onCopyPairingLink = { link ->
+                                container.platformActions.copyToClipboard(link)
+                                viewModel.showMessage(strings.pairingLinkCopied)
+                            },
                         )
                     } else {
                         // --- High Density Google Translate Screen ---

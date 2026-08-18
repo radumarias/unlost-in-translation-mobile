@@ -1,8 +1,10 @@
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
 import com.example.platform.VoiceInputException
+import com.example.platform.consumePairingLinkFromUrl
 import com.example.platform.createAppContainer
 import com.example.ui.App
 import com.example.ui.rememberTranslateViewModel
@@ -42,6 +44,15 @@ fun main() {
         val container = remember { createAppContainer() }
         val viewModel = rememberTranslateViewModel(container)
         val scope = rememberCoroutineScope()
+
+        // Deep link (issue #33): the page was opened by scanning someone's pairing QR
+        // with a stock camera app. Once, on the first composition — the fragment is
+        // consumed as it is read, so a recomposition finds nothing left to join.
+        LaunchedEffect(Unit) {
+            // joinFromLink reports its own failures — see its doc.
+            consumePairingLinkFromUrl()?.let(viewModel::joinFromLink)
+        }
+
         App(
             container = container,
             launchVoiceInput = { isConversationA, language ->
