@@ -19,10 +19,13 @@ plugins {
 // Each entry is name -> fallback used when .env does not define it. Issue #33 added
 // RELAY_BASE_URL: the relay hostname is deployment configuration, never a literal in
 // the code, so moving from a workers.dev subdomain to a production domain is a config
-// change rather than a release.
+// change rather than a release. WEB_BASE_URL is the same idea for the deployed web
+// build: it is what turns the pairing QR into an https link that an Android App Link
+// can claim, and blank simply keeps the QR in its compact `uitr:` form.
 val secretKeys = mapOf(
   "GEMINI_API_KEY" to "MY_GEMINI_API_KEY",
   "RELAY_BASE_URL" to "",
+  "WEB_BASE_URL" to "",
 )
 
 val secretsOutputDir = layout.buildDirectory.dir("generated/secrets/commonMain/kotlin")

@@ -50,9 +50,12 @@ import io.github.alexzhirkevich.qrose.rememberQrCodePainter
  * hosting side. A guest has no ticket of its own, so [isRemote] is what tells the
  * two "no ticket" cases apart: not paired yet, versus paired as the guest.
  *
- * The QR is drawn from the ticket's compact form rather than its URL form: the URL
- * exists for the deferred web-guest path and is roughly twice as long, which pushes
- * the symbol into a denser version for nothing when both ends are this app.
+ * The QR carries the ticket's URL form when [linkBaseUrl] names a web build, and its
+ * compact form otherwise. The URL is roughly twice as long and pushes the symbol into
+ * a denser version, which is a real cost — paid because a link is the only payload a
+ * *stock camera app* can act on: it opens the installed app through an App Link, and
+ * the web build on a phone that has none. With no web build to point at, the compact
+ * form is smaller and this app's own scanner reads either.
  */
 @Composable
 fun PairingDialog(
@@ -60,6 +63,9 @@ fun PairingDialog(
     linkState: LinkState,
     canScan: Boolean,
     isRemote: Boolean,
+    /** Origin of the web build, or blank to keep the QR compact. See [SessionTicket.encodeToUrl]. */
+    linkBaseUrl: String,
+    onCopyLink: (String) -> Unit,
     onStartHosting: () -> Unit,
     onStartHostingWithCode: () -> Unit,
     onJoin: (String) -> Boolean,
@@ -85,7 +91,7 @@ fun PairingDialog(
                 Spacer(Modifier.height(16.dp))
 
                 if (ticket != null) {
-                    HostingSide(ticket, linkState)
+                    HostingSide(ticket, linkState, linkBaseUrl, onCopyLink)
                 } else if (isRemote) {
                     // A guest publishes no ticket, so there is nothing to show it —
                     // but it is in a session, and offering it the join form again
@@ -173,10 +179,16 @@ fun SasCheckDialog(
 }
 
 @Composable
-private fun HostingSide(ticket: SessionTicket, linkState: LinkState) {
+private fun HostingSide(
+    ticket: SessionTicket,
+    linkState: LinkState,
+    linkBaseUrl: String,
+    onCopyLink: (String) -> Unit,
+) {
     val strings = LocalStrings.current
     val code = ticket.manualCode
     if (code == null) {
+        val payload = ticket.encodeForQr(linkBaseUrl)
         Text(strings.pairingShowThisCode, fontSize = 14.sp)
         Spacer(Modifier.height(12.dp))
         // A white quiet zone around the symbol: on a dark theme the surface behind
@@ -187,10 +199,17 @@ private fun HostingSide(ticket: SessionTicket, linkState: LinkState) {
                 .padding(12.dp)
         ) {
             Image(
-                painter = rememberQrCodePainter(ticket.encodeCompact()),
+                painter = rememberQrCodePainter(payload),
                 contentDescription = strings.pairingScanQr,
                 modifier = Modifier.size(200.dp),
             )
+        }
+        if (linkBaseUrl.isNotBlank()) {
+            // The same payload as text, for the case a camera cannot solve: two
+            // browser tabs, a phone across a phone line, a laptop beside a desktop.
+            // It is the whole secret, so it goes to the clipboard on purpose and
+            // never onto the screen.
+            TextButton(onClick = { onCopyLink(payload) }) { Text(strings.pairingCopyLink) }
         }
     } else {
         Text(strings.pairingCodeIs, fontSize = 14.sp)

@@ -19,4 +19,15 @@ object AppSecrets {
      * conversation mode is unconfigured and stays off.
      */
     val relayBaseUrl: String get() = Secrets.RELAY_BASE_URL
+
+    /**
+     * Origin of the deployed web build, e.g. `https://translate.example.com`, or blank
+     * when `.env` does not set `WEB_BASE_URL`. Also not a secret. It exists so the
+     * pairing QR can carry an `https://<host>/j#…` link instead of the compact
+     * `uitr:` form: a link is what a stock camera app can act on, opening the
+     * installed Android app through an App Link and the web build when there is none.
+     * Blank keeps the QR compact, which is smaller and works only for this app's own
+     * scanner — the behaviour before deep links existed.
+     */
+    val webBaseUrl: String get() = Secrets.WEB_BASE_URL
 }

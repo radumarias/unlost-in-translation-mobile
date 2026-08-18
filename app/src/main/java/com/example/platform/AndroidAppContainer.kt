@@ -82,6 +82,14 @@ class AndroidAppContainer(
     // the live path is a launcher in MainActivity.
     override val qrScanner: QrScanner = UnavailableQrScanner
 
+    /**
+     * Blank unless the build has `WEB_BASE_URL`. Blank keeps the pairing QR compact;
+     * set, the QR becomes an `https://<host>/j#…` link that this app claims through
+     * the App Link in the manifest and that falls back to the web build on a phone
+     * without the app installed.
+     */
+    override val pairingLinkBaseUrl: String = AppSecrets.webBaseUrl
+
     override val platformActions: PlatformActions = AndroidPlatformActions(appContext)
 
     override val capabilities: PlatformCapabilities = PlatformCapabilities(
@@ -91,5 +99,6 @@ class AndroidAppContainer(
         imageInput = true,
         extendedGlyphs = true,
         remoteConversation = relayBaseUrl.isNotBlank(),
+        qrScan = true,
     )
 }

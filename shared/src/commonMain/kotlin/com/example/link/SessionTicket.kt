@@ -50,6 +50,19 @@ data class SessionTicket(
         append("&v=").append(version)
     }
 
+    /**
+     * What the pairing QR should actually carry: the URL form when [baseUrl] names a
+     * deployed web build, the compact form when it is blank.
+     *
+     * The URL is the larger payload and pushes the symbol into a denser version. It
+     * buys the only thing the compact form cannot do — being scannable by a **stock
+     * camera app**, which opens the installed app through the Android App Link and the
+     * web build when there is no app. With nowhere to point, that trade has nothing on
+     * the other side of it, so the QR stays small and only this app's scanner reads it.
+     */
+    fun encodeForQr(baseUrl: String): String =
+        if (baseUrl.isBlank()) encodeCompact() else encodeToUrl(baseUrl)
+
     /** `uitr:v1:<sid>:<qr>:<hostPub>:<hostLang>` — no host needed, so the QR is smaller. */
     fun encodeCompact(): String =
         "$SCHEME:v$version:$sessionId:${qrSecret.orEmpty()}:${hostPublicKey.orEmpty()}:${hostLang.orEmpty()}"

@@ -123,11 +123,18 @@ data class PlatformCapabilities(
     val extendedGlyphs: Boolean,
     /**
      * True when this build can hold a conversation with a second device over the
-     * relay (issue #33). Android only in v1, and only when the build actually has a
+     * relay (issue #33), on either platform, and only when the build actually has a
      * relay configured — a hostname is deployment config, so a fork that has not set
      * `RELAY_BASE_URL` gets the feature switched off rather than a socket error.
-     * Web is false: the guest-join path needs `:webApp` deployed publicly, which is
-     * issue #1's gate and is not crossed.
      */
     val remoteConversation: Boolean = false,
+    /**
+     * True when the platform can *read* a pairing QR with its own camera. Separate
+     * from [remoteConversation] because the web build can host a session and be
+     * joined without being able to scan anything: the browser's Shape Detection API
+     * is not available on desktop Chromium at all, and a phone that opens the web
+     * build scans with its stock camera app instead, through the deep link. False
+     * means the pairing dialog offers the typed code and no dead scan button.
+     */
+    val qrScan: Boolean = false,
 )

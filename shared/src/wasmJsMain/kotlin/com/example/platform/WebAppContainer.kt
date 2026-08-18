@@ -5,12 +5,17 @@ import com.example.data.LocalStorageHistoryRepository
 import com.example.data.TranslationHistoryRepository
 import com.example.link.ConversationLink
 import com.example.link.OfflineConversationLink
+import com.example.link.WebSocketConversationLink
+import com.example.link.linkHttpClient
 import com.example.network.KtorTranslationApi
 import com.example.network.TranslationApi
 import com.example.network.translationHttpClient
 import com.example.wear.TranslationBroadcaster
 import com.example.wear.WebTranslationBroadcaster
 import io.ktor.client.engine.js.Js
+import kotlinx.browser.window
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * Web [AppContainer]. Mirror of the Android container but with browser-backed
@@ -47,13 +52,36 @@ class WebAppContainer : AppContainer {
     override val broadcaster: TranslationBroadcaster = WebTranslationBroadcaster
 
     /**
-     * Web guest-join is designed for and deferred, not dropped: it needs `:webApp`
-     * deployed publicly, and the Gemini key is compiled into the wasm bundle and
-     * extractable from it. That gate belongs to issue #1 and is not crossed.
+     * Blank when this build has no `RELAY_BASE_URL`; the capability below then turns
+     * the feature off rather than offering a pairing screen that could only fail.
+     *
+     * Ktor's Js engine speaks WebSocket, the transport is `commonMain` and the
+     * WebCrypto provider is already installed, so the browser runs the same client
+     * the phone does. What the web build still cannot do is *scan* — see
+     * [PlatformCapabilities.qrScan].
      */
-    override val conversationLink: ConversationLink = OfflineConversationLink
+    private val relayBaseUrl: String = AppSecrets.relayBaseUrl
+
+    override val conversationLink: ConversationLink =
+        if (relayBaseUrl.isBlank()) {
+            OfflineConversationLink
+        } else {
+            WebSocketConversationLink(
+                client = linkHttpClient(Js.create()),
+                relayBaseUrl = relayBaseUrl,
+                scope = CoroutineScope(SupervisorJob()),
+                log = log,
+            )
+        }
 
     override val qrScanner: QrScanner = UnavailableQrScanner
+
+    /**
+     * The page's own origin, so a QR shown in the browser is a link back to the very
+     * build that drew it — including `http://localhost:8080`, which is what makes
+     * this testable without deploying anything.
+     */
+    override val pairingLinkBaseUrl: String = window.location.origin
 
     override val platformActions: PlatformActions = WebPlatformActions
 
@@ -64,6 +92,11 @@ class WebAppContainer : AppContainer {
         imageInput = imageInputAvailable,
         // The wasm canvas ships no emoji font — flags/dingbats draw as boxes.
         extendedGlyphs = false,
+        remoteConversation = relayBaseUrl.isNotBlank(),
+        // No Shape Detection API on desktop Chromium, and none at all on Firefox or
+        // Safari. A phone opening this build scans with its own camera app instead,
+        // which is exactly what the deep link in the QR is for.
+        qrScan = false,
     )
 }
 

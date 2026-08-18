@@ -89,6 +89,15 @@ fun ConversationScreen(
     showRemoteConversation: Boolean = false,
     /** Opens the platform QR scanner; the payload comes back through the view model. */
     launchQrScan: () -> Unit = {},
+    /**
+     * Whether this platform can read a QR with its own camera. Not the same question
+     * as [showRemoteConversation]: the web build hosts and is joined without owning a
+     * scanner, and offering a scan button there is a button that cannot work.
+     */
+    canScanQr: Boolean = false,
+    /** Origin of the web build the pairing QR should point at; blank keeps it compact. */
+    pairingLinkBaseUrl: String = "",
+    onCopyPairingLink: (String) -> Unit = {},
 ) {
     val strings = LocalStrings.current
     val conversationHistory by viewModel.conversationHistory.collectAsState()
@@ -360,7 +369,9 @@ fun ConversationScreen(
         PairingDialog(
             ticket = remoteTicket,
             linkState = linkState,
-            canScan = showRemoteConversation,
+            canScan = canScanQr,
+            linkBaseUrl = pairingLinkBaseUrl,
+            onCopyLink = onCopyPairingLink,
             isRemote = isRemote,
             onStartHosting = { viewModel.startRemoteSession() },
             onStartHostingWithCode = { viewModel.startRemoteSessionWithCode() },

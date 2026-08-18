@@ -486,6 +486,105 @@ class TranslateViewModelRemoteTest {
         assertEquals("about the second draft", success?.explanation)
     }
 
+    // --- joining from a deep link (issue #33: the QR opened as a URL) ---
+
+    @Test
+    fun aDeepLinkJoinsAndTurnsConversationModeOnByItself() = runTest {
+        val link = RecordingConversationLink()
+        val vm = viewModel(link)
+        val ticket = SessionTicket(sessionId = SessionTicket.newSessionId(), hostLang = "ro")
+
+        // A link opens the app on the translate screen, not inside conversation mode.
+        assertFalse(vm.isConversationMode.value)
+        assertTrue(vm.joinFromLink(ticket.encodeToUrl("https://uitr.example")))
+
+        assertTrue(vm.isConversationMode.value, "joined a session behind a screen that does not show it")
+        assertTrue(vm.isRemoteSession.value)
+        // The guest publishes no ticket of its own; there is nothing to scan back.
+        assertNull(vm.remoteTicket.value)
+        assertEquals(listOf(ticket.sessionId), link.connects.map { it.sessionId })
+    }
+
+    @Test
+    fun aDeepLinkAdoptsTheHostsLanguageAsTheTargetSide() = runTest {
+        val link = RecordingConversationLink()
+        val vm = viewModel(link)
+        val ticket = SessionTicket(sessionId = SessionTicket.newSessionId(), hostLang = "ro")
+
+        vm.joinFromLink(ticket.encodeToUrl("https://uitr.example"))
+
+        assertEquals("ro", vm.targetLanguage.value.code)
+    }
+
+    @Test
+    fun theCompactFormAndABarePayloadJoinThroughTheSameDoor() = runTest {
+        // The Android App Link hands over an https URL and the scanner hands over the
+        // compact form; both reach joinFromLink, so both have to work there.
+        val link = RecordingConversationLink()
+        val vm = viewModel(link)
+        val ticket = SessionTicket(sessionId = SessionTicket.newSessionId(), hostLang = "ro")
+
+        assertTrue(vm.joinFromLink(ticket.encodeCompact()))
+        assertEquals(listOf(ticket.sessionId), link.connects.map { it.sessionId })
+    }
+
+    @Test
+    fun somethingThatIsNotAPairingLinkIsRefusedAndSaysSo() = runTest {
+        val link = RecordingConversationLink()
+        val vm = viewModel(link)
+        val seen = mutableListOf<String>()
+        val collector = launch(UnconfinedTestDispatcher(testScheduler)) {
+            vm.messages.collect { seen += it }
+        }
+
+        // Both entry points are unattended — a scanned QR from some other app, a link
+        // in a message — so silence would leave the user staring at the translate
+        // screen wondering whether anything happened.
+        assertFalse(vm.joinFromLink("https://example.com/#not-a-ticket"))
+
+        assertEquals(listOf(vm.strings.pairingNotACode), seen)
+        assertFalse(vm.isConversationMode.value)
+        assertFalse(vm.isRemoteSession.value)
+        collector.cancel()
+    }
+
+    @Test
+    fun aDeepLinkDoesNotWipeAConversationAlreadyOnScreen() = runTest {
+        // setConversationMode(false) clears the history, and turning it *on* while it
+        // is already on must not take a detour through that.
+        val link = RecordingConversationLink()
+        val vm = viewModel(link)
+        vm.setConversationMode(true)
+        vm.prepareConversationPart("hello", isLanguageA = true)
+        vm.confirmConversationDraft { _, _ -> }
+        assertEquals(1, vm.conversationHistory.value.size)
+
+        val ticket = SessionTicket(sessionId = SessionTicket.newSessionId(), hostLang = "ro")
+        assertTrue(vm.joinFromLink(ticket.encodeToUrl("https://uitr.example")))
+
+        assertEquals(1, vm.conversationHistory.value.size)
+    }
+
+    @Test
+    fun aDeepLinkIsRefusedWhileTheSourceLanguageIsAnUnresolvedAutoDetect() = runTest {
+        val link = RecordingConversationLink()
+        val vm = viewModel(link)
+        vm.setSourceLanguage(Language.autoDetect)
+        val seen = mutableListOf<String>()
+        val collector = launch(UnconfinedTestDispatcher(testScheduler)) {
+            vm.messages.collect { seen += it }
+        }
+
+        val ticket = SessionTicket(sessionId = SessionTicket.newSessionId(), hostLang = "ro")
+        assertFalse(vm.joinFromLink(ticket.encodeToUrl("https://uitr.example")))
+
+        // Conversation mode labels both speakers, so it declines and says why. One
+        // message, not two: joinFromLink must not talk over that with its own.
+        assertEquals(listOf(vm.strings.pickLanguageBeforeConversation), seen)
+        assertFalse(vm.isRemoteSession.value)
+        collector.cancel()
+    }
+
     private fun TranslateViewModel.contextOfLastGeminiCall() = api.geminiContexts.last()
 
     private fun FakeTranslationApi.callCount(): Int =

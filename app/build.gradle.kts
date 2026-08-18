@@ -21,6 +21,18 @@ android {
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+    // App Link host for the pairing deep link (issue #33), taken from the same
+    // WEB_BASE_URL that :shared compiles into AppSecrets — so the QR, the filter that
+    // claims it and the assetlinks.json served by the site all name one host, and a
+    // fork that moves the web build changes one line of .env.
+    //
+    // `example.invalid` when unset (RFC 2606 reserves it, so it can never resolve):
+    // an intent filter needs a host to be syntactically valid, and a build with no web
+    // deployment should claim nothing. The canonical .env parser is in
+    // shared/build.gradle.kts; this reads one key and is deliberately not a second copy
+    // of it.
+    manifestPlaceholders["pairingLinkHost"] = readWebBaseUrlHost()
   }
 
   signingConfigs {
@@ -112,4 +124,23 @@ dependencies {
   androidTestImplementation(libs.androidx.runner)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+
+/**
+ * Host of `WEB_BASE_URL` in the root `.env` (or `.env.example`), or `example.invalid`
+ * when it is unset. Read at configuration time; Gradle tracks the read as a
+ * configuration-cache input, so creating or editing `.env` re-runs it.
+ */
+fun readWebBaseUrlHost(): String {
+  val envFile = rootProject.file(".env")
+  val file = if (envFile.exists()) envFile else rootProject.file(".env.example")
+  if (!file.exists()) return "example.invalid"
+  val value = file.readLines().firstNotNullOfOrNull { line ->
+    val trimmed = line.trim()
+    if (trimmed.startsWith("#") || !trimmed.startsWith("WEB_BASE_URL=")) return@firstNotNullOfOrNull null
+    trimmed.removePrefix("WEB_BASE_URL=").trim().trim('"').takeIf { it.isNotEmpty() }
+  } ?: return "example.invalid"
+  return value.substringAfter("://").substringBefore('/').substringBefore(':')
+    .takeIf { it.isNotEmpty() } ?: "example.invalid"
 }
